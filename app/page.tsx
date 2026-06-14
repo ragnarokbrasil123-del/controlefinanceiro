@@ -20,15 +20,22 @@ import {
   ArrowRight
 } from "lucide-react";
 
-// Nomes completos dos meses para o novo seletor
+// Importando o Modal que criamos
+import { TransactionModal } from "../components/TransactionModal";
+
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 export default function Dashboard() {
   const [activeMonth, setActiveMonth] = useState(new Date().getMonth());
+  
+  // Controle para abrir e fechar o Modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Funções para navegar entre os meses
   const handlePrevMonth = () => setActiveMonth(prev => prev === 0 ? 11 : prev - 1);
   const handleNextMonth = () => setActiveMonth(prev => prev === 11 ? 0 : prev + 1);
+
+  // Função que será chamada ao clicar nas abas
+  const handleOpenModal = () => setIsModalOpen(true);
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50 font-sans selection:bg-indigo-500/30">
@@ -72,11 +79,13 @@ export default function Dashboard() {
             <p className="text-neutral-400">Organize sua vida financeira pessoal.</p>
           </motion.div>
           
+          {/* BOTÃO PRINCIPAL COM ONCLICK PARA ABRIR MODAL */}
           <motion.button 
+            onClick={handleOpenModal}
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-5 py-2.5 rounded-full font-medium transition-all shadow-lg shadow-indigo-500/25 active:scale-95"
+            className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-5 py-2.5 rounded-full font-medium transition-all shadow-lg shadow-indigo-500/25 active:scale-95 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             Nova Transação
@@ -121,11 +130,10 @@ export default function Dashboard() {
             >
               <h2 className="text-xl font-semibold">Organização Mensal</h2>
               
-              {/* NOVO: Seletor de Meses Compacto */}
               <div className="flex items-center gap-2 bg-white/5 p-1 rounded-full border border-white/10">
                 <button 
                   onClick={handlePrevMonth}
-                  className="p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-white/10 transition-colors"
+                  className="p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -136,7 +144,7 @@ export default function Dashboard() {
                 
                 <button 
                   onClick={handleNextMonth}
-                  className="p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-white/10 transition-colors"
+                  className="p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -152,6 +160,7 @@ export default function Dashboard() {
                 transition={{ duration: 0.2 }}
                 className="grid grid-cols-1 md:grid-cols-3 gap-4"
               >
+                {/* PASSANDO O handleOpenModal PARA OS CARDS */}
                 <ExpenseCategoryCard 
                   title="Contas Fixas" 
                   icon={<HomeIcon className="w-5 h-5 text-blue-400" />}
@@ -162,6 +171,7 @@ export default function Dashboard() {
                     { name: "Luz e Água", value: "R$ 200,00" },
                     { name: "Internet", value: "R$ 150,00" },
                   ]}
+                  onAction={handleOpenModal}
                 />
                 
                 <ExpenseCategoryCard 
@@ -174,6 +184,7 @@ export default function Dashboard() {
                     { name: "Lazer/Ifood", value: "R$ 350,00" },
                     { name: "Transporte", value: "R$ 200,00" },
                   ]}
+                  onAction={handleOpenModal}
                 />
 
                 <ExpenseCategoryCard 
@@ -185,6 +196,7 @@ export default function Dashboard() {
                     { name: "Nubank (1234)", value: "R$ 850,00" },
                     { name: "Itaú (9876)", value: "R$ 400,00" },
                   ]}
+                  onAction={handleOpenModal}
                 />
               </motion.div>
             </AnimatePresence>
@@ -224,18 +236,14 @@ export default function Dashboard() {
                   amount="- R$ 850,00" 
                   type="expense" 
                 />
-                <TransactionRow 
-                  title="Internet Claro" 
-                  category="Fixa" 
-                  date="Dia 10" 
-                  amount="- R$ 150,00" 
-                  type="expense" 
-                />
               </div>
             </motion.div>
           </div>
         </div>
       </main>
+
+      {/* RENDERIZANDO O MODAL AQUI EMBAIXO */}
+      <TransactionModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
   );
 }
@@ -266,9 +274,13 @@ function SummaryCard({ title, amount, trend, isPositive, icon, delay }: any) {
   );
 }
 
-function ExpenseCategoryCard({ title, icon, total, items, accentColor }: any) {
+// ADICIONEI o onClick e cursor-pointer NESTE CARD
+function ExpenseCategoryCard({ title, icon, total, items, accentColor, onAction }: any) {
   return (
-    <div className={`bg-white/5 border border-white/10 rounded-3xl p-5 backdrop-blur-sm flex flex-col h-full hover:bg-white/[0.07] transition-all group`}>
+    <div 
+      onClick={onAction} 
+      className={`bg-white/5 border border-white/10 rounded-3xl p-5 backdrop-blur-sm flex flex-col h-full hover:bg-white/[0.1] hover:border-white/20 transition-all group cursor-pointer`}
+    >
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
           <div className={`p-2 rounded-xl border ${accentColor}`}>
@@ -277,9 +289,9 @@ function ExpenseCategoryCard({ title, icon, total, items, accentColor }: any) {
           <h3 className="font-semibold text-neutral-200">{title}</h3>
         </div>
         
-        {/* NOVO: Botão Lançar (+) no topo do card (Aparece mais forte no Hover) */}
+        {/* Botão Lançar (+) */}
         <button 
-          className="text-neutral-400 hover:text-white hover:bg-white/10 p-1.5 rounded-lg transition-colors flex items-center opacity-70 sm:opacity-0 sm:group-hover:opacity-100"
+          className="text-neutral-400 hover:text-white bg-white/5 hover:bg-indigo-500 p-1.5 rounded-lg transition-colors flex items-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
           title={`Novo lançamento em ${title}`}
         >
           <Plus className="w-4 h-4" />
@@ -302,9 +314,9 @@ function ExpenseCategoryCard({ title, icon, total, items, accentColor }: any) {
             <span className="text-lg font-bold">{total}</span>
           </div>
           
-          {/* NOVO: Botão Detalhes (Entrar na Aba) na parte inferior */}
+          {/* Botão Detalhes */}
           <button className="text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1 group/btn">
-            Detalhes <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
+            Lançar <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
           </button>
         </div>
       </div>
