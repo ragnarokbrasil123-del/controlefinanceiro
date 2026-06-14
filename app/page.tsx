@@ -12,15 +12,23 @@ import {
   Search,
   User,
   Plus,
-  Home,
+  Home as HomeIcon,
   Coffee,
-  CreditCard
+  CreditCard,
+  ChevronLeft,
+  ChevronRight,
+  ArrowRight
 } from "lucide-react";
 
-const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+// Nomes completos dos meses para o novo seletor
+const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 export default function Dashboard() {
   const [activeMonth, setActiveMonth] = useState(new Date().getMonth());
+
+  // Funções para navegar entre os meses
+  const handlePrevMonth = () => setActiveMonth(prev => prev === 0 ? 11 : prev - 1);
+  const handleNextMonth = () => setActiveMonth(prev => prev === 11 ? 0 : prev + 1);
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50 font-sans selection:bg-indigo-500/30">
@@ -113,20 +121,25 @@ export default function Dashboard() {
             >
               <h2 className="text-xl font-semibold">Organização Mensal</h2>
               
-              <div className="flex bg-white/5 p-1 rounded-full border border-white/10 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                {MONTHS.map((month, idx) => (
-                  <button 
-                    key={month}
-                    onClick={() => setActiveMonth(idx)}
-                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
-                      activeMonth === idx 
-                        ? 'bg-indigo-500 text-white shadow-md' 
-                        : 'text-neutral-400 hover:text-white hover:bg-white/10'
-                    }`}
-                  >
-                    {month}
-                  </button>
-                ))}
+              {/* NOVO: Seletor de Meses Compacto */}
+              <div className="flex items-center gap-2 bg-white/5 p-1 rounded-full border border-white/10">
+                <button 
+                  onClick={handlePrevMonth}
+                  className="p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                
+                <div className="w-24 text-center font-medium text-sm text-white tracking-wide">
+                  {MONTHS[activeMonth]}
+                </div>
+                
+                <button 
+                  onClick={handleNextMonth}
+                  className="p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
             </motion.div>
 
@@ -141,7 +154,7 @@ export default function Dashboard() {
               >
                 <ExpenseCategoryCard 
                   title="Contas Fixas" 
-                  icon={<Home className="w-5 h-5 text-blue-400" />}
+                  icon={<HomeIcon className="w-5 h-5 text-blue-400" />}
                   total="R$ 1.850,00"
                   accentColor="bg-blue-500/10 border-blue-500/20"
                   items={[
@@ -164,13 +177,13 @@ export default function Dashboard() {
                 />
 
                 <ExpenseCategoryCard 
-                  title="Cartões de Crédito" 
+                  title="Cartões" 
                   icon={<CreditCard className="w-5 h-5 text-purple-400" />}
                   total="R$ 1.250,00"
                   accentColor="bg-purple-500/10 border-purple-500/20"
                   items={[
-                    { name: "Nubank (Final 1234)", value: "R$ 850,00" },
-                    { name: "Itaú (Final 9876)", value: "R$ 400,00" },
+                    { name: "Nubank (1234)", value: "R$ 850,00" },
+                    { name: "Itaú (9876)", value: "R$ 400,00" },
                   ]}
                 />
               </motion.div>
@@ -255,12 +268,22 @@ function SummaryCard({ title, amount, trend, isPositive, icon, delay }: any) {
 
 function ExpenseCategoryCard({ title, icon, total, items, accentColor }: any) {
   return (
-    <div className={`bg-white/5 border border-white/10 rounded-3xl p-5 backdrop-blur-sm flex flex-col h-full hover:bg-white/[0.07] transition-colors`}>
-      <div className="flex items-center gap-3 mb-5">
-        <div className={`p-2 rounded-xl border ${accentColor}`}>
-          {icon}
+    <div className={`bg-white/5 border border-white/10 rounded-3xl p-5 backdrop-blur-sm flex flex-col h-full hover:bg-white/[0.07] transition-all group`}>
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-3">
+          <div className={`p-2 rounded-xl border ${accentColor}`}>
+            {icon}
+          </div>
+          <h3 className="font-semibold text-neutral-200">{title}</h3>
         </div>
-        <h3 className="font-semibold text-neutral-200">{title}</h3>
+        
+        {/* NOVO: Botão Lançar (+) no topo do card (Aparece mais forte no Hover) */}
+        <button 
+          className="text-neutral-400 hover:text-white hover:bg-white/10 p-1.5 rounded-lg transition-colors flex items-center opacity-70 sm:opacity-0 sm:group-hover:opacity-100"
+          title={`Novo lançamento em ${title}`}
+        >
+          <Plus className="w-4 h-4" />
+        </button>
       </div>
       
       <div className="flex-1 flex flex-col gap-3 mb-6">
@@ -273,9 +296,16 @@ function ExpenseCategoryCard({ title, icon, total, items, accentColor }: any) {
       </div>
       
       <div className="pt-4 border-t border-white/10 mt-auto">
-        <div className="flex justify-between items-center">
-          <span className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">Total</span>
-          <span className="text-lg font-bold">{total}</span>
+        <div className="flex justify-between items-end">
+          <div>
+            <span className="block text-xs text-neutral-500 uppercase tracking-wider font-semibold mb-1">Total</span>
+            <span className="text-lg font-bold">{total}</span>
+          </div>
+          
+          {/* NOVO: Botão Detalhes (Entrar na Aba) na parte inferior */}
+          <button className="text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1 group/btn">
+            Detalhes <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
+          </button>
         </div>
       </div>
     </div>
