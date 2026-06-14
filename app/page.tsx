@@ -19,13 +19,11 @@ import {
 
 const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
-export default function Home() {
-  // Estado para controlar qual mês está selecionado (0 = Jan, 1 = Fev, etc)
+export default function Dashboard() {
   const [activeMonth, setActiveMonth] = useState(new Date().getMonth());
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50 font-sans selection:bg-indigo-500/30">
-      {/* Navegação Superior */}
       <nav className="border-b border-white/10 bg-black/20 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -56,7 +54,6 @@ export default function Home() {
       </nav>
 
       <main className="max-w-7xl mx-auto px-6 py-12">
-        {/* Cabeçalho do Dashboard */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-4">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
@@ -78,7 +75,6 @@ export default function Home() {
           </motion.button>
         </div>
 
-        {/* Cards de Resumo */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <SummaryCard 
             title="Saldo Disponível" 
@@ -106,10 +102,8 @@ export default function Home() {
           />
         </div>
 
-        {/* Layout Dividido: Organização Mensal e Transações */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* Coluna Esquerda (Maior): Organização Mensal */}
           <div className="lg:col-span-2">
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
@@ -119,7 +113,6 @@ export default function Home() {
             >
               <h2 className="text-xl font-semibold">Organização Mensal</h2>
               
-              {/* Seletor de Meses */}
               <div className="flex bg-white/5 p-1 rounded-full border border-white/10 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 {MONTHS.map((month, idx) => (
                   <button 
@@ -137,17 +130,15 @@ export default function Home() {
               </div>
             </motion.div>
 
-            {/* Cards das 3 Categorias Animados */}
             <AnimatePresence mode="wait">
               <motion.div 
-                key={activeMonth} // A animação dispara toda vez que o mês muda
+                key={activeMonth}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
                 className="grid grid-cols-1 md:grid-cols-3 gap-4"
               >
-                {/* 1. Contas Fixas */}
                 <ExpenseCategoryCard 
                   title="Contas Fixas" 
                   icon={<Home className="w-5 h-5 text-blue-400" />}
@@ -160,7 +151,6 @@ export default function Home() {
                   ]}
                 />
                 
-                {/* 2. Contas Variáveis */}
                 <ExpenseCategoryCard 
                   title="Variáveis" 
                   icon={<Coffee className="w-5 h-5 text-amber-400" />}
@@ -173,7 +163,6 @@ export default function Home() {
                   ]}
                 />
 
-                {/* 3. Cartão de Crédito */}
                 <ExpenseCategoryCard 
                   title="Cartões de Crédito" 
                   icon={<CreditCard className="w-5 h-5 text-purple-400" />}
@@ -188,7 +177,6 @@ export default function Home() {
             </AnimatePresence>
           </div>
 
-          {/* Coluna Direita (Menor): Transações Recentes */}
           <div className="lg:col-span-1">
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
@@ -233,14 +221,12 @@ export default function Home() {
               </div>
             </motion.div>
           </div>
-
         </div>
       </main>
     </div>
   );
 }
 
-// Componente: Cards de Resumo no Topo
 function SummaryCard({ title, amount, trend, isPositive, icon, delay }: any) {
   return (
     <motion.div 
@@ -267,7 +253,6 @@ function SummaryCard({ title, amount, trend, isPositive, icon, delay }: any) {
   );
 }
 
-// Componente: Card das Categorias da Organização Mensal (Fixas, Variáveis, Cartão)
 function ExpenseCategoryCard({ title, icon, total, items, accentColor }: any) {
   return (
     <div className={`bg-white/5 border border-white/10 rounded-3xl p-5 backdrop-blur-sm flex flex-col h-full hover:bg-white/[0.07] transition-colors`}>
@@ -297,7 +282,6 @@ function ExpenseCategoryCard({ title, icon, total, items, accentColor }: any) {
   );
 }
 
-// Componente: Linha das Transações Recentes
 function TransactionRow({ title, category, date, amount, type }: any) {
   const isIncome = type === 'income';
   
