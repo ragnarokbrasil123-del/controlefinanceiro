@@ -1,0 +1,6 @@
+{
+  "name": "Controle Financeiro",
+  "description": "App de controle financeiro para pessoas físicas e pequenos comerciantes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
