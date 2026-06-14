@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 
 import { TransactionModal } from "../components/TransactionModal";
-import { supabase } from "../lib/supabase"; // Importando o Supabase para puxar os dados reais!
+import { supabase } from "../lib/supabase"; 
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -29,29 +29,55 @@ export default function Dashboard() {
   const [activeMonth, setActiveMonth] = useState(new Date().getMonth());
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  // NOVO: Criando a "memória" para guardar os itens que vêm do banco
-  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
+  // Guardamos TODAS as transações do banco aqui
+  const [allTransactions, setAllTransactions] = useState<any[]>([]);
 
   const handlePrevMonth = () => setActiveMonth(prev => prev === 0 ? 11 : prev - 1);
   const handleNextMonth = () => setActiveMonth(prev => prev === 11 ? 0 : prev + 1);
   const handleOpenModal = () => setIsModalOpen(true);
 
-  // NOVO: Função que vai lá no Supabase buscar as transações reais quando o site abre
+  // Puxa os dados assim que o site abre
   useEffect(() => {
     async function fetchTransactions() {
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
-        .order('created_at', { ascending: false }) // Do mais novo para o mais velho
-        .limit(5); // Pega apenas os últimos 5
+        .order('date', { ascending: false });
 
       if (data) {
-        setRecentTransactions(data);
+        setAllTransactions(data);
       }
     }
-
     fetchTransactions();
   }, []);
+
+  // ==========================================
+  // MÁGICA DA MATEMÁTICA AUTOMÁTICA
+  // ==========================================
+  
+  // 1. Filtra as transações apenas para o Mês que está selecionado na aba
+  const currentMonthTransactions = allTransactions.filter(t => {
+    if (!t.date) return false;
+    const [year, month, day] = t.date.split('-'); // Quebra a data "2026-06-14"
+    return (parseInt(month) - 1) === activeMonth;
+  });
+
+  // 2. Calcula as Receitas, Despesas e Saldo do mês selecionado
+  const totalIncome = currentMonthTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+  const totalExpense = currentMonthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+  const balance = totalIncome - totalExpense;
+
+  // 3. Separa as despesas em suas categorias
+  const contasFixas = currentMonthTransactions.filter(t => t.category === 'Contas Fixas' && t.type === 'expense');
+  const variaveis = currentMonthTransactions.filter(t => t.category === 'Variáveis' && t.type === 'expense');
+  const cartoes = currentMonthTransactions.filter(t => (t.category === 'Cartões' || t.category === 'Cartões de Crédito') && t.type === 'expense');
+
+  // Funções ajudantes para somar categorias e colocar no formato "R$ 0,00"
+  const sumCategory = (list: any[]) => list.reduce((acc, t) => acc + t.amount, 0);
+  const formatMoney = (val: number) => `R$ ${val.toFixed(2).replace('.', ',')}`;
+
+  // Lista para a aba da direita "Recentes" (pega as 5 mais recentes de tudo)
+  const recentTransactions = allTransactions.slice(0, 5); 
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50 font-sans selection:bg-indigo-500/30">
@@ -65,14 +91,6 @@ export default function Dashboard() {
           </div>
           
           <div className="flex items-center gap-6">
-            <div className="hidden md:flex items-center bg-white/5 border border-white/10 rounded-full px-4 py-2 hover:bg-white/10 transition-colors">
-              <Search className="w-4 h-4 text-neutral-400 mr-2" />
-              <input 
-                type="text" 
-                placeholder="Buscar transações..." 
-                className="bg-transparent border-none outline-none text-sm text-white placeholder:text-neutral-500 w-48"
-              />
-            </div>
             <button className="text-neutral-400 hover:text-white transition-colors relative">
               <Bell className="w-5 h-5" />
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-500 rounded-full"></span>
@@ -107,27 +125,27 @@ export default function Dashboard() {
           </motion.button>
         </div>
 
+        {/* ========================================================= */}
+        {/* CARDS DO TOPO AGORA COM OS NÚMEROS REAIS E CALCULADOS! */}
+        {/* ========================================================= */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <SummaryCard 
-            title="Saldo Disponível" 
-            amount="R$ 14.250,00" 
-            trend="+2.5%" 
-            isPositive={true}
+            title="Saldo no Mês" 
+            amount={formatMoney(balance)} 
+            isPositive={balance >= 0}
             icon={<Wallet className="text-indigo-400" />}
             delay={0.2}
           />
           <SummaryCard 
             title="Receitas Mensais" 
-            amount="R$ 18.500,00" 
-            trend="+12.5%" 
+            amount={formatMoney(totalIncome)} 
             isPositive={true}
             icon={<TrendingUp className="text-emerald-400" />}
             delay={0.3}
           />
           <SummaryCard 
             title="Despesas Mensais" 
-            amount="R$ 4.250,00" 
-            trend="-1.2%" 
+            amount={formatMoney(totalExpense)} 
             isPositive={false}
             icon={<TrendingDown className="text-rose-400" />}
             delay={0.4}
@@ -152,11 +170,9 @@ export default function Dashboard() {
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                
                 <div className="w-24 text-center font-medium text-sm text-white tracking-wide">
                   {MONTHS[activeMonth]}
                 </div>
-                
                 <button 
                   onClick={handleNextMonth}
                   className="p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
@@ -175,45 +191,38 @@ export default function Dashboard() {
                 transition={{ duration: 0.2 }}
                 className="grid grid-cols-1 md:grid-cols-3 gap-4"
               >
+                {/* CATEGORIAS REAIS DO BANCO */}
                 <ExpenseCategoryCard 
                   title="Contas Fixas" 
                   icon={<HomeIcon className="w-5 h-5 text-blue-400" />}
-                  total="R$ 1.850,00"
+                  total={formatMoney(sumCategory(contasFixas))} // TOTAL REAL
                   accentColor="bg-blue-500/10 border-blue-500/20"
-                  items={[
-                    { name: "Aluguel", value: "R$ 1.500,00" },
-                    { name: "Luz e Água", value: "R$ 200,00" },
-                  ]}
+                  items={contasFixas.map(t => ({ name: t.title, value: formatMoney(t.amount) }))} // LISTA REAL
                   onAction={handleOpenModal}
                 />
                 
                 <ExpenseCategoryCard 
                   title="Variáveis" 
                   icon={<Coffee className="w-5 h-5 text-amber-400" />}
-                  total="R$ 1.150,00"
+                  total={formatMoney(sumCategory(variaveis))} // TOTAL REAL
                   accentColor="bg-amber-500/10 border-amber-500/20"
-                  items={[
-                    { name: "Supermercado", value: "R$ 600,00" },
-                    { name: "Lazer/Ifood", value: "R$ 350,00" },
-                  ]}
+                  items={variaveis.map(t => ({ name: t.title, value: formatMoney(t.amount) }))} // LISTA REAL
                   onAction={handleOpenModal}
                 />
 
                 <ExpenseCategoryCard 
                   title="Cartões" 
                   icon={<CreditCard className="w-5 h-5 text-purple-400" />}
-                  total="R$ 1.250,00"
+                  total={formatMoney(sumCategory(cartoes))} // TOTAL REAL
                   accentColor="bg-purple-500/10 border-purple-500/20"
-                  items={[
-                    { name: "Nubank", value: "R$ 850,00" },
-                    { name: "Itaú", value: "R$ 400,00" },
-                  ]}
+                  items={cartoes.map(t => ({ name: t.title, value: formatMoney(t.amount) }))} // LISTA REAL
                   onAction={handleOpenModal}
                 />
               </motion.div>
             </AnimatePresence>
           </div>
 
+          {/* COLUNA DIREITA: RECENTES */}
           <div className="lg:col-span-1">
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
@@ -223,10 +232,8 @@ export default function Dashboard() {
             >
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold">Recentes</h2>
-                <button className="text-sm text-indigo-400 hover:text-indigo-300 font-medium">Ver todas</button>
               </div>
               
-              {/* NOVO: Mostrando a lista REAL que puxamos do banco de dados */}
               <div className="flex flex-col gap-4">
                 {recentTransactions.length === 0 ? (
                   <p className="text-neutral-500 text-sm text-center py-4">Nenhuma transação lançada ainda.</p>
@@ -236,9 +243,7 @@ export default function Dashboard() {
                       key={tx.id}
                       title={tx.title} 
                       category={tx.category} 
-                      // Transforma a data do banco (2026-06-14) em (14/06/2026)
-                      date={new Date(tx.date).toLocaleDateString('pt-BR')} 
-                      // Transforma o número 45 em "R$ 45,00"
+                      date={new Date(tx.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})} 
                       amount={`${tx.type === 'income' ? '+' : '-'} R$ ${tx.amount.toFixed(2).replace('.', ',')}`} 
                       type={tx.type} 
                     />
@@ -255,9 +260,11 @@ export default function Dashboard() {
   );
 }
 
-// OS OUTROS COMPONENTES FICAM IGUAIS (SummaryCard, ExpenseCategoryCard, TransactionRow)
+// ==========================================
+// COMPONENTES DE VISUAL (Cards e Linhas)
+// ==========================================
 
-function SummaryCard({ title, amount, trend, isPositive, icon, delay }: any) {
+function SummaryCard({ title, amount, isPositive, icon, delay }: any) {
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -273,12 +280,11 @@ function SummaryCard({ title, amount, trend, isPositive, icon, delay }: any) {
         </div>
         <div className={`flex items-center gap-1 text-sm font-medium px-2 py-1 rounded-full ${isPositive ? 'text-emerald-400 bg-emerald-400/10' : 'text-rose-400 bg-rose-400/10'}`}>
           {isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-          {trend}
         </div>
       </div>
       
       <p className="text-neutral-400 text-sm font-medium mb-1">{title}</p>
-      <h3 className="text-3xl font-bold tracking-tight">{amount}</h3>
+      <h3 className={`text-3xl font-bold tracking-tight ${amount === 'R$ 0,00' ? 'text-neutral-500' : 'text-white'}`}>{amount}</h3>
     </motion.div>
   );
 }
@@ -306,19 +312,24 @@ function ExpenseCategoryCard({ title, icon, total, items, accentColor, onAction 
       </div>
       
       <div className="flex-1 flex flex-col gap-3 mb-6">
-        {items.map((item: any, idx: number) => (
-          <div key={idx} className="flex justify-between items-center text-sm">
-            <span className="text-neutral-400">{item.name}</span>
-            <span className="text-white font-medium">{item.value}</span>
-          </div>
-        ))}
+        {/* Se a lista estiver vazia, exibe mensagem que não tem gasto */}
+        {items.length === 0 ? (
+          <p className="text-neutral-600 text-sm italic py-2">Nenhum gasto neste mês.</p>
+        ) : (
+          items.map((item: any, idx: number) => (
+            <div key={idx} className="flex justify-between items-center text-sm">
+              <span className="text-neutral-400 truncate max-w-[120px]">{item.name}</span>
+              <span className="text-white font-medium whitespace-nowrap">{item.value}</span>
+            </div>
+          ))
+        )}
       </div>
       
       <div className="pt-4 border-t border-white/10 mt-auto">
         <div className="flex justify-between items-end">
           <div>
             <span className="block text-xs text-neutral-500 uppercase tracking-wider font-semibold mb-1">Total</span>
-            <span className="text-lg font-bold">{total}</span>
+            <span className={`text-lg font-bold ${total === 'R$ 0,00' ? 'text-neutral-500' : 'text-white'}`}>{total}</span>
           </div>
           
           <button className="text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1 group/btn">
