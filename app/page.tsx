@@ -1,6 +1,7 @@
 "use client";
 
-import { motion } from "motion/react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { 
   Wallet, 
   TrendingUp, 
@@ -10,10 +11,18 @@ import {
   Bell,
   Search,
   User,
-  Plus
+  Plus,
+  Home,
+  Coffee,
+  CreditCard
 } from "lucide-react";
 
+const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
 export default function Home() {
+  // Estado para controlar qual mês está selecionado (0 = Jan, 1 = Fev, etc)
+  const [activeMonth, setActiveMonth] = useState(new Date().getMonth());
+
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50 font-sans selection:bg-indigo-500/30">
       {/* Navegação Superior */}
@@ -55,7 +64,7 @@ export default function Home() {
             transition={{ duration: 0.5 }}
           >
             <h1 className="text-3xl font-bold mb-2">Visão Geral</h1>
-            <p className="text-neutral-400">Acompanhe suas finanças e controle seus gastos.</p>
+            <p className="text-neutral-400">Organize sua vida financeira pessoal.</p>
           </motion.div>
           
           <motion.button 
@@ -72,7 +81,7 @@ export default function Home() {
         {/* Cards de Resumo */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <SummaryCard 
-            title="Saldo Total" 
+            title="Saldo Disponível" 
             amount="R$ 14.250,00" 
             trend="+2.5%" 
             isPositive={true}
@@ -80,7 +89,7 @@ export default function Home() {
             delay={0.2}
           />
           <SummaryCard 
-            title="Receitas" 
+            title="Receitas Mensais" 
             amount="R$ 18.500,00" 
             trend="+12.5%" 
             isPositive={true}
@@ -88,7 +97,7 @@ export default function Home() {
             delay={0.3}
           />
           <SummaryCard 
-            title="Despesas" 
+            title="Despesas Mensais" 
             amount="R$ 4.250,00" 
             trend="-1.2%" 
             isPositive={false}
@@ -97,55 +106,141 @@ export default function Home() {
           />
         </div>
 
-        {/* Lista de Transações Recentes */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.5 }}
-          className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-sm"
-        >
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold">Transações Recentes</h2>
-            <button className="text-sm text-indigo-400 hover:text-indigo-300 font-medium">Ver todas</button>
-          </div>
+        {/* Layout Dividido: Organização Mensal e Transações */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          <div className="flex flex-col gap-4">
-            <TransactionRow 
-              title="Supermercado Extra" 
-              category="Alimentação" 
-              date="Hoje, 14:30" 
-              amount="- R$ 450,00" 
-              type="expense" 
-            />
-            <TransactionRow 
-              title="Salário Mês" 
-              category="Receita" 
-              date="Ontem, 09:00" 
-              amount="+ R$ 12.000,00" 
-              type="income" 
-            />
-            <TransactionRow 
-              title="Netflix" 
-              category="Assinaturas" 
-              date="12 de Junho, 10:15" 
-              amount="- R$ 39,90" 
-              type="expense" 
-            />
-            <TransactionRow 
-              title="Conta de Luz" 
-              category="Moradia" 
-              date="10 de Junho, 16:45" 
-              amount="- R$ 185,00" 
-              type="expense" 
-            />
+          {/* Coluna Esquerda (Maior): Organização Mensal */}
+          <div className="lg:col-span-2">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.5 }}
+              className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+            >
+              <h2 className="text-xl font-semibold">Organização Mensal</h2>
+              
+              {/* Seletor de Meses */}
+              <div className="flex bg-white/5 p-1 rounded-full border border-white/10 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                {MONTHS.map((month, idx) => (
+                  <button 
+                    key={month}
+                    onClick={() => setActiveMonth(idx)}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
+                      activeMonth === idx 
+                        ? 'bg-indigo-500 text-white shadow-md' 
+                        : 'text-neutral-400 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    {month}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Cards das 3 Categorias Animados */}
+            <AnimatePresence mode="wait">
+              <motion.div 
+                key={activeMonth} // A animação dispara toda vez que o mês muda
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="grid grid-cols-1 md:grid-cols-3 gap-4"
+              >
+                {/* 1. Contas Fixas */}
+                <ExpenseCategoryCard 
+                  title="Contas Fixas" 
+                  icon={<Home className="w-5 h-5 text-blue-400" />}
+                  total="R$ 1.850,00"
+                  accentColor="bg-blue-500/10 border-blue-500/20"
+                  items={[
+                    { name: "Aluguel", value: "R$ 1.500,00" },
+                    { name: "Luz e Água", value: "R$ 200,00" },
+                    { name: "Internet", value: "R$ 150,00" },
+                  ]}
+                />
+                
+                {/* 2. Contas Variáveis */}
+                <ExpenseCategoryCard 
+                  title="Variáveis" 
+                  icon={<Coffee className="w-5 h-5 text-amber-400" />}
+                  total="R$ 1.150,00"
+                  accentColor="bg-amber-500/10 border-amber-500/20"
+                  items={[
+                    { name: "Supermercado", value: "R$ 600,00" },
+                    { name: "Lazer/Ifood", value: "R$ 350,00" },
+                    { name: "Transporte", value: "R$ 200,00" },
+                  ]}
+                />
+
+                {/* 3. Cartão de Crédito */}
+                <ExpenseCategoryCard 
+                  title="Cartões de Crédito" 
+                  icon={<CreditCard className="w-5 h-5 text-purple-400" />}
+                  total="R$ 1.250,00"
+                  accentColor="bg-purple-500/10 border-purple-500/20"
+                  items={[
+                    { name: "Nubank (Final 1234)", value: "R$ 850,00" },
+                    { name: "Itaú (Final 9876)", value: "R$ 400,00" },
+                  ]}
+                />
+              </motion.div>
+            </AnimatePresence>
           </div>
-        </motion.div>
+
+          {/* Coluna Direita (Menor): Transações Recentes */}
+          <div className="lg:col-span-1">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.6 }}
+              className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-sm h-full"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold">Recentes</h2>
+                <button className="text-sm text-indigo-400 hover:text-indigo-300 font-medium">Ver todas</button>
+              </div>
+              
+              <div className="flex flex-col gap-4">
+                <TransactionRow 
+                  title="Supermercado Extra" 
+                  category="Variável" 
+                  date="Hoje" 
+                  amount="- R$ 450,00" 
+                  type="expense" 
+                />
+                <TransactionRow 
+                  title="Salário" 
+                  category="Receita" 
+                  date="Ontem" 
+                  amount="+ R$ 12.000,00" 
+                  type="income" 
+                />
+                <TransactionRow 
+                  title="Fatura Nubank" 
+                  category="Cartão" 
+                  date="Dia 12" 
+                  amount="- R$ 850,00" 
+                  type="expense" 
+                />
+                <TransactionRow 
+                  title="Internet Claro" 
+                  category="Fixa" 
+                  date="Dia 10" 
+                  amount="- R$ 150,00" 
+                  type="expense" 
+                />
+              </div>
+            </motion.div>
+          </div>
+
+        </div>
       </main>
     </div>
   );
 }
 
-// Componente para os Cards (Saldo, Receitas, Despesas)
+// Componente: Cards de Resumo no Topo
 function SummaryCard({ title, amount, trend, isPositive, icon, delay }: any) {
   return (
     <motion.div 
@@ -172,18 +267,48 @@ function SummaryCard({ title, amount, trend, isPositive, icon, delay }: any) {
   );
 }
 
-// Componente para a Lista de Transações
+// Componente: Card das Categorias da Organização Mensal (Fixas, Variáveis, Cartão)
+function ExpenseCategoryCard({ title, icon, total, items, accentColor }: any) {
+  return (
+    <div className={`bg-white/5 border border-white/10 rounded-3xl p-5 backdrop-blur-sm flex flex-col h-full hover:bg-white/[0.07] transition-colors`}>
+      <div className="flex items-center gap-3 mb-5">
+        <div className={`p-2 rounded-xl border ${accentColor}`}>
+          {icon}
+        </div>
+        <h3 className="font-semibold text-neutral-200">{title}</h3>
+      </div>
+      
+      <div className="flex-1 flex flex-col gap-3 mb-6">
+        {items.map((item: any, idx: number) => (
+          <div key={idx} className="flex justify-between items-center text-sm">
+            <span className="text-neutral-400">{item.name}</span>
+            <span className="text-white font-medium">{item.value}</span>
+          </div>
+        ))}
+      </div>
+      
+      <div className="pt-4 border-t border-white/10 mt-auto">
+        <div className="flex justify-between items-center">
+          <span className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">Total</span>
+          <span className="text-lg font-bold">{total}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Componente: Linha das Transações Recentes
 function TransactionRow({ title, category, date, amount, type }: any) {
   const isIncome = type === 'income';
   
   return (
-    <div className="flex items-center justify-between p-4 rounded-2xl hover:bg-white/5 transition-colors cursor-pointer group">
-      <div className="flex items-center gap-4">
-        <div className={`w-12 h-12 rounded-full flex items-center justify-center border ${isIncome ? 'bg-emerald-400/10 border-emerald-400/20 text-emerald-400' : 'bg-rose-400/10 border-rose-400/20 text-rose-400'} group-hover:scale-105 transition-transform`}>
-          {isIncome ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
+    <div className="flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 transition-colors cursor-pointer group">
+      <div className="flex items-center gap-3">
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center border shrink-0 ${isIncome ? 'bg-emerald-400/10 border-emerald-400/20 text-emerald-400' : 'bg-rose-400/10 border-rose-400/20 text-rose-400'} group-hover:scale-105 transition-transform`}>
+          {isIncome ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
         </div>
-        <div>
-          <h4 className="font-medium text-white mb-0.5">{title}</h4>
+        <div className="overflow-hidden">
+          <h4 className="font-medium text-white mb-0.5 text-sm truncate w-32 sm:w-40">{title}</h4>
           <div className="flex items-center gap-2 text-xs text-neutral-500">
             <span>{category}</span>
             <span className="w-1 h-1 bg-neutral-700 rounded-full"></span>
@@ -191,7 +316,7 @@ function TransactionRow({ title, category, date, amount, type }: any) {
           </div>
         </div>
       </div>
-      <div className={`font-semibold ${isIncome ? 'text-emerald-400' : 'text-white'}`}>
+      <div className={`font-semibold text-sm whitespace-nowrap ${isIncome ? 'text-emerald-400' : 'text-white'}`}>
         {amount}
       </div>
     </div>
