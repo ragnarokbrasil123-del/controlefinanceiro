@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Wallet, 
@@ -20,22 +20,38 @@ import {
   ArrowRight
 } from "lucide-react";
 
-// Importando o Modal que criamos
 import { TransactionModal } from "../components/TransactionModal";
+import { supabase } from "../lib/supabase"; // Importando o Supabase para puxar os dados reais!
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 export default function Dashboard() {
   const [activeMonth, setActiveMonth] = useState(new Date().getMonth());
-  
-  // Controle para abrir e fechar o Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // NOVO: Criando a "memória" para guardar os itens que vêm do banco
+  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
 
   const handlePrevMonth = () => setActiveMonth(prev => prev === 0 ? 11 : prev - 1);
   const handleNextMonth = () => setActiveMonth(prev => prev === 11 ? 0 : prev + 1);
-
-  // Função que será chamada ao clicar nas abas
   const handleOpenModal = () => setIsModalOpen(true);
+
+  // NOVO: Função que vai lá no Supabase buscar as transações reais quando o site abre
+  useEffect(() => {
+    async function fetchTransactions() {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .order('created_at', { ascending: false }) // Do mais novo para o mais velho
+        .limit(5); // Pega apenas os últimos 5
+
+      if (data) {
+        setRecentTransactions(data);
+      }
+    }
+
+    fetchTransactions();
+  }, []);
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50 font-sans selection:bg-indigo-500/30">
@@ -79,7 +95,6 @@ export default function Dashboard() {
             <p className="text-neutral-400">Organize sua vida financeira pessoal.</p>
           </motion.div>
           
-          {/* BOTÃO PRINCIPAL COM ONCLICK PARA ABRIR MODAL */}
           <motion.button 
             onClick={handleOpenModal}
             initial={{ opacity: 0, scale: 0.9 }}
@@ -160,7 +175,6 @@ export default function Dashboard() {
                 transition={{ duration: 0.2 }}
                 className="grid grid-cols-1 md:grid-cols-3 gap-4"
               >
-                {/* PASSANDO O handleOpenModal PARA OS CARDS */}
                 <ExpenseCategoryCard 
                   title="Contas Fixas" 
                   icon={<HomeIcon className="w-5 h-5 text-blue-400" />}
@@ -169,7 +183,6 @@ export default function Dashboard() {
                   items={[
                     { name: "Aluguel", value: "R$ 1.500,00" },
                     { name: "Luz e Água", value: "R$ 200,00" },
-                    { name: "Internet", value: "R$ 150,00" },
                   ]}
                   onAction={handleOpenModal}
                 />
@@ -182,7 +195,6 @@ export default function Dashboard() {
                   items={[
                     { name: "Supermercado", value: "R$ 600,00" },
                     { name: "Lazer/Ifood", value: "R$ 350,00" },
-                    { name: "Transporte", value: "R$ 200,00" },
                   ]}
                   onAction={handleOpenModal}
                 />
@@ -193,8 +205,8 @@ export default function Dashboard() {
                   total="R$ 1.250,00"
                   accentColor="bg-purple-500/10 border-purple-500/20"
                   items={[
-                    { name: "Nubank (1234)", value: "R$ 850,00" },
-                    { name: "Itaú (9876)", value: "R$ 400,00" },
+                    { name: "Nubank", value: "R$ 850,00" },
+                    { name: "Itaú", value: "R$ 400,00" },
                   ]}
                   onAction={handleOpenModal}
                 />
@@ -214,39 +226,36 @@ export default function Dashboard() {
                 <button className="text-sm text-indigo-400 hover:text-indigo-300 font-medium">Ver todas</button>
               </div>
               
+              {/* NOVO: Mostrando a lista REAL que puxamos do banco de dados */}
               <div className="flex flex-col gap-4">
-                <TransactionRow 
-                  title="Supermercado Extra" 
-                  category="Variável" 
-                  date="Hoje" 
-                  amount="- R$ 450,00" 
-                  type="expense" 
-                />
-                <TransactionRow 
-                  title="Salário" 
-                  category="Receita" 
-                  date="Ontem" 
-                  amount="+ R$ 12.000,00" 
-                  type="income" 
-                />
-                <TransactionRow 
-                  title="Fatura Nubank" 
-                  category="Cartão" 
-                  date="Dia 12" 
-                  amount="- R$ 850,00" 
-                  type="expense" 
-                />
+                {recentTransactions.length === 0 ? (
+                  <p className="text-neutral-500 text-sm text-center py-4">Nenhuma transação lançada ainda.</p>
+                ) : (
+                  recentTransactions.map((tx) => (
+                    <TransactionRow 
+                      key={tx.id}
+                      title={tx.title} 
+                      category={tx.category} 
+                      // Transforma a data do banco (2026-06-14) em (14/06/2026)
+                      date={new Date(tx.date).toLocaleDateString('pt-BR')} 
+                      // Transforma o número 45 em "R$ 45,00"
+                      amount={`${tx.type === 'income' ? '+' : '-'} R$ ${tx.amount.toFixed(2).replace('.', ',')}`} 
+                      type={tx.type} 
+                    />
+                  ))
+                )}
               </div>
             </motion.div>
           </div>
         </div>
       </main>
 
-      {/* RENDERIZANDO O MODAL AQUI EMBAIXO */}
       <TransactionModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
   );
 }
+
+// OS OUTROS COMPONENTES FICAM IGUAIS (SummaryCard, ExpenseCategoryCard, TransactionRow)
 
 function SummaryCard({ title, amount, trend, isPositive, icon, delay }: any) {
   return (
@@ -274,7 +283,6 @@ function SummaryCard({ title, amount, trend, isPositive, icon, delay }: any) {
   );
 }
 
-// ADICIONEI o onClick e cursor-pointer NESTE CARD
 function ExpenseCategoryCard({ title, icon, total, items, accentColor, onAction }: any) {
   return (
     <div 
@@ -289,7 +297,6 @@ function ExpenseCategoryCard({ title, icon, total, items, accentColor, onAction 
           <h3 className="font-semibold text-neutral-200">{title}</h3>
         </div>
         
-        {/* Botão Lançar (+) */}
         <button 
           className="text-neutral-400 hover:text-white bg-white/5 hover:bg-indigo-500 p-1.5 rounded-lg transition-colors flex items-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
           title={`Novo lançamento em ${title}`}
@@ -314,7 +321,6 @@ function ExpenseCategoryCard({ title, icon, total, items, accentColor, onAction 
             <span className="text-lg font-bold">{total}</span>
           </div>
           
-          {/* Botão Detalhes */}
           <button className="text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1 group/btn">
             Lançar <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
           </button>
