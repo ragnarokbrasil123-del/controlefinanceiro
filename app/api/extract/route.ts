@@ -1,48 +1,82 @@
 import { NextResponse } from 'next/server';
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const { imageBase64 } = await req.json();
-    const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+    const formData = await request.formData();
+    const file = formData.get("file") as File;
     
-    // SUA CHAVE AQUI, COLOCADA DIRETAMENTE NO CÓDIGO
-    const geminiKey = 'AIzaSyDi9NHmKbq5pxHn7VDkFqCZzdIT5bMZleI';
-    
-    const prompt = `Você é um assistente financeiro especialista em extração de dados. 
-Analise esta imagem (que pode ser um papel anotado à mão, um comprovante ou uma lista).
-Extraia as transações e me devolva ESTRITAMENTE um array JSON puro, sem formatação markdown ou textos ao redor.
-Cada item deve seguir a risca este formato:
-{
-  "title": "nome da despesa/receita (ex: Salário, Conta de Água, Mercado, Ações)",
-  "amount": valor em número puro (ex: 3000.00, 80.00, 105.00),
-  "type": "expense" (se for saída de dinheiro) ou "income" (se for entrada),
-  "category": classifique em uma destas exatamente: "Contas Fixas", "Variáveis", "Cartões" ou "Investimentos",
-  "date": "${new Date().toISOString().split('T')[0]}"
-}`;
+    if (!file) {
+      return NextResponse.json({ error: "Nenhum arquivo recebido" }, { status: 400 });
+    }
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: "Chave da API não configurada no cofre da Vercel" }, { status: 500 });
+    }
+
+    // Prepara a foto para envio
+    const bytes = await file.arrayBuffer();
+    const base64Data = Buffer.from(bytes).toString("base64");
+    const mimeType = file.type;
+
+    // Conexão oficial com o Google Gemini Vision
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+    const promptText = `
+Você é um assistente financeiro de elite. Analise a imagem ou documento em anexo (um recibo, nota fiscal, fatura ou anotação).
+Extraia os dados da compra e retorne EXATAMENTE E APENAS um objeto JSON válido, sem crases de markdown e sem nenhum texto adicional.
+O JSON deve ter esta estrutura exata:
+{
+  "description": "Nome do local ou produto principal (ex: Mercado Assaí, Posto Ipiranga)",
+  "amount": 150.50,
+  "category": "Alimentação"
+}
+
+Categorias válidas: Alimentação, Transporte, Moradia, Saúde, Lazer, Educação, Compras, Contas Fixas, Variáveis. (Escolha a que melhor se encaixar).
+Se o valor for negativo ou tiver desconto, considere o valor final pago. O "amount" deve ser um número float. Se não houver clareza, deduza pelo nome da loja.
+`;
+
+    const requestBody = {
+      contents: [
+        {
           parts: [
-            { text: prompt },
-            { inline_data: { mime_type: 'image/jpeg', data: base64Data } }
+            { text: promptText },
+            {
+              inlineData: {
+                mimeType: mimeType,
+                data: base64Data
+              }
+            }
           ]
-        }]
-      })
+        }
+      ]
+    };
+
+    const response = await fetch(geminiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody)
     });
 
+    if (!response.ok) {
+      const err = await response.text();
+      console.error("Gemini API Error:", err);
+      return NextResponse.json({ error: "A Inteligência Artificial recusou o documento." }, { status: 500 });
+    }
+
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || 'Erro de conexão com o Google');
+    let textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    const text = data.candidates[0].content.parts[0].text;
-    const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const transactions = JSON.parse(cleanedText);
+    // Limpeza de texto (Tira sujeiras caso a IA coloque formatações)
+    textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
 
-    return NextResponse.json({ transactions });
-  } catch (error: any) {
-    console.error('Erro na IA:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // Transforma a resposta em um pacote de dados pro nosso App
+    const parsedJson = JSON.parse(textResponse);
+
+    return NextResponse.json(parsedJson);
+
+  } catch (error) {
+    console.error("Erro interno no cérebro:", error);
+    return NextResponse.json({ error: "Falha catastrófica ao processar o arquivo" }, { status: 500 });
   }
 }
