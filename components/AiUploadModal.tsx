@@ -13,13 +13,18 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
   if (!isOpen) return null;
 
   const handleFileSelect = async (e: any) => {
+    alert("Passo 1: Foto identificada pelo botão!"); // DETETIVE 1
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+        alert("Ops: O arquivo veio vazio!");
+        return;
+    }
 
     setIsUploading(true);
     setErrorMessage("");
     
     try {
+      alert("Passo 2: Enviando foto para o cérebro da Vercel..."); // DETETIVE 2
       const formData = new FormData();
       formData.append("file", file);
 
@@ -28,19 +33,24 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
         body: formData,
       });
 
+      alert("Passo 3: Vercel respondeu com o código: " + response.status); // DETETIVE 3
+
       if (!response.ok) {
-        throw new Error("A Inteligência Artificial não conseguiu ler a imagem. Tente uma foto mais nítida.");
+        const errorText = await response.text();
+        alert("Erro na IA: " + errorText);
+        throw new Error("A IA falhou em ler a imagem.");
       }
 
       const data = await response.json();
+      alert("Passo 4: Gemini devolveu os dados: " + JSON.stringify(data)); // DETETIVE 4
       
       const { data: { session } } = await supabase.auth.getSession();
       
-      // Correção do Assassino: O banco usa "title", não "description"!
       if (session && data.description && data.amount) {
+        alert("Passo 5: Salvando no Supabase..."); // DETETIVE 5
         const { error } = await supabase.from('transactions').insert([{
           user_id: session.user.id,
-          title: data.description, // <--- A MÁGICA FOI CORRIGIDA AQUI!
+          title: data.description, 
           amount: parseFloat(data.amount),
           category: data.category || "Variáveis",
           type: "expense", 
@@ -48,11 +58,12 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
         }]);
 
         if (error) {
-          console.error(error);
-          throw new Error("Erro de bloqueio no banco de dados.");
+          alert("ERRO SUPABASE: " + JSON.stringify(error));
+          throw new Error("Erro de bloqueio no banco.");
         }
       } else {
-         throw new Error("A IA não conseguiu entender os valores da foto.");
+         alert("Faltaram dados no JSON da IA!");
+         throw new Error("A IA não conseguiu extrair dados suficientes.");
       }
 
       setIsUploading(false);
@@ -64,6 +75,7 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
       }, 2000);
 
     } catch (err: any) {
+      alert("CAIU NO CATCH: " + err.message);
       setIsUploading(false);
       setErrorMessage(err.message || "Erro desconhecido.");
     }
@@ -88,22 +100,18 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
           </div>
           
           <p className="text-neutral-400 text-sm mb-6 relative">
-            Tire uma foto ou envie um arquivo. O Google Gemini vai ler tudo e lançar para você.
+            Tire uma foto ou envie um arquivo.
           </p>
 
           {isUploading ? (
             <div className="flex flex-col items-center justify-center py-10 relative">
               <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
-              <h3 className="text-white font-bold text-lg mb-1">A Inteligência Artificial está lendo...</h3>
-              <p className="text-neutral-400 text-sm text-center">Isso leva cerca de 4 segundos.<br/>Procurando o local e o valor exato na nota.</p>
+              <h3 className="text-white font-bold text-lg mb-1">Analisando imagem...</h3>
             </div>
           ) : success ? (
             <div className="flex flex-col items-center justify-center py-10 relative">
-              <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mb-4 border border-emerald-500/30">
-                <Sparkles className="w-8 h-8 text-emerald-400" />
-              </div>
+              <Sparkles className="w-8 h-8 text-emerald-400 mb-4" />
               <h3 className="text-white font-bold text-lg mb-1">Leitura Concluída!</h3>
-              <p className="text-neutral-400 text-sm">A sua compra foi adicionada com sucesso.</p>
             </div>
           ) : (
             <div className="relative">
@@ -114,29 +122,17 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
               )}
 
               <div className="grid grid-cols-2 gap-4 mb-4">
-                <label className="flex flex-col items-center justify-center p-6 bg-white/5 hover:bg-indigo-500/20 border border-white/10 hover:border-indigo-500/50 rounded-2xl transition-all group cursor-pointer">
-                  <div className="w-12 h-12 bg-indigo-500/20 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform border border-indigo-500/30">
-                    <Camera className="w-6 h-6 text-indigo-400" />
-                  </div>
+                <label className="flex flex-col items-center justify-center p-6 bg-white/5 hover:bg-indigo-500/20 rounded-2xl cursor-pointer">
+                  <Camera className="w-6 h-6 text-indigo-400 mb-2" />
                   <span className="font-bold text-white text-sm">Tirar Foto</span>
-                  <span className="text-xs text-neutral-500 mt-1 text-center">Câmera do Celular</span>
                   <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileSelect} />
                 </label>
 
-                <label className="flex flex-col items-center justify-center p-6 bg-white/5 hover:bg-purple-500/20 border border-white/10 hover:border-purple-500/50 rounded-2xl transition-all group cursor-pointer">
-                  <div className="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform border border-purple-500/30">
-                    <UploadCloud className="w-6 h-6 text-purple-400" />
-                  </div>
-                  <span className="font-bold text-white text-sm">Enviar Arquivo</span>
-                  <span className="text-xs text-neutral-500 mt-1 text-center">Galeria ou Documentos</span>
-                  <input type="file" accept="image/*,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={handleFileSelect} />
+                <label className="flex flex-col items-center justify-center p-6 bg-white/5 hover:bg-purple-500/20 rounded-2xl cursor-pointer">
+                  <UploadCloud className="w-6 h-6 text-purple-400 mb-2" />
+                  <span className="font-bold text-white text-sm">Enviar Galeria</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
                 </label>
-              </div>
-
-              <div className="flex justify-center gap-5 text-xs text-neutral-500 mt-6 bg-black/20 p-3 rounded-xl border border-white/5">
-                <span className="flex items-center gap-1.5"><ImageIcon className="w-4 h-4 text-neutral-400"/> JPG/PNG</span>
-                <span className="flex items-center gap-1.5"><FileText className="w-4 h-4 text-neutral-400"/> PDF</span>
-                <span className="flex items-center gap-1.5"><FileSpreadsheet className="w-4 h-4 text-neutral-400"/> EXCEL</span>
               </div>
             </div>
           )}
