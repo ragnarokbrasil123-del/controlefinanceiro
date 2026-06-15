@@ -19,7 +19,8 @@ export async function POST(request: Request) {
     const base64Data = Buffer.from(bytes).toString("base64");
     const mimeType = file.type;
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // URL ATUALIZADA DO GOOGLE
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
 
     const promptText = `
 Você é um assistente financeiro de elite. Analise a imagem ou documento em anexo (um recibo, nota fiscal, fatura ou anotação).
