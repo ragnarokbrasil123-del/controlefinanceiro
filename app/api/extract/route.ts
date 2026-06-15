@@ -9,18 +9,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Nenhum arquivo recebido" }, { status: 400 });
     }
 
-    // O TRUQUE HACKER: Fatiamos a chave para o robô do Google não detectar!
+    // O TRUQUE HACKER!
     const parte1 = "AIzaSyDi9NHm";
     const parte2 = "Kbq5pxHn7VDk";
     const parte3 = "FqCZzdIT5bMZleI";
     const apiKey = parte1 + parte2 + parte3;
 
-    // Prepara a foto para envio
     const bytes = await file.arrayBuffer();
     const base64Data = Buffer.from(bytes).toString("base64");
     const mimeType = file.type;
 
-    // Conexão oficial com o Google Gemini Vision
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
     const promptText = `
@@ -28,29 +26,15 @@ Você é um assistente financeiro de elite. Analise a imagem ou documento em ane
 Extraia os dados da compra e retorne EXATAMENTE E APENAS um objeto JSON válido, sem crases de markdown e sem nenhum texto adicional.
 O JSON deve ter esta estrutura exata:
 {
-  "description": "Nome do local ou produto principal (ex: Mercado Assaí, Posto Ipiranga)",
+  "description": "Nome do local ou produto principal",
   "amount": 150.50,
   "category": "Alimentação"
 }
-
-Categorias válidas: Alimentação, Transporte, Moradia, Saúde, Lazer, Educação, Compras, Contas Fixas, Variáveis. (Escolha a que melhor se encaixar).
 Se o valor for negativo ou tiver desconto, considere o valor final pago. O "amount" deve ser um número float. Se não houver clareza, deduza pelo nome da loja.
 `;
 
     const requestBody = {
-      contents: [
-        {
-          parts: [
-            { text: promptText },
-            {
-              inlineData: {
-                mimeType: mimeType,
-                data: base64Data
-              }
-            }
-          ]
-        }
-      ]
+      contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: mimeType, data: base64Data } }] }]
     };
 
     const response = await fetch(geminiUrl, {
@@ -61,22 +45,17 @@ Se o valor for negativo ou tiver desconto, considere o valor final pago. O "amou
 
     if (!response.ok) {
       const err = await response.text();
-      console.error("Gemini API Error:", err);
-      return NextResponse.json({ error: "A Inteligência Artificial recusou o documento." }, { status: 500 });
+      return NextResponse.json({ error: "O Google recusou a imagem: " + err }, { status: 500 });
     }
 
     const data = await response.json();
     let textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-    // Limpeza de texto
     textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
 
     const parsedJson = JSON.parse(textResponse);
-
     return NextResponse.json(parsedJson);
 
-  } catch (error) {
-    console.error("Erro interno no cérebro:", error);
-    return NextResponse.json({ error: "Falha catastrófica ao processar o arquivo" }, { status: 500 });
+  } catch (error: any) {
+    return NextResponse.json({ error: "Erro Hacker: " + error.message }, { status: 500 });
   }
 }
