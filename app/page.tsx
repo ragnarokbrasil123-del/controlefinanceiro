@@ -23,8 +23,8 @@ export default function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false); 
   const [isPlannerOpen, setIsPlannerOpen] = useState(false); 
-  const [isTrackerOpen, setIsTrackerOpen] = useState(false); // CAÇADOR DE ASSINATURAS
-  const [isReportsOpen, setIsReportsOpen] = useState(false); // RELATÓRIOS
+  const [isTrackerOpen, setIsTrackerOpen] = useState(false); 
+  const [isReportsOpen, setIsReportsOpen] = useState(false); 
   
   const [allTransactions, setAllTransactions] = useState<any[]>([]);
 
@@ -33,6 +33,13 @@ export default function Dashboard() {
   const handleOpenModal = () => setIsModalOpen(true);
 
   useEffect(() => {
+    // ----------------------------------------
+    // LIGANDO O MOTOR PWA PARA PERMITIR INSTALAÇÃO
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(console.error);
+    }
+    // ----------------------------------------
+
     async function fetchTransactions() {
       const { data } = await supabase
         .from('transactions')
@@ -279,7 +286,6 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* TODAS AS NOSSAS FERRAMENTAS MÁGICAS: */}
       <TransactionModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       <AiUploadModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} />
       <FinancialPlannerModal isOpen={isPlannerOpen} onClose={() => setIsPlannerOpen(false)} currentIncome={totalIncome} />
@@ -288,10 +294,6 @@ export default function Dashboard() {
     </div>
   );
 }
-
-// ==========================================
-// COMPONENTES MENORES (INALTERADOS)
-// ==========================================
 
 function SummaryCard({ title, amount, isPositive, icon, delay }: any) {
   return (
