@@ -28,6 +28,9 @@ export default function Dashboard() {
   const [isReportsOpen, setIsReportsOpen] = useState(false); 
   const [isActivityOpen, setIsActivityOpen] = useState(false); 
   
+  // ESTADO DA BOLINHA VERMELHA (Começa acesa)
+  const [hasUnread, setHasUnread] = useState(true); 
+  
   const [allTransactions, setAllTransactions] = useState<any[]>([]);
 
   const handlePrevMonth = () => setActiveMonth(prev => prev === 0 ? 11 : prev - 1);
@@ -40,23 +43,15 @@ export default function Dashboard() {
     }
 
     async function fetchTransactions() {
-      const { data } = await supabase
-        .from('transactions')
-        .select('*')
-        .order('date', { ascending: false });
-
-      if (data) {
-        setAllTransactions(data);
-      }
+      const { data } = await supabase.from('transactions').select('*').order('date', { ascending: false });
+      if (data) setAllTransactions(data);
     }
     fetchTransactions();
   }, []);
 
   async function handleDeleteTransaction(id: string) {
     if(!window.confirm("Deseja apagar este lançamento?")) return;
-
     const { error } = await supabase.from('transactions').delete().eq('id', id);
-
     if (!error) {
       setAllTransactions(prev => prev.filter(t => t.id !== id));
     } else {
@@ -81,7 +76,6 @@ export default function Dashboard() {
 
   const sumCategory = (list: any[]) => list.reduce((acc, t) => acc + t.amount, 0);
   const formatMoney = (val: number) => `R$ ${val.toFixed(2).replace('.', ',')}`;
-
   const recentTransactions = allTransactions.slice(0, 8); 
 
   return (
@@ -97,11 +91,16 @@ export default function Dashboard() {
           
           <div className="flex items-center gap-6">
             <button 
-              onClick={() => setIsActivityOpen(true)}
+              onClick={() => {
+                setIsActivityOpen(true);
+                setHasUnread(false); // APAGA A LUZ AQUI
+              }}
               className="text-neutral-400 hover:text-white transition-colors relative"
             >
               <Bell className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>
+              {hasUnread && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>
+              )}
             </button>
             <div className="w-9 h-9 bg-neutral-800 border border-white/10 rounded-full flex items-center justify-center overflow-hidden cursor-pointer hover:border-indigo-500 transition-colors">
               <User className="w-4 h-4 text-neutral-400" />
@@ -273,7 +272,6 @@ function TransactionRow({ title, category, date, amount, type, onDelete }: any) 
         <div className={`font-semibold text-sm whitespace-nowrap ${isIncome ? 'text-emerald-400' : 'text-white'}`}>
           {amount}
         </div>
-        {/* BOTÃO DE LIXEIRA AGORA 100% VISÍVEL E CLICÁVEL */}
         <button 
           onClick={onDelete}
           className="p-2 text-rose-400 hover:text-white bg-rose-500/10 hover:bg-rose-500 rounded-lg transition-colors cursor-pointer"
