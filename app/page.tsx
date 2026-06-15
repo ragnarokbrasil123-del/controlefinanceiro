@@ -3,29 +3,17 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
-  Wallet, 
-  TrendingUp, 
-  TrendingDown, 
-  ArrowUpRight, 
-  ArrowDownRight,
-  Bell,
-  Search,
-  User,
-  Plus,
-  Home as HomeIcon,
-  Coffee,
-  CreditCard,
-  ChevronLeft,
-  ChevronRight,
-  ArrowRight,
-  Sparkles,
-  LineChart,
-  Target // IMPORT DO ICONE DO PLANEJADOR
+  Wallet, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight,
+  Bell, User, Plus, Home as HomeIcon, Coffee, CreditCard, 
+  ChevronLeft, ChevronRight, ArrowRight, Sparkles, LineChart, Target,
+  PieChart as PieChartIcon, Search
 } from "lucide-react";
 
 import { TransactionModal } from "../components/TransactionModal";
 import { AiUploadModal } from "../components/AiUploadModal";
-import { FinancialPlannerModal } from "../components/FinancialPlannerModal"; // IMPORT DO SEU NOVO SIMULADOR
+import { FinancialPlannerModal } from "../components/FinancialPlannerModal";
+import { SubscriptionTrackerModal } from "../components/SubscriptionTrackerModal";
+import { ReportsModal } from "../components/ReportsModal";
 import { supabase } from "../lib/supabase"; 
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -34,7 +22,9 @@ export default function Dashboard() {
   const [activeMonth, setActiveMonth] = useState(new Date().getMonth());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false); 
-  const [isPlannerOpen, setIsPlannerOpen] = useState(false); // CONTROLE DO PLANEJADOR
+  const [isPlannerOpen, setIsPlannerOpen] = useState(false); 
+  const [isTrackerOpen, setIsTrackerOpen] = useState(false); // CAÇADOR DE ASSINATURAS
+  const [isReportsOpen, setIsReportsOpen] = useState(false); // RELATÓRIOS
   
   const [allTransactions, setAllTransactions] = useState<any[]>([]);
 
@@ -44,7 +34,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function fetchTransactions() {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('transactions')
         .select('*')
         .order('date', { ascending: false });
@@ -59,7 +49,7 @@ export default function Dashboard() {
   // MATEMÁTICA AUTOMÁTICA
   const currentMonthTransactions = allTransactions.filter(t => {
     if (!t.date) return false;
-    const [year, month, day] = t.date.split('-'); 
+    const [year, month] = t.date.split('-'); 
     return (parseInt(month) - 1) === activeMonth;
   });
 
@@ -91,7 +81,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-6">
             <button className="text-neutral-400 hover:text-white transition-colors relative">
               <Bell className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-500 rounded-full"></span>
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>
             </button>
             <div className="w-9 h-9 bg-neutral-800 border border-white/10 rounded-full flex items-center justify-center overflow-hidden cursor-pointer hover:border-indigo-500 transition-colors">
               <User className="w-4 h-4 text-neutral-400" />
@@ -101,52 +91,57 @@ export default function Dashboard() {
       </nav>
 
       <main className="max-w-7xl mx-auto px-6 py-12">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-4">
+        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end mb-10 gap-6">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
             <h1 className="text-3xl font-bold mb-2">Visão Geral</h1>
-            <p className="text-neutral-400">Organize sua vida financeira pessoal.</p>
+            <p className="text-neutral-400">Inteligência Financeira ao seu dispor.</p>
           </motion.div>
           
-          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
-            {/* NOVO BOTÃO: PLANEJADOR */}
+          {/* PAINEL DE BOTÕES DE INTELIGÊNCIA */}
+          <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+            
+            <motion.button 
+              onClick={() => setIsReportsOpen(true)}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-4 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-indigo-500/20"
+            >
+              <PieChartIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Relatórios</span>
+            </motion.button>
+
+            <motion.button 
+              onClick={() => setIsTrackerOpen(true)}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-4 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-rose-500/20"
+            >
+              <Search className="w-4 h-4" />
+              <span className="hidden sm:inline">Assinaturas</span>
+            </motion.button>
+
             <motion.button 
               onClick={() => setIsPlannerOpen(true)}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, delay: 0.0 }}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-emerald-500/20"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-4 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-emerald-500/20"
             >
               <Target className="w-4 h-4" />
               <span className="hidden sm:inline">Planejador</span>
-              <span className="sm:hidden">Plano</span>
             </motion.button>
 
             <motion.button 
               onClick={() => setIsAiModalOpen(true)}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, delay: 0.05 }}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-5 py-2.5 rounded-full font-medium transition-all shadow-lg shadow-purple-500/25 active:scale-95 cursor-pointer border border-white/10"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-5 py-2.5 rounded-full font-medium transition-all shadow-lg shadow-purple-500/25 active:scale-95 cursor-pointer border border-white/10"
             >
               <Sparkles className="w-4 h-4" />
-              <span className="hidden sm:inline">Ler Foto com IA</span>
-              <span className="sm:hidden">IA</span>
+              <span className="hidden sm:inline">Ler Foto</span>
             </motion.button>
 
             <motion.button 
               onClick={handleOpenModal}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-white/10"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-white/10"
             >
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Nova Transação</span>
-              <span className="sm:hidden">Manual</span>
+              <span className="hidden sm:inline">Manual</span>
             </motion.button>
           </div>
         </div>
@@ -284,11 +279,12 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* OS NOSSOS TRÊS MODAIS/JANELAS MÁGICAS */}
+      {/* TODAS AS NOSSAS FERRAMENTAS MÁGICAS: */}
       <TransactionModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       <AiUploadModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} />
-      {/* O SEU NOVO SIMULADOR DE METAS: */}
       <FinancialPlannerModal isOpen={isPlannerOpen} onClose={() => setIsPlannerOpen(false)} currentIncome={totalIncome} />
+      <SubscriptionTrackerModal isOpen={isTrackerOpen} onClose={() => setIsTrackerOpen(false)} transactions={allTransactions} />
+      <ReportsModal isOpen={isReportsOpen} onClose={() => setIsReportsOpen(false)} transactions={allTransactions} />
     </div>
   );
 }
