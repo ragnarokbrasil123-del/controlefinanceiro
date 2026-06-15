@@ -15,6 +15,7 @@ import { FinancialPlannerModal } from "../components/FinancialPlannerModal";
 import { SubscriptionTrackerModal } from "../components/SubscriptionTrackerModal";
 import { ReportsModal } from "../components/ReportsModal";
 import { ActivityModal } from "../components/ActivityModal";
+import { ProfileModal } from "../components/ProfileModal";
 import { supabase } from "../lib/supabase"; 
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -27,9 +28,12 @@ export default function Dashboard() {
   const [isTrackerOpen, setIsTrackerOpen] = useState(false); 
   const [isReportsOpen, setIsReportsOpen] = useState(false); 
   const [isActivityOpen, setIsActivityOpen] = useState(false); 
-  
-  // ESTADO DA BOLINHA VERMELHA (Começa acesa)
+  const [isProfileOpen, setIsProfileOpen] = useState(false); 
   const [hasUnread, setHasUnread] = useState(true); 
+  
+  // DADOS DO USUÁRIO LOGADO
+  const [userEmail, setUserEmail] = useState("");
+  const [userRole, setUserRole] = useState("client");
   
   const [allTransactions, setAllTransactions] = useState<any[]>([]);
 
@@ -38,15 +42,35 @@ export default function Dashboard() {
   const handleOpenModal = () => setIsModalOpen(true);
 
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(console.error);
-    }
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(console.error);
 
-    async function fetchTransactions() {
+    async function checkUserAndFetch() {
+      // 1. Verifica se alguém está logado
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        // Se ninguém estiver logado, chuta para a tela de login!
+        window.location.href = '/login';
+        return;
+      }
+
+      setUserEmail(session.user.email || "");
+
+      // 2. Descobre se ele é Admin ou Cliente
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+        
+      if (profile) setUserRole(profile.role);
+
+      // 3. Busca as transações (A segurança do Banco blinda o resto)
       const { data } = await supabase.from('transactions').select('*').order('date', { ascending: false });
       if (data) setAllTransactions(data);
     }
-    fetchTransactions();
+    
+    checkUserAndFetch();
   }, []);
 
   async function handleDeleteTransaction(id: string) {
@@ -90,20 +114,15 @@ export default function Dashboard() {
           </div>
           
           <div className="flex items-center gap-6">
-            <button 
-              onClick={() => {
-                setIsActivityOpen(true);
-                setHasUnread(false); // APAGA A LUZ AQUI
-              }}
-              className="text-neutral-400 hover:text-white transition-colors relative"
-            >
+            <button onClick={() => { setIsActivityOpen(true); setHasUnread(false); }} className="text-neutral-400 hover:text-white transition-colors relative">
               <Bell className="w-5 h-5" />
-              {hasUnread && (
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>
-              )}
+              {hasUnread && <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>}
             </button>
-            <div className="w-9 h-9 bg-neutral-800 border border-white/10 rounded-full flex items-center justify-center overflow-hidden cursor-pointer hover:border-indigo-500 transition-colors">
-              <User className="w-4 h-4 text-neutral-400" />
+            <div 
+              onClick={() => setIsProfileOpen(true)}
+              className={`w-9 h-9 border rounded-full flex items-center justify-center overflow-hidden cursor-pointer transition-colors ${userRole === 'admin' ? 'bg-indigo-500/20 border-indigo-500 text-indigo-400' : 'bg-neutral-800 border-white/10 text-neutral-400 hover:border-emerald-500'}`}
+            >
+              <User className="w-4 h-4" />
             </div>
           </div>
         </div>
@@ -167,21 +186,12 @@ export default function Dashboard() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold">Recentes</h2>
               </div>
-              
               <div className="flex flex-col gap-4">
                 {recentTransactions.length === 0 ? (
                   <p className="text-neutral-500 text-sm text-center py-4">Nenhuma transação lançada ainda.</p>
                 ) : (
                   recentTransactions.map((tx) => (
-                    <TransactionRow 
-                      key={tx.id}
-                      title={tx.title} 
-                      category={tx.category} 
-                      date={new Date(tx.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})} 
-                      amount={`${tx.type === 'income' ? '+' : '-'} R$ ${tx.amount.toFixed(2).replace('.', ',')}`} 
-                      type={tx.type} 
-                      onDelete={() => handleDeleteTransaction(tx.id)}
-                    />
+                    <TransactionRow key={tx.id} title={tx.title} category={tx.category} date={new Date(tx.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})} amount={`${tx.type === 'income' ? '+' : '-'} R$ ${tx.amount.toFixed(2).replace('.', ',')}`} type={tx.type} onDelete={() => handleDeleteTransaction(tx.id)} />
                   ))
                 )}
               </div>
@@ -196,6 +206,7 @@ export default function Dashboard() {
       <SubscriptionTrackerModal isOpen={isTrackerOpen} onClose={() => setIsTrackerOpen(false)} transactions={allTransactions} />
       <ReportsModal isOpen={isReportsOpen} onClose={() => setIsReportsOpen(false)} transactions={allTransactions} />
       <ActivityModal isOpen={isActivityOpen} onClose={() => setIsActivityOpen(false)} transactions={allTransactions} />
+      <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} userEmail={userEmail} userRole={userRole} />
     </div>
   );
 }
@@ -272,13 +283,7 @@ function TransactionRow({ title, category, date, amount, type, onDelete }: any) 
         <div className={`font-semibold text-sm whitespace-nowrap ${isIncome ? 'text-emerald-400' : 'text-white'}`}>
           {amount}
         </div>
-        <button 
-          onClick={onDelete}
-          className="p-2 text-rose-400 hover:text-white bg-rose-500/10 hover:bg-rose-500 rounded-lg transition-colors cursor-pointer"
-          title="Excluir"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+        <button onClick={onDelete} className="p-2 text-rose-400 hover:text-white bg-rose-500/10 hover:bg-rose-500 rounded-lg transition-colors cursor-pointer" title="Excluir"><Trash2 className="w-4 h-4" /></button>
       </div>
     </div>
   );
