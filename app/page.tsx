@@ -19,11 +19,13 @@ import {
   ChevronRight,
   ArrowRight,
   Sparkles,
-  LineChart
+  LineChart,
+  Target // IMPORT DO ICONE DO PLANEJADOR
 } from "lucide-react";
 
 import { TransactionModal } from "../components/TransactionModal";
-import { AiUploadModal } from "../components/AiUploadModal"; // IMPORT DA NOSSA IA
+import { AiUploadModal } from "../components/AiUploadModal";
+import { FinancialPlannerModal } from "../components/FinancialPlannerModal"; // IMPORT DO SEU NOVO SIMULADOR
 import { supabase } from "../lib/supabase"; 
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -31,7 +33,8 @@ const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Jul
 export default function Dashboard() {
   const [activeMonth, setActiveMonth] = useState(new Date().getMonth());
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isAiModalOpen, setIsAiModalOpen] = useState(false); // CONTROLE DA JANELA DE IA
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false); 
+  const [isPlannerOpen, setIsPlannerOpen] = useState(false); // CONTROLE DO PLANEJADOR
   
   const [allTransactions, setAllTransactions] = useState<any[]>([]);
 
@@ -64,7 +67,6 @@ export default function Dashboard() {
   const totalExpense = currentMonthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
   const balance = totalIncome - totalExpense;
 
-  // AGORA COM 4 CATEGORIAS!
   const contasFixas = currentMonthTransactions.filter(t => t.category === 'Contas Fixas' && t.type === 'expense');
   const variaveis = currentMonthTransactions.filter(t => t.category === 'Variáveis' && t.type === 'expense');
   const cartoes = currentMonthTransactions.filter(t => (t.category === 'Cartões' || t.category === 'Cartões de Crédito') && t.type === 'expense');
@@ -109,8 +111,20 @@ export default function Dashboard() {
             <p className="text-neutral-400">Organize sua vida financeira pessoal.</p>
           </motion.div>
           
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            {/* BOTÃO MÁGICO DA INTELIGÊNCIA ARTIFICIAL */}
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
+            {/* NOVO BOTÃO: PLANEJADOR */}
+            <motion.button 
+              onClick={() => setIsPlannerOpen(true)}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.0 }}
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-emerald-500/20"
+            >
+              <Target className="w-4 h-4" />
+              <span className="hidden sm:inline">Planejador</span>
+              <span className="sm:hidden">Plano</span>
+            </motion.button>
+
             <motion.button 
               onClick={() => setIsAiModalOpen(true)}
               initial={{ opacity: 0, scale: 0.9 }}
@@ -120,7 +134,7 @@ export default function Dashboard() {
             >
               <Sparkles className="w-4 h-4" />
               <span className="hidden sm:inline">Ler Foto com IA</span>
-              <span className="sm:hidden">Ler Foto</span>
+              <span className="sm:hidden">IA</span>
             </motion.button>
 
             <motion.button 
@@ -162,7 +176,6 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
           <div className="lg:col-span-2">
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
@@ -227,7 +240,6 @@ export default function Dashboard() {
                   onAction={handleOpenModal}
                 />
 
-                {/* NOVO BLOCO DE INVESTIMENTOS */}
                 <ExpenseCategoryCard 
                   title="Investimentos" 
                   icon={<LineChart className="w-5 h-5 text-emerald-400" />}
@@ -272,9 +284,11 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* OS NOSSOS DOIS MODAIS */}
+      {/* OS NOSSOS TRÊS MODAIS/JANELAS MÁGICAS */}
       <TransactionModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       <AiUploadModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} />
+      {/* O SEU NOVO SIMULADOR DE METAS: */}
+      <FinancialPlannerModal isOpen={isPlannerOpen} onClose={() => setIsPlannerOpen(false)} currentIncome={totalIncome} />
     </div>
   );
 }
