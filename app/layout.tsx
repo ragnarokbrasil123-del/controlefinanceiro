@@ -1,22 +1,35 @@
-import type {Metadata} from 'next';
-import { Inter } from 'next/font/google';
-import './globals.css';
+import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
 
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-sans',
-});
+const inter = Inter({ subsets: ["latin"] });
 
-export const metadata: Metadata = {
-  title: 'Controle Financeiro',
-  description: 'App de controle financeiro para pessoas físicas e autônomos.',
+export const viewport: Viewport = {
+  themeColor: "#6366f1",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 };
 
-export default function RootLayout({children}: {children: React.ReactNode}) {
+export const metadata: Metadata = {
+  title: "FinApp Premium",
+  description: "Controle financeiro com Inteligência Artificial",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "FinApp",
+  },
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
-    <html lang="pt-BR" className={`${inter.variable} antialiased`}>
-      <body className="font-sans" suppressHydrationWarning>{children}</body>
+    <html lang="pt-BR">
+      <body className={inter.className}>{children}</body>
     </html>
   );
 }
-
