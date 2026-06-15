@@ -80,3 +80,4 @@ Se o valor for negativo ou tiver desconto, considere o valor final pago. O "amou
     return NextResponse.json({ error: "Falha catastrófica ao processar o arquivo" }, { status: 500 });
   }
 }
+// Forçando a Vercel a atualizar o servidor backend
