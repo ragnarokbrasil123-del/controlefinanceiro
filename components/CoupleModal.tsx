@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "motion/react";
-import { X, Heart, Users, Sparkles } from "lucide-react";
+import { X, Heart, Users, Sparkles, ArrowRight } from "lucide-react";
 
 export function CoupleModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
   if (!isOpen) return null;
@@ -36,11 +36,11 @@ export function CoupleModal({ isOpen, onClose }: { isOpen: boolean, onClose: () 
             <h3 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-400 mb-6">cresce junto!</h3>
             
             <p className="text-neutral-400 mb-8 leading-relaxed">
-              Em breve, você poderá convidar o seu parceiro(a) para compartilhar as finanças. Vocês terão uma visão unificada dos gastos da casa, metas para viagens e construção de patrimônio em conjunto.
+              Bem-vindo(a) à área conjunta! Aqui vocês terão uma visão unificada dos gastos da casa, metas para viagens e a construção do patrimônio da família.
             </p>
 
-            <button onClick={onClose} className="w-full bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-pink-500/25">
-              Entendi, mal posso esperar!
+            <button onClick={() => window.location.href = '/casais'} className="w-full bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-pink-500/25 group">
+              Acessar Painel do Casal <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </button>
           </div>
         </motion.div>
