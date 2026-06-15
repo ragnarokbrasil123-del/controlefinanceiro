@@ -6,7 +6,7 @@ import {
   Wallet, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight,
   Bell, User, Plus, Home as HomeIcon, Coffee, CreditCard, 
   ChevronLeft, ChevronRight, ArrowRight, Sparkles, LineChart, Target,
-  PieChart as PieChartIcon, Search
+  PieChart as PieChartIcon, Search, Trash2
 } from "lucide-react";
 
 import { TransactionModal } from "../components/TransactionModal";
@@ -33,12 +33,10 @@ export default function Dashboard() {
   const handleOpenModal = () => setIsModalOpen(true);
 
   useEffect(() => {
-    // ----------------------------------------
-    // LIGANDO O MOTOR PWA PARA PERMITIR INSTALAÇÃO
+    // MOTOR PARA PERMITIR INSTALAÇÃO PWA
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(console.error);
     }
-    // ----------------------------------------
 
     async function fetchTransactions() {
       const { data } = await supabase
@@ -52,6 +50,23 @@ export default function Dashboard() {
     }
     fetchTransactions();
   }, []);
+
+  // FUNÇÃO DE EXCLUIR
+  async function handleDeleteTransaction(id: string) {
+    if(!window.confirm("Tem certeza que deseja apagar este lançamento?")) return;
+
+    const { error } = await supabase
+      .from('transactions')
+      .delete()
+      .eq('id', id);
+
+    if (!error) {
+      // Remove da tela na hora sem precisar recarregar a página
+      setAllTransactions(prev => prev.filter(t => t.id !== id));
+    } else {
+      alert("Erro ao excluir: " + error.message);
+    }
+  }
 
   // MATEMÁTICA AUTOMÁTICA
   const currentMonthTransactions = allTransactions.filter(t => {
@@ -72,7 +87,7 @@ export default function Dashboard() {
   const sumCategory = (list: any[]) => list.reduce((acc, t) => acc + t.amount, 0);
   const formatMoney = (val: number) => `R$ ${val.toFixed(2).replace('.', ',')}`;
 
-  const recentTransactions = allTransactions.slice(0, 5); 
+  const recentTransactions = allTransactions.slice(0, 8); // Aumentei para mostrar os 8 últimos 
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50 font-sans selection:bg-indigo-500/30">
@@ -277,6 +292,7 @@ export default function Dashboard() {
                       date={new Date(tx.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})} 
                       amount={`${tx.type === 'income' ? '+' : '-'} R$ ${tx.amount.toFixed(2).replace('.', ',')}`} 
                       type={tx.type} 
+                      onDelete={() => handleDeleteTransaction(tx.id)}
                     />
                   ))
                 )}
@@ -294,6 +310,10 @@ export default function Dashboard() {
     </div>
   );
 }
+
+// ==========================================
+// COMPONENTES MENORES
+// ==========================================
 
 function SummaryCard({ title, amount, isPositive, icon, delay }: any) {
   return (
@@ -371,11 +391,11 @@ function ExpenseCategoryCard({ title, icon, total, items, accentColor, onAction 
   );
 }
 
-function TransactionRow({ title, category, date, amount, type }: any) {
+function TransactionRow({ title, category, date, amount, type, onDelete }: any) {
   const isIncome = type === 'income';
   
   return (
-    <div className="flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 transition-colors cursor-pointer group">
+    <div className="flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 transition-colors group cursor-default">
       <div className="flex items-center gap-3">
         <div className={`w-10 h-10 rounded-full flex items-center justify-center border shrink-0 ${isIncome ? 'bg-emerald-400/10 border-emerald-400/20 text-emerald-400' : 'bg-rose-400/10 border-rose-400/20 text-rose-400'} group-hover:scale-105 transition-transform`}>
           {isIncome ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
@@ -389,8 +409,18 @@ function TransactionRow({ title, category, date, amount, type }: any) {
           </div>
         </div>
       </div>
-      <div className={`font-semibold text-sm whitespace-nowrap ${isIncome ? 'text-emerald-400' : 'text-white'}`}>
-        {amount}
+      <div className="flex items-center gap-3">
+        <div className={`font-semibold text-sm whitespace-nowrap ${isIncome ? 'text-emerald-400' : 'text-white'}`}>
+          {amount}
+        </div>
+        {/* BOTÃO MÁGICO DE EXCLUIR */}
+        <button 
+          onClick={onDelete}
+          className="p-1.5 text-neutral-600 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 cursor-pointer"
+          title="Excluir Lançamento"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );
