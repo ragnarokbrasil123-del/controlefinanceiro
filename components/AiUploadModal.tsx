@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, UploadCloud, Camera, FileText, FileSpreadsheet, Image as ImageIcon, Sparkles, Loader2 } from "lucide-react";
+import { supabase } from "../lib/supabase";
 
 export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [isUploading, setIsUploading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   if (!isOpen) return null;
 
@@ -15,16 +17,56 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
     if (!file) return;
 
     setIsUploading(true);
+    setErrorMessage("");
     
-    // Simulação da IA lendo
-    setTimeout(() => {
+    try {
+      // 1. Enviar a foto real para a nossa API do Gemini (O Cérebro)
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/extract", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("A Inteligência Artificial não conseguiu ler a imagem. Tente uma foto mais nítida.");
+      }
+
+      const data = await response.json();
+      
+      // 2. Gravar o resultado no banco de dados (Supabase)
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session && data.description && data.amount) {
+        const { error } = await supabase.from('transactions').insert([{
+          user_id: session.user.id,
+          description: data.description,
+          amount: parseFloat(data.amount),
+          category: data.category || "Variáveis",
+          type: "expense", // Recibos geralmente são despesas
+          date: new Date().toISOString()
+        }]);
+
+        if (error) throw new Error("Erro ao salvar no banco de dados.");
+      } else {
+         throw new Error("A IA não conseguiu encontrar um valor na foto.");
+      }
+
+      // 3. Dar o sinal verde pro usuário!
       setIsUploading(false);
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);
-        onClose();
+        onClose(); 
+        // Atualiza a tela para mostrar a nova transação Mágica
+        window.location.reload(); 
       }, 2000);
-    }, 3000);
+
+    } catch (err: any) {
+      setIsUploading(false);
+      setErrorMessage(err.message || "Erro desconhecido.");
+    }
   };
 
   return (
@@ -53,7 +95,7 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
             <div className="flex flex-col items-center justify-center py-10 relative">
               <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
               <h3 className="text-white font-bold text-lg mb-1">A Inteligência Artificial está lendo...</h3>
-              <p className="text-neutral-400 text-sm">Analisando valores, datas e categorias.</p>
+              <p className="text-neutral-400 text-sm text-center">Isso leva cerca de 4 segundos.<br/>Procurando o local e o valor exato na nota.</p>
             </div>
           ) : success ? (
             <div className="flex flex-col items-center justify-center py-10 relative">
@@ -61,12 +103,18 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
                 <Sparkles className="w-8 h-8 text-emerald-400" />
               </div>
               <h3 className="text-white font-bold text-lg mb-1">Leitura Concluída!</h3>
-              <p className="text-neutral-400 text-sm">Os lançamentos foram adicionados com sucesso.</p>
+              <p className="text-neutral-400 text-sm">A sua compra foi adicionada com sucesso.</p>
             </div>
           ) : (
             <div className="relative">
+              {errorMessage && (
+                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl text-sm mb-4 text-center">
+                  {errorMessage}
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4 mb-4">
-                {/* Botão Câmera Direta (Como Label Nativa) */}
+                {/* Botão Câmera Direta */}
                 <label className="flex flex-col items-center justify-center p-6 bg-white/5 hover:bg-indigo-500/20 border border-white/10 hover:border-indigo-500/50 rounded-2xl transition-all group cursor-pointer">
                   <div className="w-12 h-12 bg-indigo-500/20 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform border border-indigo-500/30">
                     <Camera className="w-6 h-6 text-indigo-400" />
@@ -74,17 +122,10 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
                   <span className="font-bold text-white text-sm">Tirar Foto</span>
                   <span className="text-xs text-neutral-500 mt-1 text-center">Câmera do Celular</span>
                   
-                  {/* O input fica escondido DENTRO do botão */}
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    capture="environment" 
-                    className="hidden" 
-                    onChange={handleFileSelect}
-                  />
+                  <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileSelect} />
                 </label>
 
-                {/* Botão Arquivos (Como Label Nativa) */}
+                {/* Botão Arquivos */}
                 <label className="flex flex-col items-center justify-center p-6 bg-white/5 hover:bg-purple-500/20 border border-white/10 hover:border-purple-500/50 rounded-2xl transition-all group cursor-pointer">
                   <div className="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform border border-purple-500/30">
                     <UploadCloud className="w-6 h-6 text-purple-400" />
@@ -92,13 +133,7 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
                   <span className="font-bold text-white text-sm">Enviar Arquivo</span>
                   <span className="text-xs text-neutral-500 mt-1 text-center">Galeria ou Documentos</span>
                   
-                  {/* O input fica escondido DENTRO do botão */}
-                  <input 
-                    type="file" 
-                    accept="image/*,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" 
-                    className="hidden" 
-                    onChange={handleFileSelect}
-                  />
+                  <input type="file" accept="image/*,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={handleFileSelect} />
                 </label>
               </div>
 
@@ -109,7 +144,6 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
               </div>
             </div>
           )}
-
         </motion.div>
       </div>
     </AnimatePresence>
