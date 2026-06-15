@@ -1,0 +1,102 @@
+"use client";
+
+import { motion } from "motion/react";
+import { Heart, Home, Plane, Target, Plus, ChevronLeft, Building, PiggyBank, Sparkles } from "lucide-react";
+import Link from "next/link";
+
+export default function CasaisDashboard() {
+  return (
+    <div className="min-h-screen bg-neutral-950 text-neutral-50 font-sans selection:bg-pink-500/30">
+      <nav className="border-b border-pink-500/10 bg-black/20 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center gap-4">
+          <Link href="/" className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-neutral-400 hover:text-white">
+            <ChevronLeft className="w-5 h-5" />
+          </Link>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-tr from-pink-500 to-rose-500 rounded-xl flex items-center justify-center shadow-lg shadow-pink-500/20">
+              <Heart className="text-white w-5 h-5 fill-white" />
+            </div>
+            <span className="font-bold text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-400">FinApp Casais</span>
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-7xl mx-auto px-6 py-12">
+        <div className="mb-10 text-center sm:text-left">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+            <h1 className="text-3xl font-bold mb-2 flex items-center gap-2 justify-center sm:justify-start">
+              Visão do Casal <Sparkles className="w-5 h-5 text-pink-500" />
+            </h1>
+            <p className="text-pink-400/70">Onde os sonhos se constroem juntos.</p>
+          </motion.div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          <CardCasal title="Patrimônio Conjunto" amount="R$ 15.400,00" icon={<Building className="text-pink-400" />} delay={0.1} />
+          <CardCasal title="Reserva de Emergência" amount="R$ 5.000,00" icon={<PiggyBank className="text-emerald-400" />} delay={0.2} />
+          <CardCasal title="Despesas da Casa (Mês)" amount="R$ 2.340,00" icon={<Home className="text-rose-400" />} delay={0.3} />
+        </div>
+
+        <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+          <Target className="w-6 h-6 text-pink-500" /> Metas em Conjunto
+        </h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+          <GoalCard title="Viagem para Paris" current={3000} target={15000} icon={<Plane className="w-6 h-6 text-blue-400" />} color="blue" />
+          <GoalCard title="Entrada do Apartamento" current={15400} target={50000} icon={<Home className="w-6 h-6 text-emerald-400" />} color="emerald" />
+        </div>
+
+      </main>
+    </div>
+  );
+}
+
+function CardCasal({ title, amount, icon, delay }: any) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay }} className="bg-pink-950/10 border border-pink-500/10 p-6 rounded-3xl backdrop-blur-sm hover:bg-pink-900/20 hover:border-pink-500/20 transition-all relative overflow-hidden group">
+      <div className="absolute -right-6 -top-6 w-24 h-24 bg-pink-500/5 rounded-full blur-2xl group-hover:bg-pink-500/10 transition-colors"></div>
+      <div className="flex justify-between items-start mb-4">
+        <div className="p-3 bg-white/5 rounded-2xl">{icon}</div>
+      </div>
+      <p className="text-neutral-400 text-sm font-medium mb-1">{title}</p>
+      <h3 className="text-3xl font-bold tracking-tight text-white">{amount}</h3>
+    </motion.div>
+  );
+}
+
+function GoalCard({ title, current, target, icon, color }: any) {
+  const percent = Math.min(100, Math.round((current / target) * 100));
+  
+  return (
+    <div className="bg-white/5 border border-white/10 rounded-3xl p-6 relative overflow-hidden group hover:border-pink-500/30 transition-colors">
+      <div className="flex justify-between items-start mb-6">
+        <div className="flex items-center gap-4">
+          <div className={`p-3 bg-white/5 rounded-2xl border border-white/10`}>
+            {icon}
+          </div>
+          <div>
+            <h3 className="font-bold text-lg text-white">{title}</h3>
+            <p className="text-sm text-neutral-400">Progresso: {percent}%</p>
+          </div>
+        </div>
+        <button className="p-2 bg-white/5 hover:bg-pink-500/20 hover:text-pink-400 text-neutral-400 rounded-xl transition-colors">
+          <Plus className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="w-full h-3 bg-neutral-900 rounded-full overflow-hidden mb-3 border border-white/5">
+        <motion.div 
+          initial={{ width: 0 }} 
+          animate={{ width: `${percent}%` }} 
+          transition={{ duration: 1, delay: 0.5 }}
+          className={`h-full bg-gradient-to-r from-pink-500 to-rose-500`}
+        ></motion.div>
+      </div>
+      
+      <div className="flex justify-between text-sm font-medium">
+        <span className="text-white">R$ {current.toLocaleString('pt-BR')}</span>
+        <span className="text-neutral-500">Meta: R$ {target.toLocaleString('pt-BR')}</span>
+      </div>
+    </div>
+  );
+}
