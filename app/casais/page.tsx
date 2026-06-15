@@ -1,23 +1,71 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { Heart, Home, Plane, Target, Plus, ChevronLeft, Building, PiggyBank, Sparkles } from "lucide-react";
+import { Heart, Home, Plane, Target, Plus, ChevronLeft, Building, PiggyBank, Sparkles, Settings } from "lucide-react";
 import Link from "next/link";
+import { supabase } from "../../lib/supabase";
+import { CoupleGoalModal } from "../../components/CoupleGoalModal";
+import { CoupleWealthModal } from "../../components/CoupleWealthModal";
 
 export default function CasaisDashboard() {
+  const [settings, setSettings] = useState<any>(null);
+  const [goals, setGoals] = useState<any[]>([]);
+  
+  const [isWealthModalOpen, setIsWealthModalOpen] = useState(false);
+  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
+  const [selectedGoal, setSelectedGoal] = useState<any>(null);
+
+  const fetchData = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      window.location.href = '/login';
+      return;
+    }
+
+    // Busca os dados do Cofre
+    const { data: sData } = await supabase.from('couple_settings').select('*').eq('user_id', session.user.id).single();
+    if (sData) setSettings(sData);
+
+    // Busca as Metas e ordena pelas mais antigas
+    const { data: gData } = await supabase.from('couple_goals').select('*').order('created_at', { ascending: true });
+    if (gData) setGoals(gData);
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const formatMoney = (val: number) => `R$ ${Number(val).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+  const openNewGoal = () => {
+    setSelectedGoal(null);
+    setIsGoalModalOpen(true);
+  };
+
+  const openAddFunds = (goal: any) => {
+    setSelectedGoal(goal);
+    setIsGoalModalOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50 font-sans selection:bg-pink-500/30">
       <nav className="border-b border-pink-500/10 bg-black/20 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center gap-4">
-          <Link href="/" className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-neutral-400 hover:text-white">
-            <ChevronLeft className="w-5 h-5" />
-          </Link>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-tr from-pink-500 to-rose-500 rounded-xl flex items-center justify-center shadow-lg shadow-pink-500/20">
-              <Heart className="text-white w-5 h-5 fill-white" />
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link href="/" className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-neutral-400 hover:text-white">
+              <ChevronLeft className="w-5 h-5" />
+            </Link>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-tr from-pink-500 to-rose-500 rounded-xl flex items-center justify-center shadow-lg shadow-pink-500/20">
+                <Heart className="text-white w-5 h-5 fill-white" />
+              </div>
+              <span className="font-bold text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-400">FinApp Casais</span>
             </div>
-            <span className="font-bold text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-400">FinApp Casais</span>
           </div>
+          <button onClick={() => setIsWealthModalOpen(true)} className="p-2 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 rounded-xl transition-colors border border-pink-500/20 flex items-center gap-2 cursor-pointer">
+            <Settings className="w-4 h-4" /> <span className="hidden sm:inline text-sm font-medium">Configurar Cofre</span>
+          </button>
         </div>
       </nav>
 
@@ -32,21 +80,42 @@ export default function CasaisDashboard() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <CardCasal title="Patrimônio Conjunto" amount="R$ 15.400,00" icon={<Building className="text-pink-400" />} delay={0.1} />
-          <CardCasal title="Reserva de Emergência" amount="R$ 5.000,00" icon={<PiggyBank className="text-emerald-400" />} delay={0.2} />
-          <CardCasal title="Despesas da Casa (Mês)" amount="R$ 2.340,00" icon={<Home className="text-rose-400" />} delay={0.3} />
+          <CardCasal title="Patrimônio Conjunto" amount={settings ? formatMoney(settings.joint_wealth) : "R$ 0,00"} icon={<Building className="text-pink-400" />} delay={0.1} />
+          <CardCasal title="Reserva de Emergência" amount={settings ? formatMoney(settings.emergency_fund) : "R$ 0,00"} icon={<PiggyBank className="text-emerald-400" />} delay={0.2} />
+          <CardCasal title="Despesas da Casa (Mês)" amount={settings ? formatMoney(settings.house_expenses) : "R$ 0,00"} icon={<Home className="text-rose-400" />} delay={0.3} />
         </div>
 
-        <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-          <Target className="w-6 h-6 text-pink-500" /> Metas em Conjunto
-        </h2>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Target className="w-6 h-6 text-pink-500" /> Metas em Conjunto
+          </h2>
+          <button onClick={openNewGoal} className="bg-white/5 hover:bg-pink-500/20 text-pink-400 px-4 py-2 rounded-xl transition-colors border border-pink-500/10 flex items-center gap-2 text-sm font-bold cursor-pointer">
+            <Plus className="w-4 h-4" /> Nova Meta
+          </button>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-          <GoalCard title="Viagem para Paris" current={3000} target={15000} icon={<Plane className="w-6 h-6 text-blue-400" />} color="blue" />
-          <GoalCard title="Entrada do Apartamento" current={15400} target={50000} icon={<Home className="w-6 h-6 text-emerald-400" />} color="emerald" />
+          {goals.length === 0 ? (
+            <p className="text-neutral-500 italic">Nenhuma meta criada ainda. Clique em "Nova Meta"!</p>
+          ) : (
+            goals.map(goal => (
+              <GoalCard 
+                key={goal.id} 
+                title={goal.title} 
+                current={goal.current_amount} 
+                target={goal.target_amount} 
+                icon={<Target className="w-6 h-6 text-white" />} 
+                color={goal.color} 
+                onAddFunds={() => openAddFunds(goal)}
+              />
+            ))
+          )}
         </div>
 
       </main>
+
+      <CoupleWealthModal isOpen={isWealthModalOpen} onClose={() => setIsWealthModalOpen(false)} currentData={settings} onSave={fetchData} />
+      <CoupleGoalModal isOpen={isGoalModalOpen} onClose={() => setIsGoalModalOpen(false)} selectedGoal={selectedGoal} onSave={fetchData} />
     </div>
   );
 }
@@ -64,8 +133,8 @@ function CardCasal({ title, amount, icon, delay }: any) {
   );
 }
 
-function GoalCard({ title, current, target, icon, color }: any) {
-  const percent = Math.min(100, Math.round((current / target) * 100));
+function GoalCard({ title, current, target, icon, color, onAddFunds }: any) {
+  const percent = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
   
   return (
     <div className="bg-white/5 border border-white/10 rounded-3xl p-6 relative overflow-hidden group hover:border-pink-500/30 transition-colors">
@@ -79,7 +148,7 @@ function GoalCard({ title, current, target, icon, color }: any) {
             <p className="text-sm text-neutral-400">Progresso: {percent}%</p>
           </div>
         </div>
-        <button className="p-2 bg-white/5 hover:bg-pink-500/20 hover:text-pink-400 text-neutral-400 rounded-xl transition-colors">
+        <button onClick={onAddFunds} className="p-2 bg-white/5 hover:bg-pink-500/20 hover:text-pink-400 text-neutral-400 rounded-xl transition-colors cursor-pointer" title="Adicionar Dinheiro">
           <Plus className="w-4 h-4" />
         </button>
       </div>
@@ -94,8 +163,8 @@ function GoalCard({ title, current, target, icon, color }: any) {
       </div>
       
       <div className="flex justify-between text-sm font-medium">
-        <span className="text-white">R$ {current.toLocaleString('pt-BR')}</span>
-        <span className="text-neutral-500">Meta: R$ {target.toLocaleString('pt-BR')}</span>
+        <span className="text-white">R$ {Number(current).toLocaleString('pt-BR')}</span>
+        <span className="text-neutral-500">Meta: R$ {Number(target).toLocaleString('pt-BR')}</span>
       </div>
     </div>
   );
