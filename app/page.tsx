@@ -6,7 +6,7 @@ import {
   Wallet, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight,
   Bell, User, Plus, Home as HomeIcon, Coffee, CreditCard, 
   ChevronLeft, ChevronRight, ArrowRight, Sparkles, LineChart, Target,
-  PieChart as PieChartIcon, Search, Trash2
+  PieChart as PieChartIcon, Search, Trash2, Heart
 } from "lucide-react";
 
 import { TransactionModal } from "../components/TransactionModal";
@@ -16,6 +16,7 @@ import { SubscriptionTrackerModal } from "../components/SubscriptionTrackerModal
 import { ReportsModal } from "../components/ReportsModal";
 import { ActivityModal } from "../components/ActivityModal";
 import { ProfileModal } from "../components/ProfileModal";
+import { CoupleModal } from "../components/CoupleModal";
 import { supabase } from "../lib/supabase"; 
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -29,9 +30,9 @@ export default function Dashboard() {
   const [isReportsOpen, setIsReportsOpen] = useState(false); 
   const [isActivityOpen, setIsActivityOpen] = useState(false); 
   const [isProfileOpen, setIsProfileOpen] = useState(false); 
+  const [isCoupleOpen, setIsCoupleOpen] = useState(false); // NOVO
   const [hasUnread, setHasUnread] = useState(true); 
   
-  // DADOS DO USUÁRIO LOGADO
   const [userEmail, setUserEmail] = useState("");
   const [userRole, setUserRole] = useState("client");
   
@@ -45,42 +46,24 @@ export default function Dashboard() {
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(console.error);
 
     async function checkUserAndFetch() {
-      // 1. Verifica se alguém está logado
       const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        // Se ninguém estiver logado, chuta para a tela de login!
-        window.location.href = '/login';
-        return;
-      }
-
+      if (!session) { window.location.href = '/login'; return; }
       setUserEmail(session.user.email || "");
 
-      // 2. Descobre se ele é Admin ou Cliente
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', session.user.id)
-        .single();
-        
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
       if (profile) setUserRole(profile.role);
 
-      // 3. Busca as transações (A segurança do Banco blinda o resto)
       const { data } = await supabase.from('transactions').select('*').order('date', { ascending: false });
       if (data) setAllTransactions(data);
     }
-    
     checkUserAndFetch();
   }, []);
 
   async function handleDeleteTransaction(id: string) {
     if(!window.confirm("Deseja apagar este lançamento?")) return;
     const { error } = await supabase.from('transactions').delete().eq('id', id);
-    if (!error) {
-      setAllTransactions(prev => prev.filter(t => t.id !== id));
-    } else {
-      alert("Erro ao excluir.");
-    }
+    if (!error) setAllTransactions(prev => prev.filter(t => t.id !== id));
+    else alert("Erro ao excluir.");
   }
 
   const currentMonthTransactions = allTransactions.filter(t => {
@@ -118,10 +101,7 @@ export default function Dashboard() {
               <Bell className="w-5 h-5" />
               {hasUnread && <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>}
             </button>
-            <div 
-              onClick={() => setIsProfileOpen(true)}
-              className={`w-9 h-9 border rounded-full flex items-center justify-center overflow-hidden cursor-pointer transition-colors ${userRole === 'admin' ? 'bg-indigo-500/20 border-indigo-500 text-indigo-400' : 'bg-neutral-800 border-white/10 text-neutral-400 hover:border-emerald-500'}`}
-            >
+            <div onClick={() => setIsProfileOpen(true)} className={`w-9 h-9 border rounded-full flex items-center justify-center overflow-hidden cursor-pointer transition-colors ${userRole === 'admin' ? 'bg-indigo-500/20 border-indigo-500 text-indigo-400' : 'bg-neutral-800 border-white/10 text-neutral-400 hover:border-emerald-500'}`}>
               <User className="w-4 h-4" />
             </div>
           </div>
@@ -136,6 +116,9 @@ export default function Dashboard() {
           </motion.div>
           
           <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+            <motion.button onClick={() => setIsCoupleOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 px-4 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-pink-500/20">
+              <Heart className="w-4 h-4 fill-pink-400/20" /> <span className="hidden sm:inline">Casal</span>
+            </motion.button>
             <motion.button onClick={() => setIsReportsOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-4 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-indigo-500/20">
               <PieChartIcon className="w-4 h-4" /> <span className="hidden sm:inline">Relatórios</span>
             </motion.button>
@@ -207,6 +190,7 @@ export default function Dashboard() {
       <ReportsModal isOpen={isReportsOpen} onClose={() => setIsReportsOpen(false)} transactions={allTransactions} />
       <ActivityModal isOpen={isActivityOpen} onClose={() => setIsActivityOpen(false)} transactions={allTransactions} />
       <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} userEmail={userEmail} userRole={userRole} />
+      <CoupleModal isOpen={isCoupleOpen} onClose={() => setIsCoupleOpen(false)} />
     </div>
   );
 }
