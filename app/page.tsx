@@ -17,10 +17,13 @@ import {
   CreditCard,
   ChevronLeft,
   ChevronRight,
-  ArrowRight
+  ArrowRight,
+  Sparkles,
+  LineChart
 } from "lucide-react";
 
 import { TransactionModal } from "../components/TransactionModal";
+import { AiUploadModal } from "../components/AiUploadModal"; // IMPORT DA NOSSA IA
 import { supabase } from "../lib/supabase"; 
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -28,15 +31,14 @@ const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Jul
 export default function Dashboard() {
   const [activeMonth, setActiveMonth] = useState(new Date().getMonth());
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false); // CONTROLE DA JANELA DE IA
   
-  // Guardamos TODAS as transações do banco aqui
   const [allTransactions, setAllTransactions] = useState<any[]>([]);
 
   const handlePrevMonth = () => setActiveMonth(prev => prev === 0 ? 11 : prev - 1);
   const handleNextMonth = () => setActiveMonth(prev => prev === 11 ? 0 : prev + 1);
   const handleOpenModal = () => setIsModalOpen(true);
 
-  // Puxa os dados assim que o site abre
   useEffect(() => {
     async function fetchTransactions() {
       const { data, error } = await supabase
@@ -51,32 +53,26 @@ export default function Dashboard() {
     fetchTransactions();
   }, []);
 
-  // ==========================================
-  // MÁGICA DA MATEMÁTICA AUTOMÁTICA
-  // ==========================================
-  
-  // 1. Filtra as transações apenas para o Mês que está selecionado na aba
+  // MATEMÁTICA AUTOMÁTICA
   const currentMonthTransactions = allTransactions.filter(t => {
     if (!t.date) return false;
-    const [year, month, day] = t.date.split('-'); // Quebra a data "2026-06-14"
+    const [year, month, day] = t.date.split('-'); 
     return (parseInt(month) - 1) === activeMonth;
   });
 
-  // 2. Calcula as Receitas, Despesas e Saldo do mês selecionado
   const totalIncome = currentMonthTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
   const totalExpense = currentMonthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
   const balance = totalIncome - totalExpense;
 
-  // 3. Separa as despesas em suas categorias
+  // AGORA COM 4 CATEGORIAS!
   const contasFixas = currentMonthTransactions.filter(t => t.category === 'Contas Fixas' && t.type === 'expense');
   const variaveis = currentMonthTransactions.filter(t => t.category === 'Variáveis' && t.type === 'expense');
   const cartoes = currentMonthTransactions.filter(t => (t.category === 'Cartões' || t.category === 'Cartões de Crédito') && t.type === 'expense');
+  const investimentos = currentMonthTransactions.filter(t => t.category === 'Investimentos' && t.type === 'expense');
 
-  // Funções ajudantes para somar categorias e colocar no formato "R$ 0,00"
   const sumCategory = (list: any[]) => list.reduce((acc, t) => acc + t.amount, 0);
   const formatMoney = (val: number) => `R$ ${val.toFixed(2).replace('.', ',')}`;
 
-  // Lista para a aba da direita "Recentes" (pega as 5 mais recentes de tudo)
   const recentTransactions = allTransactions.slice(0, 5); 
 
   return (
@@ -113,21 +109,34 @@ export default function Dashboard() {
             <p className="text-neutral-400">Organize sua vida financeira pessoal.</p>
           </motion.div>
           
-          <motion.button 
-            onClick={handleOpenModal}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-5 py-2.5 rounded-full font-medium transition-all shadow-lg shadow-indigo-500/25 active:scale-95 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            Nova Transação
-          </motion.button>
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            {/* BOTÃO MÁGICO DA INTELIGÊNCIA ARTIFICIAL */}
+            <motion.button 
+              onClick={() => setIsAiModalOpen(true)}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.05 }}
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-5 py-2.5 rounded-full font-medium transition-all shadow-lg shadow-purple-500/25 active:scale-95 cursor-pointer border border-white/10"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span className="hidden sm:inline">Ler Foto com IA</span>
+              <span className="sm:hidden">Ler Foto</span>
+            </motion.button>
+
+            <motion.button 
+              onClick={handleOpenModal}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-white/10"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Nova Transação</span>
+              <span className="sm:hidden">Manual</span>
+            </motion.button>
+          </div>
         </div>
 
-        {/* ========================================================= */}
-        {/* CARDS DO TOPO AGORA COM OS NÚMEROS REAIS E CALCULADOS! */}
-        {/* ========================================================= */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <SummaryCard 
             title="Saldo no Mês" 
@@ -189,40 +198,48 @@ export default function Dashboard() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
-                className="grid grid-cols-1 md:grid-cols-3 gap-4"
+                className="grid grid-cols-1 sm:grid-cols-2 gap-4"
               >
-                {/* CATEGORIAS REAIS DO BANCO */}
                 <ExpenseCategoryCard 
                   title="Contas Fixas" 
                   icon={<HomeIcon className="w-5 h-5 text-blue-400" />}
-                  total={formatMoney(sumCategory(contasFixas))} // TOTAL REAL
+                  total={formatMoney(sumCategory(contasFixas))}
                   accentColor="bg-blue-500/10 border-blue-500/20"
-                  items={contasFixas.map(t => ({ name: t.title, value: formatMoney(t.amount) }))} // LISTA REAL
+                  items={contasFixas.map(t => ({ name: t.title, value: formatMoney(t.amount) }))}
                   onAction={handleOpenModal}
                 />
                 
                 <ExpenseCategoryCard 
                   title="Variáveis" 
                   icon={<Coffee className="w-5 h-5 text-amber-400" />}
-                  total={formatMoney(sumCategory(variaveis))} // TOTAL REAL
+                  total={formatMoney(sumCategory(variaveis))}
                   accentColor="bg-amber-500/10 border-amber-500/20"
-                  items={variaveis.map(t => ({ name: t.title, value: formatMoney(t.amount) }))} // LISTA REAL
+                  items={variaveis.map(t => ({ name: t.title, value: formatMoney(t.amount) }))}
                   onAction={handleOpenModal}
                 />
 
                 <ExpenseCategoryCard 
                   title="Cartões" 
                   icon={<CreditCard className="w-5 h-5 text-purple-400" />}
-                  total={formatMoney(sumCategory(cartoes))} // TOTAL REAL
+                  total={formatMoney(sumCategory(cartoes))}
                   accentColor="bg-purple-500/10 border-purple-500/20"
-                  items={cartoes.map(t => ({ name: t.title, value: formatMoney(t.amount) }))} // LISTA REAL
+                  items={cartoes.map(t => ({ name: t.title, value: formatMoney(t.amount) }))}
+                  onAction={handleOpenModal}
+                />
+
+                {/* NOVO BLOCO DE INVESTIMENTOS */}
+                <ExpenseCategoryCard 
+                  title="Investimentos" 
+                  icon={<LineChart className="w-5 h-5 text-emerald-400" />}
+                  total={formatMoney(sumCategory(investimentos))}
+                  accentColor="bg-emerald-500/10 border-emerald-500/20"
+                  items={investimentos.map(t => ({ name: t.title, value: formatMoney(t.amount) }))}
                   onAction={handleOpenModal}
                 />
               </motion.div>
             </AnimatePresence>
           </div>
 
-          {/* COLUNA DIREITA: RECENTES */}
           <div className="lg:col-span-1">
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
@@ -255,13 +272,15 @@ export default function Dashboard() {
         </div>
       </main>
 
+      {/* OS NOSSOS DOIS MODAIS */}
       <TransactionModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <AiUploadModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} />
     </div>
   );
 }
 
 // ==========================================
-// COMPONENTES DE VISUAL (Cards e Linhas)
+// COMPONENTES MENORES (INALTERADOS)
 // ==========================================
 
 function SummaryCard({ title, amount, isPositive, icon, delay }: any) {
@@ -312,7 +331,6 @@ function ExpenseCategoryCard({ title, icon, total, items, accentColor, onAction 
       </div>
       
       <div className="flex-1 flex flex-col gap-3 mb-6">
-        {/* Se a lista estiver vazia, exibe mensagem que não tem gasto */}
         {items.length === 0 ? (
           <p className="text-neutral-600 text-sm italic py-2">Nenhum gasto neste mês.</p>
         ) : (
