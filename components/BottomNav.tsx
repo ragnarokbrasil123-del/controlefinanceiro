@@ -1,42 +1,36 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Home, Heart, BarChart3, Settings, Plus, Camera, PenTool } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { TransactionModal } from "./TransactionModal";
-import { AiUploadModal } from "./AiUploadModal";
 
 export function BottomNav() {
-  const pathname = usePathname();
   const [isFabOpen, setIsFabOpen] = useState(false);
-  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
-  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('home');
 
-  // Função para saber em qual tela estamos e acender a luzinha do botão
-  const isActive = (path: string) => pathname === path;
+  // Emitindo o sinal de rádio para o app principal
+  const openModal = (name: string) => {
+    setActiveTab(name);
+    window.dispatchEvent(new CustomEvent('openModal', { detail: name }));
+  };
 
   return (
     <>
       <div className="fixed bottom-0 left-0 w-full z-40 pb-safe">
-        {/* Fundo de Vidro Fosco (Premium App Effect) */}
         <div className="absolute inset-0 bg-neutral-950/80 backdrop-blur-xl border-t border-white/5"></div>
         
         <div className="relative px-6 h-20 flex items-center justify-between">
-          {/* Esquerda: Início e Casais */}
           <div className="flex gap-8">
-            <Link href="/" className={`flex flex-col items-center gap-1 transition-colors ${isActive('/') ? 'text-indigo-400' : 'text-neutral-500 hover:text-indigo-300'}`}>
+            <button onClick={() => openModal('home')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'home' ? 'text-indigo-400' : 'text-neutral-500 hover:text-indigo-300'}`}>
               <Home className="w-6 h-6" />
               <span className="text-[10px] font-medium tracking-wide">Início</span>
-            </Link>
-            <Link href="/casais" className={`flex flex-col items-center gap-1 transition-colors ${isActive('/casais') ? 'text-indigo-400' : 'text-neutral-500 hover:text-indigo-300'}`}>
+            </button>
+            <button onClick={() => openModal('casais')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'casais' ? 'text-indigo-400' : 'text-neutral-500 hover:text-indigo-300'}`}>
               <Heart className="w-6 h-6" />
               <span className="text-[10px] font-medium tracking-wide">Casais</span>
-            </Link>
+            </button>
           </div>
 
-          {/* Centro: O Botão Flutuante (The FAB) */}
           <div className="absolute left-1/2 -top-6 -translate-x-1/2">
             <button 
               onClick={() => setIsFabOpen(!isFabOpen)}
@@ -46,21 +40,19 @@ export function BottomNav() {
             </button>
           </div>
 
-          {/* Direita: Gráficos e Ajustes */}
           <div className="flex gap-8">
-            <Link href="/relatorios" className={`flex flex-col items-center gap-1 transition-colors ${isActive('/relatorios') ? 'text-indigo-400' : 'text-neutral-500 hover:text-indigo-300'}`}>
+            <button onClick={() => openModal('relatorios')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'relatorios' ? 'text-indigo-400' : 'text-neutral-500 hover:text-indigo-300'}`}>
               <BarChart3 className="w-6 h-6" />
               <span className="text-[10px] font-medium tracking-wide">Gráficos</span>
-            </Link>
-            <Link href="/config" className={`flex flex-col items-center gap-1 transition-colors ${isActive('/config') ? 'text-indigo-400' : 'text-neutral-500 hover:text-indigo-300'}`}>
+            </button>
+            <button onClick={() => openModal('config')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'config' ? 'text-indigo-400' : 'text-neutral-500 hover:text-indigo-300'}`}>
               <Settings className="w-6 h-6" />
               <span className="text-[10px] font-medium tracking-wide">Ajustes</span>
-            </Link>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* A Mágica: Menu Que Espirra Para Cima Quando Clica no Botão Flutuante */}
       <AnimatePresence>
         {isFabOpen && (
           <>
@@ -70,11 +62,10 @@ export function BottomNav() {
               onClick={() => setIsFabOpen(false)}
             />
             <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-30 flex gap-6">
-              
               <motion.button 
                 initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0, transition: { duration: 0.1 } }}
-                onClick={() => { setIsFabOpen(false); setIsManualModalOpen(true); }}
-                className="flex flex-col items-center gap-2 group"
+                onClick={() => { setIsFabOpen(false); openModal('manual'); }}
+                className="flex flex-col items-center gap-2 group cursor-pointer"
               >
                 <div className="w-14 h-14 bg-neutral-800 border border-white/10 rounded-full flex items-center justify-center shadow-xl group-hover:scale-110 active:scale-95 transition-transform">
                   <PenTool className="w-6 h-6 text-indigo-400" />
@@ -84,23 +75,18 @@ export function BottomNav() {
               
               <motion.button 
                 initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1, transition: { delay: 0.05 } }} exit={{ y: 20, opacity: 0, transition: { duration: 0.1 } }}
-                onClick={() => { setIsFabOpen(false); setIsAiModalOpen(true); }}
-                className="flex flex-col items-center gap-2 group"
+                onClick={() => { setIsFabOpen(false); openModal('camera'); }}
+                className="flex flex-col items-center gap-2 group cursor-pointer"
               >
                 <div className="w-14 h-14 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg shadow-indigo-500/30 group-hover:scale-110 active:scale-95 transition-transform">
                   <Camera className="w-6 h-6 text-white" />
                 </div>
                 <span className="text-white text-[11px] font-medium bg-black/50 px-2 py-1 rounded-md backdrop-blur-md border border-white/5">Câmera IA</span>
               </motion.button>
-
             </div>
           </>
         )}
       </AnimatePresence>
-
-      {/* Os modais vão morar aqui agora, disponíveis em qualquer tela do app! */}
-      <TransactionModal isOpen={isManualModalOpen} onClose={() => setIsManualModalOpen(false)} />
-      <AiUploadModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} />
     </>
   );
 }
