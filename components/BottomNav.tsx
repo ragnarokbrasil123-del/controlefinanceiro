@@ -8,14 +8,13 @@ export function BottomNav() {
   const [isFabOpen, setIsFabOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
 
-  // Emitindo o sinal de rádio para o app principal
   const openModal = (name: string) => {
     setActiveTab(name);
     window.dispatchEvent(new CustomEvent('openModal', { detail: name }));
   };
 
   return (
-    <>
+    <div className="md:hidden block"> {/* <--- A CAPA DE INVISIBILIDADE NO PC ESTÁ AQUI */}
       <div className="fixed bottom-0 left-0 w-full z-40 pb-safe">
         <div className="absolute inset-0 bg-neutral-950/80 backdrop-blur-xl border-t border-white/5"></div>
         
@@ -87,6 +86,6 @@ export function BottomNav() {
           </>
         )}
       </AnimatePresence>
-    </>
+    </div>
   );
 }
