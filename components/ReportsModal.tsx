@@ -15,7 +15,7 @@ export function ReportsModal({ isOpen, onClose, transactions }: any) {
 
   if (!isOpen) return null;
 
-  // Processar dados para o Gráfico de Pizza (Despesas por Categoria)
+  // Processar dados para o Gráfico de Pizza
   const expenses = transactions.filter((t: any) => t.type === 'expense');
   const categoryDataRaw = expenses.reduce((acc: any, curr: any) => {
     if (!acc[curr.category]) acc[curr.category] = 0;
@@ -28,7 +28,7 @@ export function ReportsModal({ isOpen, onClose, transactions }: any) {
     value: categoryDataRaw[key]
   })).sort((a, b) => b.value - a.value);
 
-  // Processar dados para o Gráfico de Barras (Balanço dos Últimos Meses)
+  // Processar dados para o Gráfico de Barras
   const monthlyDataRaw = transactions.reduce((acc: any, curr: any) => {
     if (!curr.date) return acc;
     const dateObj = new Date(curr.date);
@@ -42,11 +42,11 @@ export function ReportsModal({ isOpen, onClose, transactions }: any) {
     return acc;
   }, {});
 
-  const balanceData = Object.values(monthlyDataRaw).slice(0, 6).reverse();
+  // AQUI: Forçamos o tipo para evitar o pânico do TypeScript
+  const balanceData: any[] = Object.values(monthlyDataRaw).slice(0, 6).reverse();
 
   const formatMoney = (value: number) => `R$ ${value.toFixed(2).replace('.', ',')}`;
 
-  // Tooltip customizado de Vidro (Janelinha que pula)
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -56,7 +56,7 @@ export function ReportsModal({ isOpen, onClose, transactions }: any) {
             <div key={index} className="flex items-center gap-2 text-sm">
               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }}></div>
               <span className="text-neutral-300">{entry.name}:</span>
-              <span className="text-white font-bold">{formatMoney(entry.value)}</span>
+              <span className="text-white font-bold">{formatMoney(Number(entry.value))}</span>
             </div>
           ))}
         </div>
@@ -78,7 +78,6 @@ export function ReportsModal({ isOpen, onClose, transactions }: any) {
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
             className="relative w-full max-w-2xl bg-neutral-900 sm:rounded-3xl rounded-t-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-white/10"
           >
-            {/* Cabeçalho */}
             <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30 shadow-inner">
@@ -91,7 +90,6 @@ export function ReportsModal({ isOpen, onClose, transactions }: any) {
               </button>
             </div>
 
-            {/* Abas */}
             <div className="flex p-4 gap-2 bg-black/20 border-b border-white/5 overflow-x-auto scrollbar-hide">
               <button 
                 onClick={() => setActiveTab('categorias')}
@@ -107,10 +105,8 @@ export function ReportsModal({ isOpen, onClose, transactions }: any) {
               </button>
             </div>
 
-            {/* Conteúdo dos Gráficos */}
             <div className="p-6 overflow-y-auto">
               
-              {/* ABA 1: PIZZA */}
               {activeTab === 'categorias' && (
                 <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col gap-6">
                   {categoryData.length === 0 ? (
@@ -131,11 +127,10 @@ export function ReportsModal({ isOpen, onClose, transactions }: any) {
                             <Tooltip content={<CustomTooltip />} />
                           </PieChart>
                         </ResponsiveContainer>
-                        {/* Texto no meio do Donut */}
                         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                           <span className="text-xs text-neutral-500 uppercase tracking-widest font-bold">Total</span>
                           <span className="text-xl font-extrabold text-white">
-                            {formatMoney(categoryData.reduce((a, b) => a + b.value, 0))}
+                            {formatMoney(Number(categoryData.reduce((a, b) => a + b.value, 0)))}
                           </span>
                         </div>
                       </div>
@@ -147,7 +142,7 @@ export function ReportsModal({ isOpen, onClose, transactions }: any) {
                               <div className="w-3 h-3 rounded-full shadow-lg" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
                               <span className="text-sm font-medium text-neutral-300">{item.name}</span>
                             </div>
-                            <span className="text-sm font-bold text-white">{formatMoney(item.value)}</span>
+                            <span className="text-sm font-bold text-white">{formatMoney(Number(item.value))}</span>
                           </div>
                         ))}
                       </div>
@@ -156,7 +151,6 @@ export function ReportsModal({ isOpen, onClose, transactions }: any) {
                 </motion.div>
               )}
 
-              {/* ABA 2: BARRAS */}
               {activeTab === 'balanco' && (
                 <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col gap-6">
                   {balanceData.length === 0 ? (
@@ -180,12 +174,12 @@ export function ReportsModal({ isOpen, onClose, transactions }: any) {
                       <div className="bg-gradient-to-r from-emerald-500/10 to-rose-500/10 border border-white/5 p-4 rounded-2xl flex items-center justify-around mt-4">
                         <div className="text-center">
                           <p className="text-xs text-neutral-400 mb-1 flex items-center justify-center gap-1"><TrendingUp className="w-3 h-3 text-emerald-400"/> Receitas Total</p>
-                          <p className="font-bold text-emerald-400">{formatMoney(balanceData.reduce((a:any, b:any) => a + b.Receitas, 0))}</p>
+                          <p className="font-bold text-emerald-400">{formatMoney(Number(balanceData.reduce((a: number, b: any) => a + b.Receitas, 0)))}</p>
                         </div>
                         <div className="w-px h-10 bg-white/10"></div>
                         <div className="text-center">
                           <p className="text-xs text-neutral-400 mb-1 flex items-center justify-center gap-1"><TrendingDown className="w-3 h-3 text-rose-400"/> Despesas Total</p>
-                          <p className="font-bold text-rose-400">{formatMoney(balanceData.reduce((a:any, b:any) => a + b.Despesas, 0))}</p>
+                          <p className="font-bold text-rose-400">{formatMoney(Number(balanceData.reduce((a: number, b: any) => a + b.Despesas, 0)))}</p>
                         </div>
                       </div>
                     </>
