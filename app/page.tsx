@@ -42,7 +42,6 @@ export default function Dashboard() {
   const handleNextMonth = () => setActiveMonth(prev => prev === 11 ? 0 : prev + 1);
   const handleOpenModal = () => setIsModalOpen(true);
 
-  // MÁGICA: Escutando os comandos da Barra Inferior (Celular)
   useEffect(() => {
     const handleNavigation = (e: any) => {
       const modal = e.detail;
@@ -102,9 +101,6 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50 font-sans selection:bg-indigo-500/30">
       
-      {/* ================================== */}
-      {/* NAVBAR DESKTOP (Invisível no Celular) */}
-      {/* ================================== */}
       <nav className="hidden md:flex border-b border-white/10 bg-black/20 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between w-full">
           <div className="flex items-center gap-3">
@@ -128,9 +124,6 @@ export default function Dashboard() {
 
       <main className="max-w-md md:max-w-7xl mx-auto px-6 py-8 pb-32 md:pb-12 md:py-12">
         
-        {/* ================================== */}
-        {/* CABEÇALHO MOBILE (Invisível no PC) */}
-        {/* ================================== */}
         <header className="flex md:hidden justify-between items-center mb-8">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
@@ -152,9 +145,6 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* ================================== */}
-        {/* CABEÇALHO DESKTOP E BOTÕES ANTIGOS */}
-        {/* ================================== */}
         <div className="hidden md:flex flex-col xl:flex-row justify-between items-start xl:items-end mb-10 gap-6">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
             <h1 className="text-3xl font-bold mb-2">Visão Geral</h1>
@@ -183,9 +173,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* ================================== */}
-        {/* CARDS DE SALDO HÍBRIDOS            */}
-        {/* ================================== */}
         <div className="flex md:grid md:grid-cols-3 gap-4 md:gap-6 overflow-x-auto md:overflow-visible pb-6 md:pb-12 snap-x snap-mandatory md:snap-none scrollbar-hide">
           <div className="snap-center shrink-0 w-[85%] md:w-auto">
             <SummaryCard title="Saldo no Mês" amount={formatMoney(balance)} isPositive={balance >= 0} icon={<Wallet className="text-indigo-400" />} delay={0.1} />
@@ -198,12 +185,8 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* ================================== */}
-        {/* GRID INFERIOR DESKTOP/MOBILE       */}
-        {/* ================================== */}
         <div className="flex flex-col lg:grid lg:grid-cols-3 gap-8">
           
-          {/* COLUNA ESQUERDA (Organização) */}
           <div className="lg:col-span-2">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }} className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <h2 className="text-lg font-semibold tracking-tight">Organização</h2>
@@ -224,7 +207,6 @@ export default function Dashboard() {
             </AnimatePresence>
           </div>
 
-          {/* COLUNA DIREITA (Recentes) */}
           <div className="lg:col-span-1">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.5 }} className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-sm h-full">
               <div className="flex justify-between items-center mb-6">
@@ -245,7 +227,6 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* MODAIS INVISÍVEIS */}
       <TransactionModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       <AiUploadModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} />
       <FinancialPlannerModal isOpen={isPlannerOpen} onClose={() => setIsPlannerOpen(false)} currentIncome={totalIncome} />
@@ -257,10 +238,6 @@ export default function Dashboard() {
     </div>
   );
 }
-
-// ==========================================
-// COMPONENTES MENORES (Aparência Premium)
-// ==========================================
 
 function SummaryCard({ title, amount, isPositive, icon, delay }: any) {
   return (
@@ -311,25 +288,25 @@ function ExpenseCategoryCard({ title, icon, total, items, accentColor, onAction 
 function TransactionRow({ title, category, date, amount, type, onDelete }: any) {
   const isIncome = type === 'income';
   return (
-    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-black/20 border border-white/5 hover:bg-white/5 transition-colors">
-      <div className="flex items-center gap-3.5">
+    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-black/20 border border-white/5 hover:bg-white/5 transition-colors gap-2 overflow-hidden">
+      <div className="flex items-center gap-3.5 flex-1 min-w-0">
         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border shrink-0 ${isIncome ? 'bg-emerald-400/10 border-emerald-400/20 text-emerald-400' : 'bg-rose-400/10 border-rose-400/20 text-rose-400'}`}>
           {isIncome ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
         </div>
-        <div className="overflow-hidden">
-          <h4 className="font-semibold text-white mb-0.5 text-sm truncate w-32 sm:w-48">{title}</h4>
-          <div className="flex items-center gap-2 text-[11px] text-neutral-500 uppercase tracking-wide font-medium">
-            <span>{category}</span>
-            <span className="w-1 h-1 bg-neutral-700 rounded-full"></span>
-            <span>{date}</span>
+        <div className="overflow-hidden flex-1 min-w-0">
+          <h4 className="font-semibold text-white mb-0.5 text-sm truncate">{title}</h4>
+          <div className="flex items-center gap-2 text-[11px] text-neutral-500 uppercase tracking-wide font-medium truncate">
+            <span className="truncate">{category}</span>
+            <span className="w-1 h-1 bg-neutral-700 rounded-full shrink-0"></span>
+            <span className="shrink-0">{date}</span>
           </div>
         </div>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 shrink-0">
         <div className={`font-bold text-sm tracking-tight whitespace-nowrap ${isIncome ? 'text-emerald-400' : 'text-white'}`}>
           {amount}
         </div>
-        <button onClick={onDelete} className="p-2 text-rose-500/50 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer"><Trash2 className="w-4 h-4" /></button>
+        <button onClick={onDelete} className="p-2 text-rose-500/50 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer shrink-0"><Trash2 className="w-4 h-4" /></button>
       </div>
     </div>
   );
