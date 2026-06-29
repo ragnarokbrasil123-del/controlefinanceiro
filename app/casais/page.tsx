@@ -60,7 +60,7 @@ export default function CasaisDashboard() {
               <div className="w-10 h-10 bg-gradient-to-tr from-pink-500 to-rose-500 rounded-xl flex items-center justify-center shadow-lg shadow-pink-500/20">
                 <Heart className="text-white w-5 h-5 fill-white" />
               </div>
-              <span className="font-bold text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-400">FinApp Casais</span>
+              <span className="font-bold text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-400">Nexa Casais</span>
             </div>
           </div>
           <button onClick={() => setIsWealthModalOpen(true)} className="p-2 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 rounded-xl transition-colors border border-pink-500/20 flex items-center gap-2 cursor-pointer">

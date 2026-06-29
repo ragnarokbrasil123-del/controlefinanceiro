@@ -17,7 +17,11 @@ import { ReportsModal } from "../components/ReportsModal";
 import { ActivityModal } from "../components/ActivityModal";
 import { ProfileModal } from "../components/ProfileModal";
 import { CoupleModal } from "../components/CoupleModal";
-import { supabase } from "../lib/supabase"; 
+import { AccountManagerModal } from "../components/AccountManagerModal";
+import { BudgetModal } from "../components/BudgetModal";
+import { WelcomeModal } from "../components/WelcomeModal";
+import { DashboardChart } from "../components/DashboardChart";
+import { supabase } from "../lib/supabase";
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -31,7 +35,10 @@ export default function Dashboard() {
   const [isActivityOpen, setIsActivityOpen] = useState(false); 
   const [isProfileOpen, setIsProfileOpen] = useState(false); 
   const [isCoupleOpen, setIsCoupleOpen] = useState(false); 
-  const [hasUnread, setHasUnread] = useState(true); 
+  const [isAccountsOpen, setIsAccountsOpen] = useState(false);
+  const [isBudgetOpen, setIsBudgetOpen] = useState(false);
+  const [hasUnread, setHasUnread] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   
   const [userEmail, setUserEmail] = useState("");
   const [userRole, setUserRole] = useState("client");
@@ -50,6 +57,8 @@ export default function Dashboard() {
       if (modal === 'config') setIsProfileOpen(true);
       if (modal === 'manual') setIsModalOpen(true);
       if (modal === 'camera') setIsAiModalOpen(true);
+      if (modal === 'contas') setIsAccountsOpen(true);
+      if (modal === 'orcamentos') setIsBudgetOpen(true);
     };
     window.addEventListener('openModal', handleNavigation);
     return () => window.removeEventListener('openModal', handleNavigation);
@@ -60,7 +69,7 @@ export default function Dashboard() {
 
     async function checkUserAndFetch() {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { window.location.href = '/login'; return; }
+      if (!session) { /* window.location.href = '/login'; */ return; }
       setUserEmail(session.user.email || "");
 
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
@@ -68,6 +77,7 @@ export default function Dashboard() {
 
       const { data } = await supabase.from('transactions').select('*').order('date', { ascending: false });
       if (data) setAllTransactions(data);
+      setIsLoading(false);
     }
     checkUserAndFetch();
   }, []);
@@ -107,7 +117,7 @@ export default function Dashboard() {
             <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
               <Wallet className="text-white w-5 h-5" />
             </div>
-            <span className="font-bold text-xl tracking-tight">FinApp</span>
+            <span className="font-bold text-xl tracking-tight">Nexa</span>
           </div>
           
           <div className="flex items-center gap-6">
@@ -131,7 +141,7 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="text-xs text-neutral-400 font-medium tracking-wide uppercase">Olá, {userEmail ? userEmail.split('@')[0] : 'Usuário'}</p>
-              <h1 className="text-2xl font-bold text-white tracking-tight">Seu FinApp</h1>
+              <h1 className="text-2xl font-bold text-white tracking-tight">Seu Nexa</h1>
             </div>
           </div>
           
@@ -152,11 +162,17 @@ export default function Dashboard() {
           </motion.div>
           
           <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+            <motion.button onClick={() => setIsAccountsOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 px-4 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-blue-500/20">
+              <Wallet className="w-4 h-4" /> <span>Contas</span>
+            </motion.button>
             <motion.button onClick={() => setIsCoupleOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 px-4 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-pink-500/20">
               <Heart className="w-4 h-4 fill-pink-400/20" /> <span>Casal</span>
             </motion.button>
             <motion.button onClick={() => setIsReportsOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-4 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-indigo-500/20">
               <PieChartIcon className="w-4 h-4" /> <span>Relatórios</span>
+            </motion.button>
+            <motion.button onClick={() => setIsBudgetOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 px-4 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-amber-500/20">
+              <Target className="w-4 h-4" /> <span>Orçamentos</span>
             </motion.button>
             <motion.button onClick={() => setIsTrackerOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-4 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-rose-500/20">
               <Search className="w-4 h-4" /> <span>Assinaturas</span>
@@ -164,26 +180,43 @@ export default function Dashboard() {
             <motion.button onClick={() => setIsPlannerOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-4 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-emerald-500/20">
               <Target className="w-4 h-4" /> <span>Planejador</span>
             </motion.button>
-            <motion.button onClick={() => setIsAiModalOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-5 py-2.5 rounded-full font-medium transition-all shadow-lg shadow-purple-500/25 active:scale-95 cursor-pointer border border-white/10">
-              <Sparkles className="w-4 h-4" /> <span>Ler Foto</span>
-            </motion.button>
-            <motion.button onClick={handleOpenModal} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-white/10">
-              <Plus className="w-4 h-4" /> <span>Manual</span>
-            </motion.button>
+            <div className="flex items-center gap-2 flex-1 sm:flex-none">
+              <motion.button onClick={() => setIsAiModalOpen(true)} className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-5 py-2.5 rounded-full font-medium transition-all shadow-lg shadow-purple-500/25 active:scale-95 cursor-pointer border border-white/10">
+                <Sparkles className="w-4 h-4" /> <span>Ler Foto</span>
+              </motion.button>
+              <motion.button onClick={handleOpenModal} className="flex items-center justify-center bg-neutral-800 hover:bg-neutral-700 text-white w-[42px] h-[42px] rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-white/10 shrink-0">
+                <Plus className="w-5 h-5" />
+              </motion.button>
+            </div>
           </div>
         </div>
 
-        <div className="flex md:grid md:grid-cols-3 gap-4 md:gap-6 overflow-x-auto md:overflow-visible pb-6 md:pb-12 snap-x snap-mandatory md:snap-none scrollbar-hide">
-          <div className="snap-center shrink-0 w-[85%] md:w-auto">
-            <SummaryCard title="Saldo no Mês" amount={formatMoney(balance)} isPositive={balance >= 0} icon={<Wallet className="text-indigo-400" />} delay={0.1} />
+        {isLoading ? (
+          <div className="flex md:grid md:grid-cols-3 gap-4 md:gap-6 overflow-x-auto md:overflow-visible pb-6 md:pb-12">
+            {[1,2,3].map(i => (
+              <div key={i} className="min-w-[80%] md:min-w-0 h-32 bg-white/5 border border-white/10 rounded-3xl animate-pulse"></div>
+            ))}
           </div>
-          <div className="snap-center shrink-0 w-[80%] md:w-auto">
-            <SummaryCard title="Receitas" amount={formatMoney(totalIncome)} isPositive={true} icon={<TrendingUp className="text-emerald-400" />} delay={0.2} />
+        ) : (
+          <div className="flex md:grid md:grid-cols-3 gap-4 md:gap-6 overflow-x-auto md:overflow-visible pb-6 md:pb-12 snap-x snap-mandatory md:snap-none scrollbar-hide">
+            <div className="snap-center shrink-0 w-[85%] md:w-auto">
+              <SummaryCard title="Saldo no Mês" amount={formatMoney(balance)} isPositive={balance >= 0} icon={<Wallet className="text-indigo-400" />} delay={0.1} />
+            </div>
+            <div className="snap-center shrink-0 w-[80%] md:w-auto">
+              <SummaryCard title="Receitas" amount={formatMoney(totalIncome)} isPositive={true} icon={<TrendingUp className="text-emerald-400" />} delay={0.2} />
+            </div>
+            <div className="snap-center shrink-0 w-[80%] md:w-auto">
+              <SummaryCard title="Despesas" amount={formatMoney(totalExpense)} isPositive={false} icon={<TrendingDown className="text-rose-400" />} delay={0.3} />
+            </div>
           </div>
-          <div className="snap-center shrink-0 w-[80%] md:w-auto">
-            <SummaryCard title="Despesas" amount={formatMoney(totalExpense)} isPositive={false} icon={<TrendingDown className="text-rose-400" />} delay={0.3} />
+        )}
+
+        {/* Gráfico Principal */}
+        {!isLoading && (
+          <div className="mb-8">
+            <DashboardChart transactions={allTransactions} />
           </div>
-        </div>
+        )}
 
         <div className="flex flex-col lg:grid lg:grid-cols-3 gap-8">
           
@@ -229,12 +262,15 @@ export default function Dashboard() {
 
       <TransactionModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       <AiUploadModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} />
-      <FinancialPlannerModal isOpen={isPlannerOpen} onClose={() => setIsPlannerOpen(false)} currentIncome={totalIncome} />
+      <FinancialPlannerModal isOpen={isPlannerOpen} onClose={() => setIsPlannerOpen(false)} currentIncome={totalIncome} currentExpense={totalExpense} balance={balance} transactions={allTransactions} />
       <SubscriptionTrackerModal isOpen={isTrackerOpen} onClose={() => setIsTrackerOpen(false)} transactions={allTransactions} />
       <ReportsModal isOpen={isReportsOpen} onClose={() => setIsReportsOpen(false)} transactions={allTransactions} />
       <ActivityModal isOpen={isActivityOpen} onClose={() => setIsActivityOpen(false)} transactions={allTransactions} />
       <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} userEmail={userEmail} userRole={userRole} />
       <CoupleModal isOpen={isCoupleOpen} onClose={() => setIsCoupleOpen(false)} />
+      <AccountManagerModal isOpen={isAccountsOpen} onClose={() => setIsAccountsOpen(false)} />
+      <BudgetModal isOpen={isBudgetOpen} onClose={() => setIsBudgetOpen(false)} transactions={allTransactions} currentIncome={totalIncome} activeMonth={activeMonth} />
+      <WelcomeModal />
     </div>
   );
 }

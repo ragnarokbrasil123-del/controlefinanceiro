@@ -9,18 +9,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Nenhum arquivo recebido" }, { status: 400 });
     }
 
-    // O TRUQUE HACKER!
-    const parte1 = "AIzaSyDi9NHm";
-    const parte2 = "Kbq5pxHn7VDk";
-    const parte3 = "FqCZzdIT5bMZleI";
-    const apiKey = parte1 + parte2 + parte3;
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: "Chave do Gemini não configurada." }, { status: 500 });
+    }
 
     const bytes = await file.arrayBuffer();
     const base64Data = Buffer.from(bytes).toString("base64");
     const mimeType = file.type;
 
-    // URL OFICIAL E ESTÁVEL DO GOOGLE (Versão V1 sem beta)
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // URL OFICIAL E ESTÁVEL DO GOOGLE
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
 
     const promptText = `
 Você é um assistente financeiro de elite. Analise a imagem ou documento em anexo (um recibo, nota fiscal, fatura ou anotação).

@@ -7,12 +7,13 @@ const inter = Inter({ subsets: ["latin"] });
 
 // METADADOS NATIVOS PARA PWA (Android e Apple iOS)
 export const metadata: Metadata = {
-  title: "FinApp Premium",
+  title: "Nexa Premium",
   description: "Seu controle financeiro inteligente",
+  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
-    title: "FinApp",
+    statusBarStyle: "default",
+    title: "Nexa",
   },
 };
 
