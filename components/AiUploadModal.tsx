@@ -9,6 +9,7 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
   const [isUploading, setIsUploading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   if (!isOpen) return null;
 
@@ -55,7 +56,7 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
           amount: parseFloat(item.amount || 0),
           category: item.category || "Variáveis",
           type: "expense",
-          date: new Date().toISOString()
+          date: selectedDate
         })).filter(t => t.amount > 0);
 
         if (transactionsToInsert.length > 0) {
@@ -125,6 +126,16 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
                   {errorMessage}
                 </div>
               )}
+
+              <div className="mb-4 bg-white/5 p-4 rounded-2xl border border-white/10">
+                <label className="block text-sm font-medium text-neutral-400 mb-2">Mês/Data do Lançamento</label>
+                <input 
+                  type="date" 
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-full bg-black/20 border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                />
+              </div>
 
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <label className="flex flex-col items-center justify-center p-6 bg-white/5 hover:bg-indigo-500/20 rounded-2xl cursor-pointer">
