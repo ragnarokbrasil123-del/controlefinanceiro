@@ -6,10 +6,11 @@ import {
   Wallet, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight,
   Bell, User, Plus, Home as HomeIcon, Coffee, CreditCard, 
   ChevronLeft, ChevronRight, ArrowRight, Sparkles, LineChart, Target,
-  PieChart as PieChartIcon, Search, Trash2, Heart, CheckCircle2, Clock
+  PieChart as PieChartIcon, Search, Trash2, Heart, CheckCircle2, Clock, Edit2
 } from "lucide-react";
 
 import { TransactionModal } from "../components/TransactionModal";
+import { EditTransactionModal } from "../components/EditTransactionModal";
 import { AiUploadModal } from "../components/AiUploadModal";
 import { FinancialPlannerModal } from "../components/FinancialPlannerModal";
 import { SubscriptionTrackerModal } from "../components/SubscriptionTrackerModal";
@@ -41,6 +42,8 @@ export default function Dashboard() {
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
 
   const [isBudgetOpen, setIsBudgetOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<any>(null);
   const [hasUnread, setHasUnread] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -86,6 +89,11 @@ export default function Dashboard() {
     }
     checkUserAndFetch();
   }, []);
+
+  function handleEditTransaction(tx: any) {
+    setEditingTransaction(tx);
+    setIsEditModalOpen(true);
+  }
 
   async function handleDeleteTransaction(id: string) {
     if(!window.confirm("Deseja apagar este lançamento?")) return;
@@ -282,7 +290,7 @@ export default function Dashboard() {
                   <p className="text-neutral-500 text-sm text-center py-4">Nenhuma transação lançada ainda.</p>
                 ) : (
                   recentTransactions.map((tx) => (
-                    <TransactionRow key={tx.id} title={tx.title} category={tx.category} date={new Date(tx.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})} amount={`${tx.type === 'income' ? '+' : '-'} R$ ${tx.amount.toFixed(2).replace('.', ',')}`} type={tx.type} isPaid={tx.is_paid} onTogglePaid={() => handleTogglePaid(tx.id, tx.is_paid)} onDelete={() => handleDeleteTransaction(tx.id)} />
+                    <TransactionRow key={tx.id} title={tx.title} category={tx.category} date={new Date(tx.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})} amount={`${tx.type === 'income' ? '+' : '-'} R$ ${tx.amount.toFixed(2).replace('.', ',')}`} type={tx.type} isPaid={tx.is_paid} onTogglePaid={() => handleTogglePaid(tx.id, tx.is_paid)} onDelete={() => handleDeleteTransaction(tx.id)} onEdit={() => handleEditTransaction(tx)} />
                   ))
                 )}
               </div>
@@ -293,6 +301,7 @@ export default function Dashboard() {
       </main>
 
       <TransactionModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <EditTransactionModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} transaction={editingTransaction} />
       <AiUploadModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} />
       <FinancialPlannerModal isOpen={isPlannerOpen} onClose={() => setIsPlannerOpen(false)} currentIncome={totalIncome} currentExpense={totalExpense} balance={balance} transactions={allTransactions} />
       <SubscriptionTrackerModal isOpen={isTrackerOpen} onClose={() => setIsTrackerOpen(false)} transactions={allTransactions} />
@@ -355,7 +364,7 @@ function ExpenseCategoryCard({ title, icon, total, items, accentColor, onAction 
   );
 }
 
-function TransactionRow({ title, category, date, amount, type, isPaid, onTogglePaid, onDelete }: any) {
+function TransactionRow({ title, category, date, amount, type, isPaid, onTogglePaid, onDelete, onEdit }: any) {
   const isIncome = type === 'income';
   return (
     <div className={`flex items-center justify-between p-3.5 rounded-2xl border transition-colors gap-2 overflow-hidden ${isPaid === false ? 'bg-amber-500/5 border-amber-500/10' : 'bg-black/20 border-white/5 hover:bg-white/5'}`}>
@@ -384,6 +393,7 @@ function TransactionRow({ title, category, date, amount, type, isPaid, onToggleP
             {isPaid ? <CheckCircle2 className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
           </button>
         )}
+        <button onClick={onEdit} className="p-2 text-indigo-500/50 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-xl transition-colors cursor-pointer shrink-0"><Edit2 className="w-4 h-4" /></button>
         <button onClick={onDelete} className="p-2 text-rose-500/50 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer shrink-0"><Trash2 className="w-4 h-4" /></button>
       </div>
     </div>
