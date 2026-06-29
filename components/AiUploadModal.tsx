@@ -46,24 +46,29 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
       
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (session && data.description && data.amount) {
-        alert("Passo 5: Salvando no Supabase..."); // DETETIVE 5
-        const { error } = await supabase.from('transactions').insert([{
+      if (session && Array.isArray(data) && data.length > 0) {
+        alert(`Passo 5: Salvando ${data.length} itens no Supabase...`); // DETETIVE 5
+        
+        const transactionsToInsert = data.map((item: any) => ({
           user_id: session.user.id,
-          title: data.description, 
-          amount: parseFloat(data.amount),
-          category: data.category || "Variáveis",
-          type: "expense", 
+          title: item.description || "Despesa lida por IA",
+          amount: parseFloat(item.amount || 0),
+          category: item.category || "Variáveis",
+          type: "expense",
           date: new Date().toISOString()
-        }]);
+        })).filter(t => t.amount > 0);
 
-        if (error) {
-          alert("ERRO SUPABASE: " + JSON.stringify(error));
-          throw new Error("Erro de bloqueio no banco.");
+        if (transactionsToInsert.length > 0) {
+          const { error } = await supabase.from('transactions').insert(transactionsToInsert);
+          
+          if (error) {
+            alert("ERRO SUPABASE: " + JSON.stringify(error));
+            throw new Error("Erro de bloqueio no banco.");
+          }
         }
       } else {
-         alert("Faltaram dados no JSON da IA!");
-         throw new Error("A IA não conseguiu extrair dados suficientes.");
+         alert("Faltaram dados ou a IA não retornou uma lista válida!");
+         throw new Error("A IA não conseguiu extrair os dados corretamente.");
       }
 
       setIsUploading(false);
