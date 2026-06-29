@@ -22,19 +22,27 @@ export async function POST(request: Request) {
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
 
     const promptText = `
-Você é um assistente financeiro de elite. Analise a imagem ou documento em anexo (um recibo, nota fiscal, fatura ou anotação).
-Extraia os dados da compra e retorne EXATAMENTE E APENAS um objeto JSON válido, sem crases de markdown e sem nenhum texto adicional.
-O JSON deve ter esta estrutura exata:
-{
-  "description": "Nome do local ou produto principal",
-  "amount": 150.50,
-  "category": "Alimentação"
-}
-Se o valor for negativo ou tiver desconto, considere o valor final pago. O "amount" deve ser um número float. Se não houver clareza, deduza pelo nome da loja.
+Você é um assistente financeiro de elite. Analise a imagem ou documento em anexo (recibo, nota fiscal ou folha de anotações).
+Extraia TODOS os itens ou despesas individuais e retorne EXATAMENTE E APENAS uma LISTA (Array) JSON válida, sem crases de markdown e sem nenhum texto adicional.
+O JSON deve ter esta estrutura exata de lista:
+[
+  {
+    "description": "Nome do item 1",
+    "amount": 10.50,
+    "category": "Alimentação"
+  },
+  {
+    "description": "Nome do item 2",
+    "amount": 40.00,
+    "category": "Variáveis"
+  }
+]
+Se houver apenas um gasto, retorne uma lista com 1 objeto. O "amount" deve ser sempre um número float. Categorize cada item individualmente.
 `;
 
     const requestBody = {
-      contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: mimeType, data: base64Data } }] }]
+      contents: [{ parts: [{ text: promptText }, { inlineData: { mimeType: mimeType, data: base64Data } }] }],
+      generationConfig: { responseMimeType: "application/json" }
     };
 
     const response = await fetch(geminiUrl, {
@@ -50,7 +58,9 @@ Se o valor for negativo ou tiver desconto, considere o valor final pago. O "amou
 
     const data = await response.json();
     let textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    // Clean up potential markdown formatting or thought blocks just in case
     textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+    textResponse = textResponse.replace(/<thought>[\s\S]*?<\/thought>/g, '').trim();
 
     const parsedJson = JSON.parse(textResponse);
     return NextResponse.json(parsedJson);
