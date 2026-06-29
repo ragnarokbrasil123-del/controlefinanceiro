@@ -6,7 +6,7 @@ import {
   Wallet, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight,
   Bell, User, Plus, Home as HomeIcon, Coffee, CreditCard, 
   ChevronLeft, ChevronRight, ArrowRight, Sparkles, LineChart, Target,
-  PieChart as PieChartIcon, Search, Trash2, Heart
+  PieChart as PieChartIcon, Search, Trash2, Heart, CheckCircle2, Clock
 } from "lucide-react";
 
 import { TransactionModal } from "../components/TransactionModal";
@@ -17,10 +17,12 @@ import { ReportsModal } from "../components/ReportsModal";
 import { ActivityModal } from "../components/ActivityModal";
 import { ProfileModal } from "../components/ProfileModal";
 import { CoupleModal } from "../components/CoupleModal";
-import { AccountManagerModal } from "../components/AccountManagerModal";
+
 import { BudgetModal } from "../components/BudgetModal";
 import { WelcomeModal } from "../components/WelcomeModal";
 import { DashboardChart } from "../components/DashboardChart";
+import { GoalsModal } from "../components/GoalsModal";
+import { CategoryManagerModal } from "../components/CategoryManagerModal";
 import { supabase } from "../lib/supabase";
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -35,13 +37,16 @@ export default function Dashboard() {
   const [isActivityOpen, setIsActivityOpen] = useState(false); 
   const [isProfileOpen, setIsProfileOpen] = useState(false); 
   const [isCoupleOpen, setIsCoupleOpen] = useState(false); 
-  const [isAccountsOpen, setIsAccountsOpen] = useState(false);
+  const [isGoalsOpen, setIsGoalsOpen] = useState(false); 
+  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+
   const [isBudgetOpen, setIsBudgetOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   
   const [userEmail, setUserEmail] = useState("");
   const [userRole, setUserRole] = useState("client");
+  const [searchQuery, setSearchQuery] = useState("");
   
   const [allTransactions, setAllTransactions] = useState<any[]>([]);
 
@@ -57,7 +62,7 @@ export default function Dashboard() {
       if (modal === 'config') setIsProfileOpen(true);
       if (modal === 'manual') setIsModalOpen(true);
       if (modal === 'camera') setIsAiModalOpen(true);
-      if (modal === 'contas') setIsAccountsOpen(true);
+
       if (modal === 'orcamentos') setIsBudgetOpen(true);
     };
     window.addEventListener('openModal', handleNavigation);
@@ -69,7 +74,7 @@ export default function Dashboard() {
 
     async function checkUserAndFetch() {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { /* window.location.href = '/login'; */ return; }
+      if (!session) { window.location.href = '/login'; return; }
       setUserEmail(session.user.email || "");
 
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
@@ -89,6 +94,16 @@ export default function Dashboard() {
     else alert("Erro ao excluir.");
   }
 
+  async function handleTogglePaid(id: string, currentStatus: boolean) {
+    const newStatus = !currentStatus;
+    const { error } = await supabase.from('transactions').update({ is_paid: newStatus }).eq('id', id);
+    if (!error) {
+      setAllTransactions(prev => prev.map(t => t.id === id ? { ...t, is_paid: newStatus } : t));
+    } else {
+      alert("Erro ao atualizar status.");
+    }
+  }
+
   const currentMonthTransactions = allTransactions.filter(t => {
     if (!t.date) return false;
     const [year, month] = t.date.split('-'); 
@@ -106,7 +121,12 @@ export default function Dashboard() {
 
   const sumCategory = (list: any[]) => list.reduce((acc, t) => acc + t.amount, 0);
   const formatMoney = (val: number) => `R$ ${val.toFixed(2).replace('.', ',')}`;
-  const recentTransactions = allTransactions.slice(0, 8); 
+
+  const filteredTransactions = allTransactions.filter(t => 
+    t.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    t.category.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  const recentTransactions = searchQuery ? filteredTransactions : allTransactions.slice(0, 8); 
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-50 font-sans selection:bg-indigo-500/30">
@@ -114,8 +134,8 @@ export default function Dashboard() {
       <nav className="hidden md:flex border-b border-white/10 bg-black/20 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between w-full">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-              <Wallet className="text-white w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 overflow-hidden bg-black/20">
+              <img src="/icon-192.png" alt="Logo" className="w-full h-full object-cover" />
             </div>
             <span className="font-bold text-xl tracking-tight">Nexa</span>
           </div>
@@ -136,8 +156,8 @@ export default function Dashboard() {
         
         <header className="flex md:hidden justify-between items-center mb-8">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-              <Wallet className="text-white w-6 h-6" />
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 overflow-hidden bg-black/20">
+              <img src="/icon-192.png" alt="Logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <p className="text-xs text-neutral-400 font-medium tracking-wide uppercase">Olá, {userEmail ? userEmail.split('@')[0] : 'Usuário'}</p>
@@ -162,11 +182,12 @@ export default function Dashboard() {
           </motion.div>
           
           <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-            <motion.button onClick={() => setIsAccountsOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 px-4 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-blue-500/20">
-              <Wallet className="w-4 h-4" /> <span>Contas</span>
-            </motion.button>
+
             <motion.button onClick={() => setIsCoupleOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 px-4 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-pink-500/20">
               <Heart className="w-4 h-4 fill-pink-400/20" /> <span>Casal</span>
+            </motion.button>
+            <motion.button onClick={() => setIsGoalsOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-4 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-emerald-500/20">
+              <Target className="w-4 h-4" /> <span>Metas</span>
             </motion.button>
             <motion.button onClick={() => setIsReportsOpen(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-4 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-indigo-500/20">
               <PieChartIcon className="w-4 h-4" /> <span>Relatórios</span>
@@ -222,7 +243,12 @@ export default function Dashboard() {
           
           <div className="lg:col-span-2">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }} className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <h2 className="text-lg font-semibold tracking-tight">Organização</h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-semibold tracking-tight">Organização</h2>
+                <button onClick={() => setIsCategoryOpen(true)} className="text-xs bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 px-2.5 py-1 rounded-full font-medium transition-colors border border-indigo-500/20">
+                  + Categorias
+                </button>
+              </div>
               <div className="flex items-center gap-1 bg-white/5 p-1 rounded-full border border-white/10 w-fit">
                 <button onClick={handlePrevMonth} className="p-1.5 rounded-full text-neutral-400 hover:text-white transition-colors cursor-pointer"><ChevronLeft className="w-4 h-4" /></button>
                 <div className="w-24 text-center font-medium text-xs text-white tracking-wider uppercase">{MONTHS[activeMonth]}</div>
@@ -242,15 +268,21 @@ export default function Dashboard() {
 
           <div className="lg:col-span-1">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.5 }} className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-sm h-full">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-semibold tracking-tight">Recentes</h2>
+              <div className="flex flex-col gap-4 mb-6">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-lg font-semibold tracking-tight">Recentes</h2>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                  <input type="text" placeholder="Buscar gastos..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl py-2 pl-9 pr-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors" />
+                </div>
               </div>
               <div className="flex flex-col gap-3">
                 {recentTransactions.length === 0 ? (
                   <p className="text-neutral-500 text-sm text-center py-4">Nenhuma transação lançada ainda.</p>
                 ) : (
                   recentTransactions.map((tx) => (
-                    <TransactionRow key={tx.id} title={tx.title} category={tx.category} date={new Date(tx.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})} amount={`${tx.type === 'income' ? '+' : '-'} R$ ${tx.amount.toFixed(2).replace('.', ',')}`} type={tx.type} onDelete={() => handleDeleteTransaction(tx.id)} />
+                    <TransactionRow key={tx.id} title={tx.title} category={tx.category} date={new Date(tx.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})} amount={`${tx.type === 'income' ? '+' : '-'} R$ ${tx.amount.toFixed(2).replace('.', ',')}`} type={tx.type} isPaid={tx.is_paid} onTogglePaid={() => handleTogglePaid(tx.id, tx.is_paid)} onDelete={() => handleDeleteTransaction(tx.id)} />
                   ))
                 )}
               </div>
@@ -268,7 +300,9 @@ export default function Dashboard() {
       <ActivityModal isOpen={isActivityOpen} onClose={() => setIsActivityOpen(false)} transactions={allTransactions} />
       <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} userEmail={userEmail} userRole={userRole} />
       <CoupleModal isOpen={isCoupleOpen} onClose={() => setIsCoupleOpen(false)} />
-      <AccountManagerModal isOpen={isAccountsOpen} onClose={() => setIsAccountsOpen(false)} />
+      <GoalsModal isOpen={isGoalsOpen} onClose={() => setIsGoalsOpen(false)} />
+      <CategoryManagerModal isOpen={isCategoryOpen} onClose={() => setIsCategoryOpen(false)} />
+
       <BudgetModal isOpen={isBudgetOpen} onClose={() => setIsBudgetOpen(false)} transactions={allTransactions} currentIncome={totalIncome} activeMonth={activeMonth} />
       <WelcomeModal />
     </div>
@@ -321,16 +355,19 @@ function ExpenseCategoryCard({ title, icon, total, items, accentColor, onAction 
   );
 }
 
-function TransactionRow({ title, category, date, amount, type, onDelete }: any) {
+function TransactionRow({ title, category, date, amount, type, isPaid, onTogglePaid, onDelete }: any) {
   const isIncome = type === 'income';
   return (
-    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-black/20 border border-white/5 hover:bg-white/5 transition-colors gap-2 overflow-hidden">
+    <div className={`flex items-center justify-between p-3.5 rounded-2xl border transition-colors gap-2 overflow-hidden ${isPaid === false ? 'bg-amber-500/5 border-amber-500/10' : 'bg-black/20 border-white/5 hover:bg-white/5'}`}>
       <div className="flex items-center gap-3.5 flex-1 min-w-0">
         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border shrink-0 ${isIncome ? 'bg-emerald-400/10 border-emerald-400/20 text-emerald-400' : 'bg-rose-400/10 border-rose-400/20 text-rose-400'}`}>
           {isIncome ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
         </div>
         <div className="overflow-hidden flex-1 min-w-0">
-          <h4 className="font-semibold text-white mb-0.5 text-sm truncate">{title}</h4>
+          <div className="flex items-center gap-2 mb-0.5">
+            <h4 className={`font-semibold text-sm truncate ${isPaid === false ? 'text-amber-100' : 'text-white'}`}>{title}</h4>
+            {isPaid === false && <span className="bg-amber-500/20 text-amber-400 text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider">Pendente</span>}
+          </div>
           <div className="flex items-center gap-2 text-[11px] text-neutral-500 uppercase tracking-wide font-medium truncate">
             <span className="truncate">{category}</span>
             <span className="w-1 h-1 bg-neutral-700 rounded-full shrink-0"></span>
@@ -338,10 +375,15 @@ function TransactionRow({ title, category, date, amount, type, onDelete }: any) 
           </div>
         </div>
       </div>
-      <div className="flex items-center gap-3 shrink-0">
-        <div className={`font-bold text-sm tracking-tight whitespace-nowrap ${isIncome ? 'text-emerald-400' : 'text-white'}`}>
+      <div className="flex items-center gap-1 shrink-0">
+        <div className={`font-bold text-sm tracking-tight whitespace-nowrap mr-2 ${isIncome ? 'text-emerald-400' : (isPaid === false ? 'text-amber-400' : 'text-white')}`}>
           {amount}
         </div>
+        {isPaid !== undefined && (
+          <button onClick={onTogglePaid} className={`p-2 rounded-xl transition-colors cursor-pointer shrink-0 ${isPaid ? 'text-emerald-500/50 hover:text-emerald-400 hover:bg-emerald-500/10' : 'text-amber-500/80 hover:text-amber-400 hover:bg-amber-500/10'}`}>
+            {isPaid ? <CheckCircle2 className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+          </button>
+        )}
         <button onClick={onDelete} className="p-2 text-rose-500/50 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer shrink-0"><Trash2 className="w-4 h-4" /></button>
       </div>
     </div>
