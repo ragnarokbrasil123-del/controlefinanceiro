@@ -79,7 +79,7 @@ export function ReportsModal({ isOpen, onClose, transactions }: any) {
       t.is_paid === false ? 'Pendente' : 'Pago'
     ]);
 
-    const csvContent = [headers.join(";"), ...rows.map(row => row.join(";"))].join("\n");
+    const csvContent = [headers.join(";"), ...rows.map((row: any[]) => row.join(";"))].join("\n");
     const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
