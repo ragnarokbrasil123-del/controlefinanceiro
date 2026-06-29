@@ -13,31 +13,29 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
   const [category, setCategory] = useState("Contas Fixas");
   const [date, setDate] = useState("");
   
-  const [accounts, setAccounts] = useState<any[]>([]);
-  const [accountId, setAccountId] = useState("");
   const [isInstallment, setIsInstallment] = useState(false);
+  const [customCategories, setCustomCategories] = useState<any[]>([]);
   const [installments, setInstallments] = useState(1);
   const [isSplit, setIsSplit] = useState(false);
+  const [isPaid, setIsPaid] = useState(true);
   
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setDate(new Date().toISOString().split('T')[0]);
-      fetchAccounts();
+      fetchCategories();
     }
   }, [isOpen]);
 
-  async function fetchAccounts() {
+  async function fetchCategories() {
     const { data: { session } } = await supabase.auth.getSession();
-    let query = supabase.from('accounts').select('id, name');
-    if (session) query = query.eq('user_id', session.user.id);
-    const { data } = await query;
-    if (data && data.length > 0) {
-      setAccounts(data);
-      setAccountId(data[0].id);
-    }
+    if (!session) return;
+    const { data } = await supabase.from('categories').select('*').eq('user_id', session.user.id).order('name');
+    if (data) setCustomCategories(data);
   }
+
+
 
   const handleTypeChange = (newType: 'expense' | 'income') => {
     setType(newType);
@@ -45,6 +43,7 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
     if (newType === 'income') {
       setIsInstallment(false);
       setIsSplit(false);
+      setIsPaid(true);
     }
   };
 
@@ -54,9 +53,7 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
     if (!title || !amount) {
       return alert("Por favor, preencha o título e o valor.");
     }
-    if (!accountId) {
-      return alert("Você precisa selecionar (ou criar) uma conta primeiro.");
-    }
+
 
     setIsLoading(true);
 
@@ -89,10 +86,10 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
           type: type,
           category: category,
           date: currentInstallmentDate.toISOString().split('T')[0],
-          account_id: accountId,
           installment_group: installmentGroup,
           installment_info: isInstallment ? `${i+1}/${installments}` : null,
           is_split: isSplit && type === 'expense',
+          is_paid: isPaid,
           user_id: userId
         });
       }
@@ -108,6 +105,7 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
       setIsInstallment(false);
       setInstallments(1);
       setIsSplit(false);
+      setIsPaid(true);
       
       onClose();
       window.location.reload(); 
@@ -159,15 +157,7 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
               </div>
 
               <div className="flex gap-4">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-neutral-400 mb-1.5">Conta/Cartão</label>
-                  <div className="relative">
-                    <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
-                    <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-10 pr-3 text-white focus:outline-none focus:border-indigo-500 transition-colors appearance-none">
-                      {accounts.length === 0 ? <option value="">Nenhuma conta</option> : accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
-                    </select>
-                  </div>
-                </div>
+
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-neutral-400 mb-1.5">Data</label>
                   <div className="relative">
@@ -185,12 +175,14 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
                       <option value="Contas Fixas">Contas Fixas</option>
                       <option value="Variáveis">Variáveis</option>
                       <option value="Cartões">Cartões de Crédito</option>
+                      {customCategories.filter(c => c.type === 'expense').map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                     </>
                   ) : (
                     <>
                       <option value="Salário">Salário</option>
                       <option value="Investimentos">Investimentos</option>
                       <option value="Outros">Outros</option>
+                      {customCategories.filter(c => c.type === 'income').map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                     </>
                   )}
                 </select>
@@ -218,6 +210,16 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
                     <div>
                       <span className="text-white font-medium block">Dividir com Parceiro(a)?</span>
                       <span className="text-neutral-500 text-xs">A despesa será cortada pela metade (50/50).</span>
+                    </div>
+                  </label>
+
+                  <div className="h-px bg-white/10 w-full"></div>
+
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" checked={isPaid} onChange={(e) => setIsPaid(e.target.checked)} className="w-5 h-5 rounded border-white/20 bg-black/20 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-neutral-900" />
+                    <div>
+                      <span className="text-white font-medium block">Já foi pago?</span>
+                      <span className="text-neutral-500 text-xs">Desmarque se for uma conta para o futuro.</span>
                     </div>
                   </label>
                 </div>
