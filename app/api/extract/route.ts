@@ -34,10 +34,11 @@ O JSON deve ter esta estrutura exata de lista:
   {
     "description": "Nome do item 2",
     "amount": 40.00,
-    "category": "Variáveis"
+    "category": "Contas Fixas"
   }
 ]
-Se houver apenas um gasto, retorne uma lista com 1 objeto. O "amount" deve ser sempre um número float. Categorize cada item individualmente.
+Se houver apenas um gasto, retorne uma lista com 1 objeto. O "amount" deve ser sempre um número float. 
+REGRA CRUCIAL: O campo "category" DEVE OBRIGATORIAMENTE ser um destes quatro: "Contas Fixas", "Variáveis", "Cartões" ou "Investimentos". É terminantemente proibido usar outras categorias. Mapeie itens de água/luz/moradia para "Contas Fixas". Mapeie compras/mercado/alimentação para "Variáveis". Mapeie faturas/bancos para "Cartões". Mapeie ações/cripto/poupança para "Investimentos".
 `;
 
     const requestBody = {
