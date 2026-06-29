@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Target, PiggyBank, ShieldCheck, Zap, Home as HomeIcon, Coins, Sparkles, Loader2, Bot } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
+import { supabase } from "../lib/supabase";
 
 export function FinancialPlannerModal({ isOpen, onClose, currentIncome, currentExpense, balance, transactions }: { isOpen: boolean, onClose: () => void, currentIncome: number, currentExpense: number, balance: number, transactions: any[] }) {
   const [activeTab, setActiveTab] = useState<'calculator' | 'advisor'>('calculator');
@@ -12,6 +13,7 @@ export function FinancialPlannerModal({ isOpen, onClose, currentIncome, currentE
   
   const [advice, setAdvice] = useState("");
   const [isFetchingAdvice, setIsFetchingAdvice] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (isOpen && currentIncome > 0) {
@@ -71,6 +73,30 @@ export function FinancialPlannerModal({ isOpen, onClose, currentIncome, currentE
     if (tab === 'advisor') fetchAdvice();
   };
 
+  const handleSaveSalary = async () => {
+    if (!salary || parseFloat(salary) <= 0) return;
+    setIsSaving(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const { error } = await supabase.from('transactions').insert([{
+        user_id: session.user.id,
+        title: "Salário Principal",
+        amount: parseFloat(salary),
+        category: "Salário",
+        type: "income",
+        date: new Date().toISOString()
+      }]);
+      if (error) throw error;
+      alert("Salário salvo com sucesso como Receita deste mês!");
+      window.location.reload();
+    } catch (e: any) {
+      alert("Erro ao salvar: " + e.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -107,9 +133,14 @@ export function FinancialPlannerModal({ isOpen, onClose, currentIncome, currentE
                 <>
                   <div className="mb-6">
                     <label className="block text-sm font-medium text-neutral-400 mb-2">Simulador de Salário / Renda Principal (R$)</label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><span className="text-neutral-500 font-medium">R$</span></div>
-                      <input type="number" value={salary} onChange={(e) => setSalary(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-2xl py-3 pl-12 pr-4 text-white placeholder:text-neutral-600 focus:outline-none focus:border-emerald-500/50 transition-all text-lg font-semibold" placeholder="3000" />
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><span className="text-neutral-500 font-medium">R$</span></div>
+                        <input type="number" value={salary} onChange={(e) => setSalary(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-2xl py-3 pl-12 pr-4 text-white placeholder:text-neutral-600 focus:outline-none focus:border-emerald-500/50 transition-all text-lg font-semibold" placeholder="3000" />
+                      </div>
+                      <button onClick={handleSaveSalary} disabled={isSaving} className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 rounded-2xl font-bold text-sm transition-colors flex items-center justify-center whitespace-nowrap active:scale-95 shadow-lg shadow-emerald-500/20">
+                        {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : "Salvar Receita"}
+                      </button>
                     </div>
                   </div>
 
