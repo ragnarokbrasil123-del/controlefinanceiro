@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { BottomNav } from "../components/BottomNav";
+import { InstallPrompt } from "../components/InstallPrompt";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -36,6 +37,7 @@ export default function RootLayout({
       <body className={`${inter.className} bg-neutral-950 text-white antialiased selection:bg-indigo-500/30 pb-24 md:pb-0`}>
         {children}
         <BottomNav />
+        <InstallPrompt />
       </body>
     </html>
   );
