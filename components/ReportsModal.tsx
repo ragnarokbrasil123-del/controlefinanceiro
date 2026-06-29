@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "motion/react";
-import { X, PieChart as PieChartIcon, BarChart3, TrendingUp, TrendingDown } from "lucide-react";
+import { X, PieChart as PieChartIcon, BarChart3, TrendingUp, TrendingDown, Download } from "lucide-react";
 import { 
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend 
@@ -65,6 +65,31 @@ export function ReportsModal({ isOpen, onClose, transactions }: any) {
     return null;
   };
 
+  const handleExportCSV = () => {
+    if (!transactions || transactions.length === 0) return alert("Nenhuma transação para exportar.");
+    
+    const headers = ["ID", "Título", "Categoria", "Valor", "Tipo", "Data", "Status"];
+    const rows = transactions.map((t: any) => [
+      t.id,
+      `"${t.title.replace(/"/g, '""')}"`,
+      `"${t.category}"`,
+      t.amount.toFixed(2).replace('.', ','),
+      t.type === 'income' ? 'Receita' : 'Despesa',
+      t.date,
+      t.is_paid === false ? 'Pendente' : 'Pago'
+    ]);
+
+    const csvContent = [headers.join(";"), ...rows.map(row => row.join(";"))].join("\n");
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `extrato_nexa_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -85,9 +110,14 @@ export function ReportsModal({ isOpen, onClose, transactions }: any) {
                 </div>
                 <h2 className="text-xl font-bold text-white tracking-tight">Relatórios Premium</h2>
               </div>
-              <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white hover:bg-white/10 rounded-full transition-colors">
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={handleExportCSV} className="flex items-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-emerald-500/20">
+                  <Download className="w-4 h-4" /> CSV
+                </button>
+                <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white hover:bg-white/10 rounded-full transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             <div className="flex p-4 gap-2 bg-black/20 border-b border-white/5 overflow-x-auto scrollbar-hide">
