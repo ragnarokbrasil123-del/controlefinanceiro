@@ -146,5 +146,3 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
     </AnimatePresence>
   );
 }
-
-
