@@ -1,7 +1,21 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
 export async function POST(req: Request) {
   try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) return NextResponse.json({ error: "Acesso Negado. Faça login." }, { status: 401 });
+    
+    const token = authHeader.replace('Bearer ', '');
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return NextResponse.json({ error: "Sessão inválida. Acesso Negado." }, { status: 401 });
+    }
+
     const body = await req.json();
     const { income, expense, balance, transactions, strategy } = body;
 
@@ -42,7 +56,8 @@ Use emojis. NUNCA DEVOLVA JSON OU CÓDIGO. Escreva em formato Markdown, como se 
     }
 
     const data = await response.json();
-    const advice = data.candidates?.[0]?.content?.parts?.[0]?.text || "Não consegui formular um conselho agora.";
+    let advice = data.candidates?.[0]?.content?.parts?.[0]?.text || "Não consegui formular um conselho agora.";
+    advice = advice.replace(/<thought>[\s\S]*?<\/thought>/g, '').trim();
 
     return NextResponse.json({ advice });
   } catch (error: any) {
