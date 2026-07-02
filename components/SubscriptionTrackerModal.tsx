@@ -7,14 +7,17 @@ export function SubscriptionTrackerModal({ isOpen, onClose, transactions }: { is
   if (!isOpen) return null;
 
   // O algoritmo que vasculha nomes
-  const keywords = ['netflix', 'spotify', 'amazon', 'prime', 'academia', 'gympass', 'smartfit', 'internet', 'claro', 'vivo', 'tim', 'youtube', 'hbo', 'disney', 'apple', 'icloud', 'xbox', 'playstation'];
+  const keywords = ['netflix', 'spotify', 'amazon', 'prime', 'academia', 'gympass', 'smartfit', 'internet', 'claro', 'vivo', 'tim', 'youtube', 'hbo', 'disney', 'apple', 'icloud', 'xbox', 'playstation', 'oi', 'banda larga', 'wifi'];
+  const essentialKeywords = ['agua', 'água', 'luz', 'energia', 'iptu', 'ipva', 'aluguel', 'condominio', 'condomínio', 'gás', 'gas', 'cref', 'imposto', 'escola', 'faculdade'];
   
   // Pegamos as transações que são despesas
   const recentTx = transactions.filter(t => t.type === 'expense');
 
-  // Filtramos aquelas que parecem assinaturas
+  // Filtramos aquelas que parecem assinaturas (excluindo as essenciais)
   const subscriptions = recentTx.filter(t => {
     const titleLower = t.title.toLowerCase();
+    if (essentialKeywords.some(k => titleLower.includes(k))) return false;
+    
     return keywords.some(k => titleLower.includes(k)) || t.category === 'Contas Fixas';
   });
 
@@ -88,8 +91,13 @@ export function SubscriptionTrackerModal({ isOpen, onClose, transactions }: { is
               ) : (
                 uniqueSubscriptions.map((sub, idx) => {
                   const yearly = sub.amount * 12;
-                  // Sugerir cancelamento se o valor for alto (acima de R$40)
-                  const isHighCost = sub.amount > 40;
+                  const titleLower = sub.title.toLowerCase();
+                  const isEssential = ['agua', 'água', 'luz', 'energia', 'iptu', 'ipva', 'aluguel', 'condominio', 'condomínio', 'gás', 'gas', 'cref', 'imposto', 'escola', 'faculdade'].some(k => titleLower.includes(k));
+                  const isTelecom = ['tim', 'vivo', 'claro', 'oi', 'internet', 'wifi', 'banda larga'].some(k => titleLower.includes(k));
+
+                  // Mostrar sugestão apenas se não for essencial e for maior que 40
+                  const showSuggestion = sub.amount > 40 && !isEssential;
+                  const suggestionText = isTelecom ? "Sugestão: Renegociar Plano?" : "Sugestão: Cancelar?";
 
                   return (
                     <div key={idx} className="flex flex-col p-3 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
@@ -110,9 +118,9 @@ export function SubscriptionTrackerModal({ isOpen, onClose, transactions }: { is
                           Custa {formatMoney(yearly)} ao ano
                         </span>
                         
-                        {isHighCost && (
+                        {showSuggestion && (
                           <span className="text-xs text-orange-400 flex items-center gap-1 cursor-pointer hover:underline">
-                            <TrendingDown className="w-3 h-3" /> Sugestão: Cancelar?
+                            <TrendingDown className="w-3 h-3" /> {suggestionText}
                           </span>
                         )}
                       </div>
