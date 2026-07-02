@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Colocando as suas chaves reais direto no código para a Vercel não se perder!
-const supabaseUrl = 'https://rwdbmpxchubsjtevcqyh.supabase.co';
-const supabaseAnonKey = 'sb_publishable_Ji5fpwZTBSbQ5zacrld-xg_M21-MOlN';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rwdbmpxchubsjtevcqyh.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_Ji5fpwZTBSbQ5zacrld-xg_M21-MOlN';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
