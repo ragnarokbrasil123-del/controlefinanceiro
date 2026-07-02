@@ -15,6 +15,11 @@ export function InstallPrompt() {
     const isPwa = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
     setIsStandalone(isPwa);
 
+    // Registrar o Service Worker silenciosamente para habilitar o PWA nativo do Chrome
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(err => console.error("SW fail:", err));
+    }
+
     if (isPwa) return;
 
     // Detectar iOS
