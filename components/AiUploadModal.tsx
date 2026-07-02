@@ -29,8 +29,14 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
       const formData = new FormData();
       formData.append("file", file);
 
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      const token = currentSession?.access_token || '';
+
       const response = await fetch("/api/extract", {
         method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        },
         body: formData,
       });
 
@@ -157,3 +163,5 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
     </AnimatePresence>
   );
 }
+
+
