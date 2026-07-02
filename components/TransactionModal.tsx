@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, TrendingUp, TrendingDown, Calendar, Wallet } from "lucide-react";
+import { X, TrendingUp, TrendingDown, Calendar, Wallet, ChevronDown } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
 export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
@@ -10,7 +10,7 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
   
   const [amount, setAmount] = useState("");
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState("Contas Fixas");
+  const [category, setCategory] = useState("Variáveis");
   const [date, setDate] = useState("");
   
   const [isInstallment, setIsInstallment] = useState(false);
@@ -39,7 +39,7 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
 
   const handleTypeChange = (newType: 'expense' | 'income') => {
     setType(newType);
-    setCategory(newType === 'expense' ? 'Contas Fixas' : 'Salário');
+    setCategory(newType === 'expense' ? 'Variáveis' : 'Salário');
     if (newType === 'income') {
       setIsInstallment(false);
       setIsSplit(false);
@@ -70,7 +70,7 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
       startDate.setMinutes(startDate.getMinutes() + startDate.getTimezoneOffset());
 
       let loopCount = isInstallment && type === 'expense' ? installments : 1;
-      let amountPerInstallment = isInstallment ? (baseAmount / installments) : baseAmount;
+      let amountPerInstallment = baseAmount;
       if (isSplit && type === 'expense') amountPerInstallment = amountPerInstallment / 2;
 
       for (let i = 0; i < loopCount; i++) {
@@ -144,7 +144,7 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-400 mb-1.5">Valor Total</label>
+                <label className="block text-sm font-medium text-neutral-400 mb-1.5">{isInstallment ? "Valor da Parcela" : "Valor Total"}</label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 font-medium">R$</span>
                   <input type="number" step="0.01" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder:text-neutral-600 focus:outline-none focus:border-indigo-500 transition-colors" />
@@ -169,11 +169,12 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
 
               <div>
                 <label className="block text-sm font-medium text-neutral-400 mb-1.5">Categoria</label>
-                <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-indigo-500 transition-colors appearance-none">
-                  {type === 'expense' ? (
+                <div className="relative">
+                  <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-4 pr-10 text-white focus:outline-none focus:border-indigo-500 transition-colors appearance-none cursor-pointer">
+                    {type === 'expense' ? (
                     <>
-                      <option value="Contas Fixas">Contas Fixas</option>
                       <option value="Variáveis">Variáveis</option>
+                      <option value="Contas Fixas">Contas Fixas</option>
                       <option value="Cartões">Cartões de Crédito</option>
                       {customCategories.filter(c => c.type === 'expense').map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                     </>
@@ -185,7 +186,9 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
                       {customCategories.filter(c => c.type === 'income').map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                     </>
                   )}
-                </select>
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500 pointer-events-none" />
+                </div>
               </div>
 
               {type === 'expense' && (
