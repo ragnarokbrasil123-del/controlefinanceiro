@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, TrendingUp, TrendingDown, Calendar, Save, Loader2 } from "lucide-react";
+import { X, TrendingUp, TrendingDown, Calendar, Save, Loader2, ChevronDown } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
 interface Transaction {
@@ -26,7 +26,7 @@ export function EditTransactionModal({
   const [type, setType] = useState<'expense' | 'income'>('expense');
   const [amount, setAmount] = useState("");
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState("Contas Fixas");
+  const [category, setCategory] = useState("Variáveis");
   const [date, setDate] = useState("");
   
   const [customCategories, setCustomCategories] = useState<any[]>([]);
@@ -56,7 +56,7 @@ export function EditTransactionModal({
     if (newType === 'income' && category !== 'Salário' && category !== 'Investimentos') {
       setCategory('Salário');
     } else if (newType === 'expense' && category === 'Salário') {
-      setCategory('Contas Fixas');
+      setCategory('Variáveis');
     }
   };
 
@@ -135,11 +135,12 @@ export function EditTransactionModal({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-neutral-400 mb-1.5">Categoria</label>
-                  <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-indigo-500 transition-colors appearance-none">
-                    {type === 'expense' ? (
+                  <div className="relative">
+                    <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-4 pr-10 text-white focus:outline-none focus:border-indigo-500 transition-colors appearance-none cursor-pointer">
+                      {type === 'expense' ? (
                       <>
-                        <option value="Contas Fixas">Contas Fixas</option>
                         <option value="Variáveis">Variáveis</option>
+                        <option value="Contas Fixas">Contas Fixas</option>
                         <option value="Cartões">Cartões</option>
                         <option value="Investimentos">Investimentos</option>
                         {customCategories.filter(c => c.type === 'expense').map(c => (
@@ -155,9 +156,11 @@ export function EditTransactionModal({
                         {customCategories.filter(c => c.type === 'income').map(c => (
                            <option key={c.id} value={c.name}>{c.name}</option>
                         ))}
-                      </>
-                    )}
-                  </select>
+                        </>
+                      )}
+                    </select>
+                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500 pointer-events-none" />
+                  </div>
                 </div>
 
                 <div>
