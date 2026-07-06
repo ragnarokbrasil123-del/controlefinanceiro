@@ -29,7 +29,7 @@ import { GoalsModal } from "../components/GoalsModal";
 import { CategoryManagerModal } from "../components/CategoryManagerModal";
 import { supabase } from "../lib/supabase";
 
-const MONTHS = ['Janeiro', 'Fevereiro', 'MarÃ§o', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 export default function Dashboard() {
   const [activeMonth, setActiveMonth] = useState(new Date().getMonth());
@@ -115,7 +115,7 @@ export default function Dashboard() {
     if (!tx) return;
 
     if (tx.installment_group) {
-      const confirmBulk = window.confirm("Este lanÃ§amento se repete. Deseja excluir TODAS as parcelas a partir desta data?\n\n[OK] = Excluir esta e as futuras\n[Cancelar] = Excluir apenas esta");
+      const confirmBulk = window.confirm("Este lançamento se repete. Deseja excluir TODAS as parcelas a partir desta data?\n\n[OK] = Excluir esta e as futuras\n[Cancelar] = Excluir apenas esta");
       
       if (confirmBulk) {
         const { error } = await supabase.from('transactions').delete()
@@ -125,7 +125,7 @@ export default function Dashboard() {
         if (!error) {
           setAllTransactions(prev => prev.filter(t => !(t.installment_group === tx.installment_group && t.date >= tx.date)));
         } else {
-          alert("Erro ao excluir sÃ©rie.");
+          alert("Erro ao excluir série.");
         }
         return;
       }
@@ -159,8 +159,8 @@ export default function Dashboard() {
   const balance = totalIncome - totalExpense;
 
   const contasFixas = currentMonthTransactions.filter(t => t.category === 'Contas Fixas');
-  const variaveis = currentMonthTransactions.filter(t => t.category === 'VariÃ¡veis');
-  const cartoes = currentMonthTransactions.filter(t => (t.category === 'CartÃµes' || t.category === 'CartÃµes de CrÃ©dito'));
+  const variaveis = currentMonthTransactions.filter(t => t.category === 'Variáveis');
+  const cartoes = currentMonthTransactions.filter(t => (t.category === 'Cartões' || t.category === 'Cartões de Crédito'));
   const investimentos = currentMonthTransactions.filter(t => t.category === 'Investimentos');
 
   const sumCategory = (list: any[]) => list.reduce((acc, t) => {
@@ -240,7 +240,7 @@ export default function Dashboard() {
               <img src="/icon-192.png" alt="Logo" className="w-full h-full object-cover" />
             </div>
             <div>
-              <p className="text-xs text-neutral-400 font-medium tracking-wide uppercase">OlÃ¡, {userEmail ? userEmail.split('@')[0] : 'UsuÃ¡rio'}</p>
+              <p className="text-xs text-neutral-400 font-medium tracking-wide uppercase">Olá, {userEmail ? userEmail.split('@')[0] : 'Usuário'}</p>
               <h1 className="text-2xl font-bold text-white tracking-tight">Seu Nexa</h1>
             </div>
           </div>
@@ -257,8 +257,8 @@ export default function Dashboard() {
 
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-8 relative z-10">
           <div className="shrink-0">
-            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-2">VisÃ£o Geral</h1>
-            <p className="text-neutral-400 text-sm md:text-base">Acompanhe e gerencie seu patrimÃ´nio</p>
+            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-2">Visão Geral</h1>
+            <p className="text-neutral-400 text-sm md:text-base">Acompanhe e gerencie seu patrimônio</p>
           </div>
           
           {/* Atalhos: Carrossel no Mobile, Wrap no Desktop */}
@@ -270,10 +270,10 @@ export default function Dashboard() {
               <Target className="w-4 h-4" /> <span>Metas</span>
             </motion.button>
             <motion.button onClick={() => setIsReportsOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-indigo-500/20">
-              <PieChartIcon className="w-4 h-4" /> <span>RelatÃ³rios</span>
+              <PieChartIcon className="w-4 h-4" /> <span>Relatórios</span>
             </motion.button>
             <motion.button onClick={() => setIsBudgetOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-orange-500/20">
-              <Wallet className="w-4 h-4" /> <span>OrÃ§amentos</span>
+              <Wallet className="w-4 h-4" /> <span>Orçamentos</span>
             </motion.button>
             <motion.button onClick={() => setIsTrackerOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-teal-500/20">
               <CreditCard className="w-4 h-4" /> <span>Assinaturas</span>
@@ -282,13 +282,13 @@ export default function Dashboard() {
               <Target className="w-4 h-4" /> <span>Planejador</span>
             </motion.button>
             <motion.button onClick={() => setIsCalendarOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-blue-500/20">
-              <Calendar className="w-4 h-4" /> <span>CalendÃ¡rio</span>
+              <Calendar className="w-4 h-4" /> <span>Calendário</span>
             </motion.button>
             <motion.button onClick={() => setIsAiModalOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-6 py-2.5 rounded-full font-medium transition-all shadow-lg shadow-purple-500/25 active:scale-95 cursor-pointer border border-white/10">
               <Sparkles className="w-4 h-4" /> <span>Ler Foto</span>
             </motion.button>
             <motion.button onClick={handleOpenModal} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-white text-black px-6 py-2.5 rounded-full font-bold transition-all hover:bg-neutral-200 active:scale-95 cursor-pointer">
-              <Plus className="w-5 h-5" /> <span>Novo LanÃ§amento</span>
+              <Plus className="w-5 h-5" /> <span>Novo Lançamento</span>
             </motion.button>
           </div>
         </div>
@@ -302,7 +302,7 @@ export default function Dashboard() {
         ) : (
           <div className="flex md:grid md:grid-cols-3 gap-4 md:gap-6 overflow-x-auto md:overflow-visible pb-6 md:pb-12 snap-x snap-mandatory md:snap-none scrollbar-hide">
             <div className="snap-center shrink-0 w-[85%] md:w-auto">
-              <SummaryCard title="Saldo no MÃªs" amount={formatMoney(balance)} isPositive={balance >= 0} icon={<Wallet className="text-indigo-400" />} delay={0.1} />
+              <SummaryCard title="Saldo no Mês" amount={formatMoney(balance)} isPositive={balance >= 0} icon={<Wallet className="text-indigo-400" />} delay={0.1} />
             </div>
             <div className="snap-center shrink-0 w-[80%] md:w-auto">
               <SummaryCard title="Receitas" amount={formatMoney(totalIncome)} isPositive={true} icon={<TrendingUp className="text-emerald-400" />} delay={0.2} />
@@ -313,7 +313,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ProjeÃ§Ã£o de Fim de MÃªs */}
+        {/* Projeção de Fim de Mês */}
         {!isLoading && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }} className={`mb-8 border rounded-3xl p-5 md:p-6 backdrop-blur-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative overflow-hidden ${balance >= 0 ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-rose-500/5 border-rose-500/20'}`}>
             <div className={`absolute -right-10 -top-10 w-40 h-40 rounded-full blur-3xl opacity-20 ${balance >= 0 ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
@@ -322,8 +322,8 @@ export default function Dashboard() {
                 <Target className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-bold text-white text-lg">PrevisÃ£o de Fim de MÃªs</h3>
-                <p className="text-neutral-400 text-sm">Baseado nas despesas fixas e variÃ¡veis agendadas</p>
+                <h3 className="font-bold text-white text-lg">Previsão de Fim de Mês</h3>
+                <p className="text-neutral-400 text-sm">Baseado nas despesas fixas e variáveis agendadas</p>
               </div>
             </div>
             <div className="text-left md:text-right relative z-10 bg-black/20 p-4 rounded-2xl border border-white/5 w-full md:w-auto">
@@ -331,12 +331,12 @@ export default function Dashboard() {
               <p className={`text-2xl font-extrabold tracking-tight ${balance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                 {formatMoney(balance)}
               </p>
-              <p className="text-[11px] text-neutral-500 mt-1">Se nÃ£o houver novos gastos, este serÃ¡ seu saldo.</p>
+              <p className="text-[11px] text-neutral-500 mt-1">Se não houver novos gastos, este será seu saldo.</p>
             </div>
           </motion.div>
         )}
 
-        {/* GrÃ¡ficos Principais */}
+        {/* Gráficos Principais */}
         {!isLoading && (
           <div className="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
             <DashboardChart transactions={allTransactions} />
@@ -349,7 +349,7 @@ export default function Dashboard() {
           <div className="lg:col-span-2">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }} className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <h2 className="text-lg font-semibold tracking-tight">OrganizaÃ§Ã£o</h2>
+                <h2 className="text-lg font-semibold tracking-tight">Organização</h2>
                 <button onClick={() => setIsCategoryOpen(true)} className="text-xs bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 px-2.5 py-1 rounded-full font-medium transition-colors border border-indigo-500/20">
                   + Categorias
                 </button>
@@ -364,28 +364,28 @@ export default function Dashboard() {
             <AnimatePresence mode="wait">
               <motion.div key={activeMonth} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <ExpenseCategoryCard title="Contas Fixas" icon={<HomeIcon className="w-5 h-5 text-blue-400" />} total={formatMoney(sumCategory(contasFixas))} accentColor="bg-blue-500/10 border-blue-500/20" items={contasFixas} formatMoney={formatMoney} onAction={handleOpenModal} onEditItem={handleEditTransaction} />
-                <ExpenseCategoryCard title="VariÃ¡veis" icon={<Coffee className="w-5 h-5 text-amber-400" />} total={formatMoney(sumCategory(variaveis))} accentColor="bg-amber-500/10 border-amber-500/20" items={variaveis} formatMoney={formatMoney} onAction={handleOpenModal} onEditItem={handleEditTransaction} />
-                <ExpenseCategoryCard title="CartÃµes" icon={<CreditCard className="w-5 h-5 text-purple-400" />} total={formatMoney(sumCategory(cartoes))} accentColor="bg-purple-500/10 border-purple-500/20" items={cartoes} formatMoney={formatMoney} onAction={handleOpenModal} onEditItem={handleEditTransaction} />
+                <ExpenseCategoryCard title="Variáveis" icon={<Coffee className="w-5 h-5 text-amber-400" />} total={formatMoney(sumCategory(variaveis))} accentColor="bg-amber-500/10 border-amber-500/20" items={variaveis} formatMoney={formatMoney} onAction={handleOpenModal} onEditItem={handleEditTransaction} />
+                <ExpenseCategoryCard title="Cartões" icon={<CreditCard className="w-5 h-5 text-purple-400" />} total={formatMoney(sumCategory(cartoes))} accentColor="bg-purple-500/10 border-purple-500/20" items={cartoes} formatMoney={formatMoney} onAction={handleOpenModal} onEditItem={handleEditTransaction} />
                 <ExpenseCategoryCard title="Investimentos" icon={<LineChart className="w-5 h-5 text-emerald-400" />} total={formatMoney(sumCategory(investimentos))} accentColor="bg-emerald-500/10 border-emerald-500/20" items={investimentos} formatMoney={formatMoney} onAction={handleOpenModal} onEditItem={handleEditTransaction} />
               </motion.div>
             </AnimatePresence>
           </div>
 
           <div className="lg:col-span-1">
-            {/* Dicas do Nexa (GamificaÃ§Ã£o) */}
+            {/* Dicas do Nexa (Gamificação) */}
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 0.5 }} className="mb-6 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-3xl p-5 relative overflow-hidden">
               <div className="flex items-start gap-3">
                 <div className="mt-1"><Sparkles className="w-5 h-5 text-indigo-400" /></div>
                 <div>
                   <h3 className="text-sm font-bold text-indigo-300 mb-1">Dica do Nexa</h3>
                   {variaveisPercent > 30 ? (
-                    <p className="text-xs text-neutral-300 leading-relaxed">Cuidado! Seus gastos variÃ¡veis jÃ¡ consomem <strong>{variaveisPercent.toFixed(1)}%</strong> da sua renda. Tente segurar as compras por impulso.</p>
+                    <p className="text-xs text-neutral-300 leading-relaxed">Cuidado! Seus gastos variáveis já consomem <strong>{variaveisPercent.toFixed(1)}%</strong> da sua renda. Tente segurar as compras por impulso.</p>
                   ) : balance > 0 ? (
-                    <p className="text-xs text-neutral-300 leading-relaxed">Seu orÃ§amento estÃ¡ saudÃ¡vel e deve sobrar dinheiro! Que tal destinar esse valor para uma de suas Metas?</p>
+                    <p className="text-xs text-neutral-300 leading-relaxed">Seu orçamento está saudável e deve sobrar dinheiro! Que tal destinar esse valor para uma de suas Metas?</p>
                   ) : balance < 0 ? (
-                    <p className="text-xs text-neutral-300 leading-relaxed">Alerta! Sua previsÃ£o Ã© fechar no vermelho. Reveja os gastos agendados e cancele assinaturas que nÃ£o usa.</p>
+                    <p className="text-xs text-neutral-300 leading-relaxed">Alerta! Sua previsão é fechar no vermelho. Reveja os gastos agendados e cancele assinaturas que não usa.</p>
                   ) : (
-                    <p className="text-xs text-neutral-300 leading-relaxed">Continue acompanhando seus gastos diÃ¡rios para nÃ£o ter surpresas no fim do mÃªs.</p>
+                    <p className="text-xs text-neutral-300 leading-relaxed">Continue acompanhando seus gastos diários para não ter surpresas no fim do mês.</p>
                   )}
                 </div>
               </div>
@@ -411,7 +411,7 @@ export default function Dashboard() {
               </div>
               <div className="flex flex-col gap-3">
                 {recentTransactions.length === 0 ? (
-                  <p className="text-neutral-500 text-sm text-center py-4">Nenhuma transaÃ§Ã£o lanÃ§ada ainda.</p>
+                  <p className="text-neutral-500 text-sm text-center py-4">Nenhuma transação lançada ainda.</p>
                 ) : (
                   recentTransactions.map((tx) => (
                     <TransactionRow key={tx.id} title={tx.title} category={tx.category} date={new Date(tx.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})} amount={`${tx.type === 'income' ? '+' : '-'} R$ ${tx.amount.toFixed(2).replace('.', ',')}`} type={tx.type} isPaid={tx.is_paid} onTogglePaid={() => handleTogglePaid(tx.id, tx.is_paid)} onDelete={() => handleDeleteTransaction(tx.id)} onEdit={() => handleEditTransaction(tx)} receiptUrl={tx.receipt_url} />
@@ -434,7 +434,7 @@ export default function Dashboard() {
       <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} userEmail={userEmail} userRole={userRole} />
       <CoupleModal isOpen={isCoupleOpen} onClose={() => setIsCoupleOpen(false)} />
       <GoalsModal isOpen={isGoalsOpen} onClose={() => setIsGoalsOpen(false)} />
-      <CategoryManagerModal isOpen={isCategoryOpen} onClose={() => setIsCategoryOpen(false)} onCategoryAdded={() => {}} userId={userId as any} />
+      <CategoryManagerModal isOpen={isCategoryOpen} onClose={() => setIsCategoryOpen(false)} />
       <WalletsModal isOpen={isWalletsOpen} onClose={() => setIsWalletsOpen(false)} userId={userId} />
       <FinancialCalendarModal isOpen={isCalendarOpen} onClose={() => setIsCalendarOpen(false)} transactions={allTransactions} />
 
@@ -471,11 +471,11 @@ function ExpenseCategoryCard({ title, icon, total, items, accentColor, onAction,
         <button onClick={onAction} className="text-neutral-400 bg-white/5 p-1.5 rounded-lg flex items-center hover:bg-white/10 transition-colors cursor-pointer"><Plus className="w-4 h-4" /></button>
       </div>
       <div className="flex-1 flex flex-col gap-3 mb-6">
-        {items.length === 0 ? <p className="text-neutral-600 text-sm italic py-2">Nenhum gasto neste mÃªs.</p> : items.map((item: any) => (
+        {items.length === 0 ? <p className="text-neutral-600 text-sm italic py-2">Nenhum gasto neste mês.</p> : items.map((item: any) => (
           <div key={item.id} className="flex justify-between items-center text-sm group/item">
             <span className="text-neutral-300 pr-2 line-clamp-2 leading-tight">{item.title}</span>
             <div className="flex items-center gap-2 shrink-0">
-              <span className={`font-medium whitespace-nowrap ${item.type === 'income' ? 'text-emerald-400' : 'text-white'}`}>
+               <span className={`font-medium whitespace-nowrap ${item.type === 'income' ? 'text-emerald-400' : 'text-white'}`}>
                 {item.type === 'income' ? '+ ' : ''}{formatMoney(item.amount)}
               </span>
               <button 
@@ -515,7 +515,7 @@ function TransactionRow({ title, category, date, amount, type, isPaid, onToggleP
         <div className="flex flex-col min-w-0 py-0.5">
           <div className="flex flex-wrap items-center gap-2">
             <h4 className={`font-semibold text-sm line-clamp-2 leading-snug ${isPaid === false ? 'text-amber-100' : 'text-white'}`}>
-              {title || "Sem tÃ­tulo"}
+              {title || "Sem título"}
             </h4>
             {isPaid === false && <span className="bg-amber-500/20 text-amber-400 text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider shrink-0 mt-0.5">Pendente</span>}
           </div>
@@ -527,7 +527,7 @@ function TransactionRow({ title, category, date, amount, type, isPaid, onToggleP
         </div>
       </div>
 
-      {/* Direita: Valor e BotÃµes */}
+      {/* Direita: Valor e Botões */}
       <div className="flex items-center justify-end gap-1.5 shrink-0 flex-[1_1_150px]">
         <div className={`font-bold text-sm tracking-tight whitespace-nowrap mr-auto sm:mr-1 ${isIncome ? 'text-emerald-400' : (isPaid === false ? 'text-amber-400' : 'text-white')}`}>
           {amount}
@@ -547,5 +547,3 @@ function TransactionRow({ title, category, date, amount, type, isPaid, onToggleP
     </div>
   );
 }
-
-
