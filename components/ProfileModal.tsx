@@ -1,15 +1,43 @@
 "use client";
 
+import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, LogOut, Shield, User } from "lucide-react";
+import { X, LogOut, Shield, User, Lock, Check } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
 export function ProfileModal({ isOpen, onClose, userEmail, userRole }: { isOpen: boolean, onClose: () => void, userEmail: string, userRole: string }) {
+  const [newPassword, setNewPassword] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
+
   if (!isOpen) return null;
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.href = '/login';
+  };
+
+  const handleUpdatePassword = async () => {
+    if (!newPassword || newPassword.length < 6) return alert("A senha deve ter pelo menos 6 caracteres.");
+    setIsUpdating(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setIsUpdating(false);
+    if (error) alert("Erro ao atualizar senha: " + error.message);
+    else {
+      alert("Senha atualizada com sucesso!");
+      setNewPassword("");
+    }
+  };
+
+  const handleLGPDDelete = async () => {
+    if (confirm("LGPD: Tem certeza absoluta que deseja excluir sua conta e TODOS os seus dados financeiros de nossos servidores? Esta ação é IRREVERSÍVEL!")) {
+      const { error } = await supabase.rpc('delete_user');
+      if (error) {
+        alert("Erro ao excluir conta. Certifique-se de ter rodado o script SQL.");
+      } else {
+        alert("Sua conta e seus dados foram excluídos com sucesso.");
+        handleLogout();
+      }
+    }
   };
 
   return (
@@ -36,9 +64,33 @@ export function ProfileModal({ isOpen, onClose, userEmail, userRole }: { isOpen:
             </span>
           </div>
 
-          <button onClick={handleLogout} className="mt-auto flex items-center justify-center gap-2 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white w-full py-4 rounded-2xl font-bold transition-all">
-            <LogOut className="w-5 h-5" /> Sair do Sistema
-          </button>
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-6 shrink-0">
+            <label className="text-xs font-medium text-neutral-400 mb-2 block">Alterar Senha</label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                <input 
+                  type="password" 
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Nova senha..."
+                  className="w-full bg-black/20 border border-white/10 rounded-xl py-2 pl-9 pr-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                />
+              </div>
+              <button onClick={handleUpdatePassword} disabled={isUpdating || !newPassword} className="bg-indigo-500 hover:bg-indigo-600 disabled:bg-indigo-500/50 text-white px-3 rounded-xl flex items-center justify-center transition-colors">
+                <Check className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-auto space-y-3 shrink-0">
+            <button onClick={handleLGPDDelete} className="w-full text-xs font-bold text-rose-500 hover:text-white bg-rose-500/5 hover:bg-rose-500 py-3 rounded-xl transition-colors border border-rose-500/10 hover:border-rose-500">
+              Excluir Minha Conta Permanentemente
+            </button>
+            <button onClick={handleLogout} className="flex items-center justify-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white w-full py-4 rounded-2xl font-bold transition-all">
+              <LogOut className="w-5 h-5" /> Sair do Sistema
+            </button>
+          </div>
         </motion.div>
       </div>
     </AnimatePresence>
