@@ -7,8 +7,8 @@ export async function POST(request: Request) {
     if (!authHeader) return NextResponse.json({ error: "Acesso Negado. Faça login." }, { status: 401 });
     
     const token = authHeader.replace('Bearer ', '');
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rwdbmpxchubsjtevcqyh.supabase.co';
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_Ji5fpwZTBSbQ5zacrld-xg_M21-MOlN';
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
     
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      return NextResponse.json({ error: "Chave do Gemini não configurada." }, { status: 500 });
+      return NextResponse.json({ error: "Chave do Gemini não configurada no Vercel." }, { status: 500 });
     }
 
     const bytes = await file.arrayBuffer();
@@ -36,23 +36,26 @@ export async function POST(request: Request) {
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
 
     const promptText = `
-Você é um assistente financeiro de elite. Analise a imagem ou documento em anexo (recibo, nota fiscal ou folha de anotações).
+Você é um assistente financeiro de elite. Analise a imagem ou documento em anexo (recibo, nota fiscal, comprovante de PIX ou folha de anotações).
 Extraia TODOS os itens ou despesas individuais e retorne EXATAMENTE E APENAS uma LISTA (Array) JSON válida, sem crases de markdown e sem nenhum texto adicional.
+
+REGRA ESPECIAL PARA PIX: Se a imagem for um comprovante de transferência (PIX, TED, DOC), crie um ÚNICO item. Use como "description" o nome de quem recebeu ou a descrição do PIX (ex: "PIX - Nome do Recebedor") e como "amount" o valor exato da transferência.
+
 O JSON deve ter esta estrutura exata de lista:
 [
   {
     "description": "Nome do item 1",
     "amount": 10.50,
-    "category": "Alimentação"
+    "category": "Variáveis"
   },
   {
-    "description": "Nome do item 2",
-    "amount": 40.00,
+    "description": "PIX - Supermercado",
+    "amount": 150.00,
     "category": "Contas Fixas"
   }
 ]
-Se houver apenas um gasto, retorne uma lista com 1 objeto. O "amount" deve ser sempre um número float. 
-REGRA CRUCIAL: O campo "category" DEVE OBRIGATORIAMENTE ser um destes quatro: "Contas Fixas", "Variáveis", "Cartões" ou "Investimentos". É terminantemente proibido usar outras categorias. Mapeie itens de água/luz/moradia para "Contas Fixas". Mapeie compras/mercado/alimentação para "Variáveis". Mapeie faturas/bancos para "Cartões". Mapeie ações/cripto/poupança para "Investimentos".
+Se houver apenas um gasto ou for um comprovante PIX único, retorne uma lista com 1 objeto. O "amount" deve ser sempre um número float. 
+REGRA CRUCIAL: O campo "category" DEVE OBRIGATORIAMENTE ser um destes quatro: "Contas Fixas", "Variáveis", "Cartões" ou "Investimentos". É terminantemente proibido usar outras categorias. Mapeie itens de água/luz/moradia para "Contas Fixas". Mapeie compras/mercado/alimentação e transferências PIX comuns para "Variáveis". Mapeie faturas/bancos para "Cartões". Mapeie ações/cripto/poupança para "Investimentos".
 `;
 
     const requestBody = {
