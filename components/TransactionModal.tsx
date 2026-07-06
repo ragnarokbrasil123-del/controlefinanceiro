@@ -14,28 +14,40 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
   const [date, setDate] = useState("");
   
   const [isInstallment, setIsInstallment] = useState(false);
+  const [isRecurring, setIsRecurring] = useState(false);
   const [customCategories, setCustomCategories] = useState<any[]>([]);
   const [installments, setInstallments] = useState(1);
   const [isSplit, setIsSplit] = useState(false);
   const [isPaid, setIsPaid] = useState(true);
   
+  const [wallets, setWallets] = useState<any[]>([]);
+  const [walletId, setWalletId] = useState<string>("");
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setDate(new Date().toISOString().split('T')[0]);
-      fetchCategories();
+      fetchData();
     }
   }, [isOpen]);
 
-  async function fetchCategories() {
+  async function fetchData() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
-    const { data } = await supabase.from('categories').select('*').eq('user_id', session.user.id).order('name');
-    if (data) setCustomCategories(data);
+    
+    const [catRes, walRes] = await Promise.all([
+      supabase.from('categories').select('*').eq('user_id', session.user.id).order('name'),
+      supabase.from('wallets').select('*').eq('user_id', session.user.id).order('name')
+    ]);
+    
+    if (catRes.data) setCustomCategories(catRes.data);
+    if (walRes.data && walRes.data.length > 0) {
+      setWallets(walRes.data);
+      setWalletId(walRes.data[0].id);
+    }
   }
-
-
 
   const handleTypeChange = (newType: 'expense' | 'income') => {
     setType(newType);
@@ -54,7 +66,6 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
       return alert("Por favor, preencha o título e o valor.");
     }
 
-
     setIsLoading(true);
 
     try {
@@ -62,6 +73,17 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
       const userId = session?.user?.id || null;
       const baseAmount = parseFloat(amount.replace(',', '.'));
       
+      let receiptUrl = null;
+      if (receiptFile && userId) {
+        const fileExt = receiptFile.name.split('.').pop();
+        const fileName = `${userId}/${Date.now()}.${fileExt}`;
+        const { error: uploadError, data } = await supabase.storage.from('receipts').upload(fileName, receiptFile);
+        if (!uploadError && data) {
+          const { data: publicUrlData } = supabase.storage.from('receipts').getPublicUrl(data.path);
+          receiptUrl = publicUrlData.publicUrl;
+        }
+      }
+
       const transactionsToInsert = [];
       const installmentGroup = isInstallment && installments > 1 ? crypto.randomUUID() : null;
 
@@ -69,7 +91,7 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
       // Ajusta timezone offset para evitar bug de data
       startDate.setMinutes(startDate.getMinutes() + startDate.getTimezoneOffset());
 
-      let loopCount = isInstallment && type === 'expense' ? installments : 1;
+      let loopCount = (isInstallment || isRecurring) && type === 'expense' ? installments : 1;
       let amountPerInstallment = baseAmount;
       if (isSplit && type === 'expense') amountPerInstallment = amountPerInstallment / 2;
 
@@ -77,7 +99,8 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
         const currentInstallmentDate = new Date(startDate);
         currentInstallmentDate.setMonth(currentInstallmentDate.getMonth() + i);
         
-        let finalTitle = isInstallment ? `${title} (${i+1}/${installments})` : title;
+        let finalTitle = title;
+        if (isInstallment) finalTitle = `${title} (${i+1}/${installments})`;
         if (isSplit && type === 'expense') finalTitle = `${finalTitle} 👩‍❤️‍👨`;
         
         transactionsToInsert.push({
@@ -89,8 +112,10 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
           installment_group: installmentGroup,
           installment_info: isInstallment ? `${i+1}/${installments}` : null,
           is_split: isSplit && type === 'expense',
-          is_paid: isPaid,
-          user_id: userId
+          is_paid: i === 0 ? isPaid : false,
+          user_id: userId,
+          wallet_id: walletId || null,
+          receipt_url: receiptUrl
         });
       }
 
@@ -103,9 +128,12 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
       setTitle("");
       setAmount("");
       setIsInstallment(false);
+      setIsRecurring(false);
       setInstallments(1);
       setIsSplit(false);
       setIsPaid(true);
+      setReceiptFile(null);
+      setDate(new Date().toISOString().split('T')[0]);
       
       onClose();
       window.location.reload(); 
@@ -167,34 +195,53 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-neutral-400 mb-1.5">Categoria</label>
-                <div className="relative">
-                  <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-4 pr-10 text-white focus:outline-none focus:border-indigo-500 transition-colors appearance-none cursor-pointer">
-                    {type === 'expense' ? (
-                    <>
-                      <option value="Variáveis">Variáveis</option>
-                      <option value="Contas Fixas">Contas Fixas</option>
-                      <option value="Cartões">Cartões de Crédito</option>
-                      {customCategories.filter(c => c.type === 'expense').map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                    </>
-                  ) : (
-                    <>
-                      <option value="Salário">Salário</option>
-                      <option value="Investimentos">Investimentos</option>
-                      <option value="Outros">Outros</option>
-                      {customCategories.filter(c => c.type === 'income').map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                    </>
-                  )}
-                  </select>
-                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500 pointer-events-none" />
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-neutral-400 mb-1.5">Categoria</label>
+                  <div className="relative">
+                    <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-4 pr-10 text-white focus:outline-none focus:border-indigo-500 transition-colors appearance-none cursor-pointer">
+                      {type === 'expense' ? (
+                      <>
+                        <option value="Variáveis">Variáveis</option>
+                        <option value="Contas Fixas">Contas Fixas</option>
+                        <option value="Cartões">Cartões de Crédito</option>
+                        {customCategories.filter(c => c.type === 'expense').map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                      </>
+                    ) : (
+                      <>
+                        <option value="Salário">Salário</option>
+                        <option value="Investimentos">Investimentos</option>
+                        <option value="Outros">Outros</option>
+                        {customCategories.filter(c => c.type === 'income').map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                      </>
+                    )}
+                    </select>
+                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500 pointer-events-none" />
+                  </div>
                 </div>
+
+                {wallets.length > 0 && (
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-neutral-400 mb-1.5">Carteira</label>
+                    <div className="relative">
+                      <select value={walletId} onChange={(e) => setWalletId(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-4 pr-10 text-white focus:outline-none focus:border-indigo-500 transition-colors appearance-none cursor-pointer">
+                        {wallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500 pointer-events-none" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-1.5">Comprovante (Opcional)</label>
+                <input type="file" onChange={(e) => setReceiptFile(e.target.files?.[0] || null)} className="w-full bg-black/20 border border-white/10 rounded-xl py-2 px-3 text-sm text-neutral-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-500/20 file:text-indigo-400 hover:file:bg-indigo-500/30 transition-colors cursor-pointer" />
               </div>
 
               {type === 'expense' && (
                 <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col gap-4">
                   <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" checked={isInstallment} onChange={(e) => setIsInstallment(e.target.checked)} className="w-5 h-5 rounded border-white/20 bg-black/20 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-neutral-900" />
+                    <input type="checkbox" checked={isInstallment} onChange={(e) => { setIsInstallment(e.target.checked); setIsRecurring(false); }} className="w-5 h-5 rounded border-white/20 bg-black/20 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-neutral-900" />
                     <span className="text-white font-medium">Compra Parcelada?</span>
                   </label>
                   
@@ -203,6 +250,19 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
                       <span className="text-neutral-400 text-sm">Em</span>
                       <input type="number" min="2" max="48" value={installments} onChange={(e) => setInstallments(parseInt(e.target.value))} className="w-20 bg-black/20 border border-white/10 rounded-lg p-2 text-center text-white focus:outline-none focus:border-indigo-500" />
                       <span className="text-neutral-400 text-sm">vezes</span>
+                    </motion.div>
+                  )}
+
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" checked={isRecurring} onChange={(e) => { setIsRecurring(e.target.checked); setIsInstallment(false); }} className="w-5 h-5 rounded border-white/20 bg-black/20 text-rose-500 focus:ring-rose-500 focus:ring-offset-neutral-900" />
+                    <span className="text-white font-medium">Conta Mensal Fixa (Repetir)?</span>
+                  </label>
+                  
+                  {isRecurring && (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="flex items-center gap-3">
+                      <span className="text-neutral-400 text-sm">Repetir por</span>
+                      <input type="number" min="2" max="48" value={installments} onChange={(e) => setInstallments(parseInt(e.target.value))} className="w-20 bg-black/20 border border-white/10 rounded-lg p-2 text-center text-white focus:outline-none focus:border-indigo-500" />
+                      <span className="text-neutral-400 text-sm">meses</span>
                     </motion.div>
                   )}
 
