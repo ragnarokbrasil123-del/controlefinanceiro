@@ -7,8 +7,8 @@ export async function POST(req: Request) {
     if (!authHeader) return NextResponse.json({ error: "Acesso Negado. Faça login." }, { status: 401 });
     
     const token = authHeader.replace('Bearer ', '');
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rwdbmpxchubsjtevcqyh.supabase.co';
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_Ji5fpwZTBSbQ5zacrld-xg_M21-MOlN';
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
     
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
@@ -65,4 +65,3 @@ Use emojis. NUNCA DEVOLVA JSON OU CÓDIGO. Escreva em formato Markdown, como se 
     return NextResponse.json({ error: "Erro ao gerar conselho: " + error.message }, { status: 500 });
   }
 }
-
