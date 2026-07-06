@@ -547,3 +547,5 @@ function TransactionRow({ title, category, date, amount, type, isPaid, onToggleP
     </div>
   );
 }
+
+
