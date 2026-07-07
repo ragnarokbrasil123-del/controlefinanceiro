@@ -43,10 +43,10 @@ export default function Login() {
     <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center p-4 selection:bg-indigo-500/30">
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 bg-indigo-500 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 mb-6">
-            <Wallet className="text-white w-8 h-8" />
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 mb-6 overflow-hidden bg-black/20">
+            <img src="/icon-192.png" alt="Logo Nexa" className="w-full h-full object-cover" />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">FinApp Premium</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">Nexa</h1>
           <p className="text-neutral-400 text-center">Inteligência Financeira ao seu dispor.</p>
         </div>
 
