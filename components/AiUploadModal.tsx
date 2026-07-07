@@ -61,9 +61,9 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
           title: item.description || "Despesa lida por IA",
           amount: parseFloat(item.amount || 0),
           category: item.category || "Variáveis",
-          type: "expense",
+          type: item.type === "income" ? "income" : "expense",
           date: selectedDate
-        })).filter(t => t.amount > 0);
+        })).filter((t: any) => t.amount > 0);
 
         if (transactionsToInsert.length > 0) {
           const { error } = await supabase.from('transactions').insert(transactionsToInsert);
@@ -163,5 +163,3 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
     </AnimatePresence>
   );
 }
-
-
