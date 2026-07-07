@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   try {
-    // Removido a validação de sessão dupla aqui para evitar erro de 'Auth session missing' no WhatsApp.
-    // A segurança da inserção já é garantida pelo aplicativo que exige o session.user.id.
+    // Removido a validação de sessão aqui para evitar erro de 'Auth session missing' em navegadores embutidos de celular.
+    // A segurança da inserção já é garantida pelo frontend que exige o session.user.id.
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
@@ -14,7 +14,7 @@ export async function POST(request: Request) {
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      return NextResponse.json({ error: "Chave do Gemini não configurada no Vercel." }, { status: 500 });
+      return NextResponse.json({ error: "Chave do Gemini não configurada." }, { status: 500 });
     }
 
     const bytes = await file.arrayBuffer();
@@ -25,26 +25,29 @@ export async function POST(request: Request) {
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
 
     const promptText = `
-Você é um assistente financeiro de elite. Analise a imagem ou documento em anexo (recibo, nota fiscal, comprovante de PIX ou folha de anotações).
+Você é um assistente financeiro de elite. Analise a imagem ou documento em anexo (recibo, nota fiscal, comprovante de PIX recebido/enviado ou folha de anotações).
 Extraia TODOS os itens ou despesas individuais e retorne EXATAMENTE E APENAS uma LISTA (Array) JSON válida, sem crases de markdown e sem nenhum texto adicional.
 
-REGRA ESPECIAL PARA PIX: Se a imagem for um comprovante de transferência (PIX, TED, DOC), crie um ÚNICO item. Use como "description" o nome de quem recebeu ou a descrição do PIX (ex: "PIX - Nome do Recebedor") e como "amount" o valor exato da transferência.
+REGRA ESPECIAL PARA PIX: Se a imagem for um comprovante de transferência (PIX, TED, DOC), crie um ÚNICO item. Use como "description" o nome de quem recebeu/enviou ou a descrição do PIX (ex: "PIX - Nome da Pessoa"). Se for um PIX RECEBIDO, defina o "type" como "income". Se for PIX ENVIADO ou PAGAMENTO, defina "type" como "expense".
+Para recibos normais e cupons de compras, o "type" é sempre "expense".
 
 O JSON deve ter esta estrutura exata de lista:
 [
   {
     "description": "Nome do item 1",
     "amount": 10.50,
-    "category": "Variáveis"
+    "category": "Variáveis",
+    "type": "expense"
   },
   {
-    "description": "PIX - Supermercado",
+    "description": "PIX Recebido - João",
     "amount": 150.00,
-    "category": "Contas Fixas"
+    "category": "Salário",
+    "type": "income"
   }
 ]
 Se houver apenas um gasto ou for um comprovante PIX único, retorne uma lista com 1 objeto. O "amount" deve ser sempre um número float. 
-REGRA CRUCIAL: O campo "category" DEVE OBRIGATORIAMENTE ser um destes quatro: "Contas Fixas", "Variáveis", "Cartões" ou "Investimentos". É terminantemente proibido usar outras categorias. Mapeie itens de água/luz/moradia para "Contas Fixas". Mapeie compras/mercado/alimentação e transferências PIX comuns para "Variáveis". Mapeie faturas/bancos para "Cartões". Mapeie ações/cripto/poupança para "Investimentos".
+REGRA CRUCIAL DE CATEGORIA: Para despesas ("expense"), o campo "category" DEVE OBRIGATORIAMENTE ser um destes quatro: "Contas Fixas", "Variáveis", "Cartões" ou "Investimentos". Para receitas ("income"), use "Salário" ou "Renda Extra". É terminantemente proibido usar outras categorias.
 `;
 
     const requestBody = {
