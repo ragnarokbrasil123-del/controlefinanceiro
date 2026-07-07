@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
-      return NextResponse.json({ error: "Sessão inválida. Acesso Negado." }, { status: 401 });
+      return NextResponse.json({ error: "Sessão inválida. Detalhe: " + (authError?.message || "Usuário não encontrado") }, { status: 401 });
     }
 
     const formData = await request.formData();
