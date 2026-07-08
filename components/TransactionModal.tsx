@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, TrendingUp, TrendingDown, Calendar, Wallet, ChevronDown } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { saveOfflineTransaction } from "../lib/offlineSync";
 
 export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
   const [type, setType] = useState<'expense' | 'income'>('expense');
@@ -49,6 +50,8 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
     }
   }
 
+
+
   const handleTypeChange = (newType: 'expense' | 'income') => {
     setType(newType);
     setCategory(newType === 'expense' ? 'Variáveis' : 'Salário');
@@ -65,6 +68,7 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
     if (!title || !amount) {
       return alert("Por favor, preencha o título e o valor.");
     }
+
 
     setIsLoading(true);
 
@@ -119,11 +123,14 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
         });
       }
 
-      const { error } = await supabase.from('transactions').insert(transactionsToInsert);
-
-      if (error) throw error;
-
-      alert("🎉 Lançamento salvo com sucesso no banco de dados!");
+      if (!navigator.onLine) {
+        transactionsToInsert.forEach(t => saveOfflineTransaction(t));
+        alert("Você está offline! 📶 O lançamento foi salvo no seu celular e será enviado quando a internet voltar.");
+      } else {
+        const { error } = await supabase.from('transactions').insert(transactionsToInsert);
+        if (error) throw error;
+        alert("🎉 Lançamento salvo com sucesso no banco de dados!");
+      }
       
       setTitle("");
       setAmount("");
