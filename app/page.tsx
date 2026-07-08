@@ -6,7 +6,7 @@ import {
   Wallet, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight,
   Bell, User, Plus, Home as HomeIcon, Coffee, CreditCard, 
   ChevronLeft, ChevronRight, ArrowRight, Sparkles, LineChart, Target,
-  PieChart as PieChartIcon, Search, Trash2, Heart, CheckCircle2, Clock, Edit2, Calendar, FileText
+  PieChart as PieChartIcon, Search, Trash2, Heart, CheckCircle2, Clock, Edit2, Calendar, FileText, Settings2, Eye, EyeOff
 } from "lucide-react";
 
 import { TransactionModal } from "../components/TransactionModal";
@@ -27,12 +27,18 @@ import { DashboardChart } from "../components/DashboardChart";
 import { DashboardCategoryChart } from "../components/DashboardCategoryChart";
 import { GoalsModal } from "../components/GoalsModal";
 import { CategoryManagerModal } from "../components/CategoryManagerModal";
+import { ModulesModal, ModulesState, defaultModulesState } from "../components/ModulesModal";
+import { SummaryCard } from "../components/SummaryCard";
+import { ExpenseCategoryCard } from "../components/ExpenseCategoryCard";
+import { TransactionRow } from "../components/TransactionRow";
 import { supabase } from "../lib/supabase";
+import { syncOfflineTransactions } from "../lib/offlineSync";
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 export default function Dashboard() {
   const [activeMonth, setActiveMonth] = useState(new Date().getMonth());
+  const [showBalances, setShowBalances] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false); 
   const [isPlannerOpen, setIsPlannerOpen] = useState(false); 
@@ -44,6 +50,8 @@ export default function Dashboard() {
   const [isGoalsOpen, setIsGoalsOpen] = useState(false); 
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isModulesModalOpen, setIsModulesModalOpen] = useState(false);
+  const [activeModules, setActiveModules] = useState<ModulesState>(defaultModulesState);
   const [isWalletsOpen, setIsWalletsOpen] = useState(false);
   const [wallets, setWallets] = useState<any[]>([]);
   const [activeWalletId, setActiveWalletId] = useState<string | null>(null);
@@ -82,10 +90,23 @@ export default function Dashboard() {
   const handleNextMonth = () => setActiveMonth(prev => prev === 11 ? 0 : prev + 1);
   const handleOpenModal = () => setIsModalOpen(true);
 
+  const handleSaveModules = (newModules: ModulesState) => {
+    setActiveModules(newModules);
+    localStorage.setItem('nexa_modules_state', JSON.stringify(newModules));
+  };
+
   useEffect(() => {
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(console.error);
 
+    const savedModules = localStorage.getItem('nexa_modules_state');
+    if (savedModules) {
+      try { setActiveModules(JSON.parse(savedModules)); } catch (e) {}
+    }
+
     async function checkUserAndFetch() {
+      // 1. Tenta sincronizar a fila offline
+      await syncOfflineTransactions();
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { window.location.href = '/login'; return; }
       setUserEmail(session.user.email || "");
@@ -98,7 +119,50 @@ export default function Dashboard() {
         supabase.from('transactions').select('*').eq('user_id', session.user.id).order('date', { ascending: false }),
         supabase.from('wallets').select('*').eq('user_id', session.user.id)
       ]);
-      if (txResponse.data) setAllTransactions(txResponse.data);
+      
+      let transactions = txResponse.data || [];
+      
+      if (txResponse.data) {
+        // --- MOTOR DE RECORRÊNCIA ---
+        const now = new Date();
+        const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const lastMonth = new Date(now);
+        lastMonth.setMonth(now.getMonth() - 1);
+        const lastMonthStr = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, '0')}`;
+
+        const contasFixasAnteriores = transactions.filter(t => t.category === 'Contas Fixas' && t.date && t.date.startsWith(lastMonthStr));
+        const transacoesParaInserir: any[] = [];
+
+        contasFixasAnteriores.forEach(contaAntiga => {
+          const jaExiste = transactions.find(t => t.title === contaAntiga.title && t.category === 'Contas Fixas' && t.date && t.date.startsWith(currentMonthStr));
+          if (!jaExiste) {
+            const dataNova = new Date(contaAntiga.date);
+            dataNova.setMonth(now.getMonth());
+            dataNova.setFullYear(now.getFullYear());
+            transacoesParaInserir.push({
+              user_id: contaAntiga.user_id,
+              title: contaAntiga.title,
+              amount: contaAntiga.amount,
+              type: contaAntiga.type,
+              category: contaAntiga.category,
+              date: dataNova.toISOString().split('T')[0],
+              is_paid: false,
+              wallet_id: contaAntiga.wallet_id
+            });
+          }
+        });
+
+        if (transacoesParaInserir.length > 0) {
+          const { error } = await supabase.from('transactions').insert(transacoesParaInserir);
+          if (!error) {
+            const { data: newTxData } = await supabase.from('transactions').select('*').eq('user_id', session.user.id).order('date', { ascending: false });
+            if (newTxData) transactions = newTxData;
+          }
+        }
+        // ------------------------------
+        setAllTransactions(transactions);
+      }
+      
       if (walletsResponse.data) setWallets(walletsResponse.data);
       setIsLoading(false);
     }
@@ -167,7 +231,7 @@ export default function Dashboard() {
     if (t.category === 'Investimentos') return acc + t.amount;
     return acc + (t.type === 'expense' ? t.amount : -t.amount);
   }, 0);
-  const formatMoney = (val: number) => `R$ ${val.toFixed(2).replace('.', ',')}`;
+  const formatMoney = (val: number) => showBalances ? `R$ ${val.toFixed(2).replace('.', ',')}` : 'R$ •••••';
 
   const filteredTransactions = visibleTransactions.filter(t => {
     const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) || t.category.toLowerCase().includes(searchQuery.toLowerCase());
@@ -234,7 +298,7 @@ export default function Dashboard() {
 
       <main className="max-w-md md:max-w-7xl mx-auto px-6 py-8 pb-32 md:pb-12 md:py-12">
         
-        <header className="flex md:hidden justify-between items-center mb-8">
+        <header className="flex md:hidden justify-between items-center mb-6">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 overflow-hidden bg-black/20">
               <img src="/icon-192.png" alt="Logo" className="w-full h-full object-cover" />
@@ -255,40 +319,79 @@ export default function Dashboard() {
           </div>
         </header>
 
+        {/* Mobile Wallets */}
+        <div className="flex md:hidden items-center gap-2 mb-8">
+            <select 
+              value={activeWalletId || ''} 
+              onChange={(e) => setActiveWalletId(e.target.value || null)}
+              className="flex-1 bg-black/30 border border-white/10 text-white text-sm rounded-xl py-2.5 px-3 focus:outline-none focus:border-indigo-500 transition-colors"
+            >
+              <option value="">Todas Carteiras</option>
+              {wallets.map(w => (
+                <option key={w.id} value={w.id}>{w.name}</option>
+              ))}
+            </select>
+            <button onClick={() => setIsWalletsOpen(true)} className="bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 p-2.5 rounded-xl transition-colors border border-indigo-500/20 shrink-0">
+              <Wallet className="w-5 h-5" />
+            </button>
+        </div>
+
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-8 relative z-10">
           <div className="shrink-0">
-            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-2">Visão Geral</h1>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">Visão Geral</h1>
+              <button onClick={() => setShowBalances(!showBalances)} className="text-neutral-400 hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-full transition-colors cursor-pointer" title={showBalances ? "Ocultar saldos" : "Mostrar saldos"}>
+                {showBalances ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+              </button>
+            </div>
             <p className="text-neutral-400 text-sm md:text-base">Acompanhe e gerencie seu patrimônio</p>
           </div>
           
           {/* Atalhos: Carrossel no Mobile, Wrap no Desktop */}
           <div className="flex overflow-x-auto md:overflow-visible items-center gap-3 w-full xl:w-auto pb-2 md:pb-0 snap-x snap-mandatory md:snap-none flex-nowrap md:flex-wrap [-ms-overflow-style:'none'] [scrollbar-width:'none'] [&::-webkit-scrollbar]:hidden">
-            <motion.button onClick={() => setIsCoupleOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-pink-500/20">
-              <Heart className="w-4 h-4" /> <span>Casal</span>
-            </motion.button>
-            <motion.button onClick={() => setIsGoalsOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-yellow-500/20">
-              <Target className="w-4 h-4" /> <span>Metas</span>
-            </motion.button>
-            <motion.button onClick={() => setIsReportsOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-indigo-500/20">
-              <PieChartIcon className="w-4 h-4" /> <span>Relatórios</span>
-            </motion.button>
-            <motion.button onClick={() => setIsBudgetOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-orange-500/20">
-              <Wallet className="w-4 h-4" /> <span>Orçamentos</span>
-            </motion.button>
-            <motion.button onClick={() => setIsTrackerOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-teal-500/20">
-              <CreditCard className="w-4 h-4" /> <span>Assinaturas</span>
-            </motion.button>
-            <motion.button onClick={() => setIsPlannerOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-emerald-500/20">
-              <Target className="w-4 h-4" /> <span>Planejador</span>
-            </motion.button>
-            <motion.button onClick={() => setIsCalendarOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-blue-500/20">
-              <Calendar className="w-4 h-4" /> <span>Calendário</span>
-            </motion.button>
+            {activeModules.casal && (
+              <motion.button onClick={() => setIsCoupleOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-pink-500/20">
+                <Heart className="w-4 h-4" /> <span>Casal</span>
+              </motion.button>
+            )}
+            {activeModules.metas && (
+              <motion.button onClick={() => setIsGoalsOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-yellow-500/20">
+                <Target className="w-4 h-4" /> <span>Metas</span>
+              </motion.button>
+            )}
+            {activeModules.relatorios && (
+              <motion.button onClick={() => setIsReportsOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-indigo-500/20">
+                <PieChartIcon className="w-4 h-4" /> <span>Relatórios</span>
+              </motion.button>
+            )}
+            {activeModules.orcamentos && (
+              <motion.button onClick={() => setIsBudgetOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-orange-500/20">
+                <Wallet className="w-4 h-4" /> <span>Orçamentos</span>
+              </motion.button>
+            )}
+            {activeModules.assinaturas && (
+              <motion.button onClick={() => setIsTrackerOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-teal-500/20">
+                <CreditCard className="w-4 h-4" /> <span>Assinaturas</span>
+              </motion.button>
+            )}
+            {activeModules.planejador && (
+              <motion.button onClick={() => setIsPlannerOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-emerald-500/20">
+                <Target className="w-4 h-4" /> <span>Planejador</span>
+              </motion.button>
+            )}
+            {activeModules.calendario && (
+              <motion.button onClick={() => setIsCalendarOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-blue-500/20">
+                <Calendar className="w-4 h-4" /> <span>Calendário</span>
+              </motion.button>
+            )}
             <motion.button onClick={() => setIsAiModalOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-6 py-2.5 rounded-full font-medium transition-all shadow-lg shadow-purple-500/25 active:scale-95 cursor-pointer border border-white/10">
               <Sparkles className="w-4 h-4" /> <span>Ler Foto</span>
             </motion.button>
             <motion.button onClick={handleOpenModal} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-white text-black px-6 py-2.5 rounded-full font-bold transition-all hover:bg-neutral-200 active:scale-95 cursor-pointer">
               <Plus className="w-5 h-5" /> <span>Novo Lançamento</span>
+            </motion.button>
+            <motion.button onClick={() => setIsModulesModalOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white px-3 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-white/10" title="Personalizar Tela">
+              <Settings2 className="w-5 h-5" />
             </motion.button>
           </div>
         </div>
@@ -414,7 +517,7 @@ export default function Dashboard() {
                   <p className="text-neutral-500 text-sm text-center py-4">Nenhuma transação lançada ainda.</p>
                 ) : (
                   recentTransactions.map((tx) => (
-                    <TransactionRow key={tx.id} title={tx.title} category={tx.category} date={new Date(tx.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})} amount={`${tx.type === 'income' ? '+' : '-'} R$ ${tx.amount.toFixed(2).replace('.', ',')}`} type={tx.type} isPaid={tx.is_paid} onTogglePaid={() => handleTogglePaid(tx.id, tx.is_paid)} onDelete={() => handleDeleteTransaction(tx.id)} onEdit={() => handleEditTransaction(tx)} receiptUrl={tx.receipt_url} />
+                    <TransactionRow key={tx.id} title={tx.title} category={tx.category} date={new Date(tx.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})} amount={`${tx.type === 'income' ? '+ ' : '- '}${formatMoney(tx.amount)}`} type={tx.type} isPaid={tx.is_paid} onTogglePaid={() => handleTogglePaid(tx.id, tx.is_paid)} onDelete={() => handleDeleteTransaction(tx.id)} onEdit={() => handleEditTransaction(tx)} receiptUrl={tx.receipt_url} />
                   ))
                 )}
               </div>
@@ -439,111 +542,9 @@ export default function Dashboard() {
       <FinancialCalendarModal isOpen={isCalendarOpen} onClose={() => setIsCalendarOpen(false)} transactions={allTransactions} />
 
       <BudgetModal isOpen={isBudgetOpen} onClose={() => setIsBudgetOpen(false)} transactions={allTransactions} currentIncome={totalIncome} activeMonth={activeMonth} />
+      <ModulesModal isOpen={isModulesModalOpen} onClose={() => setIsModulesModalOpen(false)} modules={activeModules} onSave={handleSaveModules} />
       <WelcomeModal />
     </div>
   );
 }
 
-function SummaryCard({ title, amount, isPositive, icon, delay }: any) {
-  return (
-    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5, delay }} className="bg-gradient-to-br from-white/10 to-white/5 border border-white/10 p-6 rounded-[2rem] backdrop-blur-xl relative overflow-hidden group">
-      <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/5 rounded-full blur-3xl"></div>
-      <div className="flex justify-between items-start mb-6">
-        <div className="p-3.5 bg-white/10 rounded-2xl border border-white/10 shadow-inner">{icon}</div>
-        <div className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-full ${isPositive ? 'text-emerald-400 bg-emerald-400/10' : 'text-rose-400 bg-rose-400/10'}`}>
-          {isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-        </div>
-      </div>
-      <p className="text-neutral-400 text-sm font-medium mb-1 tracking-wide">{title}</p>
-      <h3 className={`text-4xl font-extrabold tracking-tight ${amount === 'R$ 0,00' ? 'text-neutral-500' : 'text-white'}`}>{amount}</h3>
-    </motion.div>
-  );
-}
-
-function ExpenseCategoryCard({ title, icon, total, items, accentColor, onAction, onEditItem, formatMoney }: any) {
-  return (
-    <div className={`bg-white/5 border border-white/10 rounded-3xl p-5 backdrop-blur-sm flex flex-col h-full transition-all group`}>
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-xl border ${accentColor}`}>{icon}</div>
-          <h3 className="font-semibold text-neutral-200">{title}</h3>
-        </div>
-        <button onClick={onAction} className="text-neutral-400 bg-white/5 p-1.5 rounded-lg flex items-center hover:bg-white/10 transition-colors cursor-pointer"><Plus className="w-4 h-4" /></button>
-      </div>
-      <div className="flex-1 flex flex-col gap-3 mb-6">
-        {items.length === 0 ? <p className="text-neutral-600 text-sm italic py-2">Nenhum gasto neste mês.</p> : items.map((item: any) => (
-          <div key={item.id} className="flex justify-between items-center text-sm group/item">
-            <span className="text-neutral-300 pr-2 line-clamp-2 leading-tight">{item.title}</span>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className={`font-medium whitespace-nowrap ${item.type === 'income' ? 'text-emerald-400' : 'text-white'}`}>
-                {item.type === 'income' ? '+ ' : ''}{formatMoney(item.amount)}
-              </span>
-              <button 
-                onClick={(e) => { e.stopPropagation(); onEditItem(item); }} 
-                className="text-indigo-400/50 hover:text-indigo-400 p-1.5 rounded-lg hover:bg-indigo-500/10 transition-colors cursor-pointer"
-                title="Editar gasto"
-              >
-                <Edit2 className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="pt-4 border-t border-white/10 mt-auto">
-        <div className="flex justify-between items-end">
-          <div>
-            <span className="block text-xs text-neutral-500 uppercase tracking-wider font-semibold mb-1">Total</span>
-            <span className={`text-xl font-bold tracking-tight ${total === 'R$ 0,00' ? 'text-neutral-500' : 'text-white'}`}>{total}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TransactionRow({ title, category, date, amount, type, isPaid, onTogglePaid, onDelete, onEdit, receiptUrl }: any) {
-  const isIncome = type === 'income';
-  return (
-    <div className={`flex flex-wrap items-center justify-between p-3.5 rounded-2xl border transition-colors gap-y-3 gap-x-2 overflow-hidden ${isPaid === false ? 'bg-amber-500/5 border-amber-500/10' : 'bg-black/20 border-white/5 hover:bg-white/5'}`}>
-      
-      {/* Esquerda: Icone e Textos */}
-      <div className="flex items-center gap-3 flex-[1_1_180px] min-w-0">
-        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border shrink-0 ${isIncome ? 'bg-emerald-400/10 border-emerald-400/20 text-emerald-400' : 'bg-rose-400/10 border-rose-400/20 text-rose-400'}`}>
-          {isIncome ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
-        </div>
-        
-        <div className="flex flex-col min-w-0 py-0.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <h4 className={`font-semibold text-sm line-clamp-2 leading-snug ${isPaid === false ? 'text-amber-100' : 'text-white'}`}>
-              {title || "Sem título"}
-            </h4>
-            {isPaid === false && <span className="bg-amber-500/20 text-amber-400 text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider shrink-0 mt-0.5">Pendente</span>}
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-neutral-500 uppercase tracking-wide font-medium mt-1">
-            <span className="line-clamp-1">{category || "Sem Categoria"}</span>
-            <span className="w-1 h-1 bg-neutral-700 rounded-full shrink-0"></span>
-            <span className="shrink-0">{date || "Sem data"}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Direita: Valor e Botões */}
-      <div className="flex items-center justify-end gap-1.5 shrink-0 flex-[1_1_150px]">
-        <div className={`font-bold text-sm tracking-tight whitespace-nowrap mr-auto sm:mr-1 ${isIncome ? 'text-emerald-400' : (isPaid === false ? 'text-amber-400' : 'text-white')}`}>
-          {amount}
-        </div>
-        {isPaid !== undefined && (
-          <button onClick={onTogglePaid} className={`p-2 rounded-xl transition-colors cursor-pointer shrink-0 ${isPaid ? 'text-emerald-500/50 hover:text-emerald-400 hover:bg-emerald-500/10' : 'text-amber-500/80 hover:text-amber-400 hover:bg-amber-500/10'}`}>
-            {isPaid ? <CheckCircle2 className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
-          </button>
-        )}
-        {receiptUrl && (
-          <a href={receiptUrl} target="_blank" rel="noreferrer" className="p-2 text-indigo-500/50 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-xl transition-colors cursor-pointer shrink-0"><FileText className="w-4 h-4" /></a>
-        )}
-        <button onClick={onEdit} className="p-2 text-indigo-500/50 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-xl transition-colors cursor-pointer shrink-0"><Edit2 className="w-4 h-4" /></button>
-        <button onClick={onDelete} className="p-2 text-rose-500/50 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer shrink-0"><Trash2 className="w-4 h-4" /></button>
-      </div>
-      
-    </div>
-  );
-}
