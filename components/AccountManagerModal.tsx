@@ -121,3 +121,4 @@ export function CategoryManagerModal({ isOpen, onClose }: { isOpen: boolean, onC
     </AnimatePresence>
   );
 }
+
