@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Home, Heart, BarChart3, Settings, Plus, Camera, PenTool } from "lucide-react";
+import { Home, LayoutGrid, BarChart3, Settings, Plus, Camera, PenTool } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 export function BottomNav() {
@@ -24,9 +24,9 @@ export function BottomNav() {
               <Home className="w-6 h-6" />
               <span className="text-[10px] font-medium tracking-wide">Início</span>
             </button>
-            <button onClick={() => openModal('casais')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'casais' ? 'text-indigo-400' : 'text-neutral-500 hover:text-indigo-300'}`}>
-              <Heart className="w-6 h-6" />
-              <span className="text-[10px] font-medium tracking-wide">Casais</span>
+            <button onClick={() => openModal('ferramentas')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'ferramentas' ? 'text-indigo-400' : 'text-neutral-500 hover:text-indigo-300'}`}>
+              <LayoutGrid className="w-6 h-6" />
+              <span className="text-[10px] font-medium tracking-wide">Menu</span>
             </button>
           </div>
 
