@@ -7,16 +7,30 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend 
 } from "recharts";
 import { useState } from "react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#6366f1'];
 
 export function ReportsModal({ isOpen, onClose, transactions }: any) {
   const [activeTab, setActiveTab] = useState<'categorias' | 'balanco'>('categorias');
+  const [period, setPeriod] = useState<number>(6);
 
   if (!isOpen) return null;
 
+  const now = new Date();
+  const startDate = new Date(now.getFullYear(), now.getMonth() - period + 1, 1);
+  
+  const filteredTransactions = transactions.filter((t: any) => {
+    if (!t.date) return false;
+    const [year, month, day] = t.date.split('-');
+    const tDate = new Date(Number(year), Number(month) - 1, Number(day));
+    return tDate >= startDate;
+  });
+
   // Processar dados para o Gráfico de Pizza
-  const expenses = transactions.filter((t: any) => t.type === 'expense');
+  const expenses = filteredTransactions.filter((t: any) => t.type === 'expense');
   const categoryDataRaw = expenses.reduce((acc: any, curr: any) => {
     if (!acc[curr.category]) acc[curr.category] = 0;
     acc[curr.category] += curr.amount;
@@ -29,7 +43,7 @@ export function ReportsModal({ isOpen, onClose, transactions }: any) {
   })).sort((a, b) => b.value - a.value);
 
   // Processar dados para o Gráfico de Barras
-  const monthlyDataRaw = transactions.reduce((acc: any, curr: any) => {
+  const monthlyDataRaw = filteredTransactions.reduce((acc: any, curr: any) => {
     if (!curr.date) return acc;
     const dateObj = new Date(curr.date);
     const monthYear = dateObj.toLocaleString('pt-BR', { month: 'short', timeZone: 'UTC' }).toUpperCase();
@@ -43,7 +57,7 @@ export function ReportsModal({ isOpen, onClose, transactions }: any) {
   }, {});
 
   // AQUI: Forçamos o tipo para evitar o pânico do TypeScript
-  const balanceData: any[] = Object.values(monthlyDataRaw).slice(0, 6).reverse();
+  const balanceData: any[] = Object.values(monthlyDataRaw).reverse();
 
   const formatMoney = (value: number) => `R$ ${value.toFixed(2).replace('.', ',')}`;
 
@@ -66,10 +80,10 @@ export function ReportsModal({ isOpen, onClose, transactions }: any) {
   };
 
   const handleExportCSV = () => {
-    if (!transactions || transactions.length === 0) return alert("Nenhuma transação para exportar.");
+    if (!filteredTransactions || filteredTransactions.length === 0) return alert("Nenhuma transação para exportar.");
     
     const headers = ["ID", "Título", "Categoria", "Valor", "Tipo", "Data", "Status"];
-    const rows = transactions.map((t: any) => [
+    const rows = filteredTransactions.map((t: any) => [
       t.id,
       `"${t.title.replace(/"/g, '""')}"`,
       `"${t.category}"`,
@@ -88,6 +102,47 @@ export function ReportsModal({ isOpen, onClose, transactions }: any) {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleExportPDF = () => {
+    if (!filteredTransactions || filteredTransactions.length === 0) return alert("Nenhuma transação para exportar.");
+    const doc = new jsPDF();
+    doc.text("Relatório Financeiro - Nexa", 14, 15);
+    
+    const tableColumn = ["Data", "Título", "Categoria", "Valor", "Tipo"];
+    const tableRows: any[] = [];
+    
+    filteredTransactions.forEach((t: any) => {
+      const ticketData = [
+        new Date(t.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'}),
+        t.title,
+        t.category,
+        `R$ ${t.amount.toFixed(2).replace('.', ',')}`,
+        t.type === 'income' ? 'Receita' : 'Despesa'
+      ];
+      tableRows.push(ticketData);
+    });
+    
+    autoTable(doc, { head: [tableColumn], body: tableRows, startY: 20 });
+    doc.save(`relatorio_nexa_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const handleExportExcel = () => {
+    if (!filteredTransactions || filteredTransactions.length === 0) return alert("Nenhuma transação para exportar.");
+    const data = filteredTransactions.map((t: any) => ({
+      ID: t.id,
+      Título: t.title,
+      Categoria: t.category,
+      Valor: t.amount,
+      Tipo: t.type === 'income' ? 'Receita' : 'Despesa',
+      Data: new Date(t.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'}),
+      Status: t.is_paid === false ? 'Pendente' : 'Pago'
+    }));
+    
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Relatório");
+    XLSX.writeFile(workbook, `extrato_nexa_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   return (
@@ -110,29 +165,47 @@ export function ReportsModal({ isOpen, onClose, transactions }: any) {
                 </div>
                 <h2 className="text-xl font-bold text-white tracking-tight">Relatórios Premium</h2>
               </div>
-              <div className="flex items-center gap-2">
-                <button onClick={handleExportCSV} className="flex items-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-emerald-500/20">
-                  <Download className="w-4 h-4" /> CSV
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <button onClick={handleExportPDF} className="flex items-center gap-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-rose-500/20">
+                  <Download className="w-4 h-4" /> PDF
                 </button>
-                <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white hover:bg-white/10 rounded-full transition-colors">
+                <button onClick={handleExportExcel} className="flex items-center gap-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-emerald-500/20">
+                  <Download className="w-4 h-4" /> Excel
+                </button>
+                <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white hover:bg-white/10 rounded-full transition-colors ml-2">
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            <div className="flex p-4 gap-2 bg-black/20 border-b border-white/5 overflow-x-auto scrollbar-hide">
-              <button 
-                onClick={() => setActiveTab('categorias')}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium transition-all whitespace-nowrap ${activeTab === 'categorias' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 hover:bg-white/5'}`}
-              >
-                <PieChartIcon className="w-4 h-4" /> Despesas por Categoria
-              </button>
-              <button 
-                onClick={() => setActiveTab('balanco')}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium transition-all whitespace-nowrap ${activeTab === 'balanco' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-neutral-400 hover:bg-white/5'}`}
-              >
-                <BarChart3 className="w-4 h-4" /> Balanço Mensal
-              </button>
+            <div className="flex flex-col sm:flex-row p-4 gap-4 bg-black/20 border-b border-white/5">
+              <div className="flex gap-2 flex-1 overflow-x-auto scrollbar-hide">
+                <button 
+                  onClick={() => setActiveTab('categorias')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium transition-all whitespace-nowrap ${activeTab === 'categorias' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 hover:bg-white/5'}`}
+                >
+                  <PieChartIcon className="w-4 h-4" /> Despesas por Categoria
+                </button>
+                <button 
+                  onClick={() => setActiveTab('balanco')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium transition-all whitespace-nowrap ${activeTab === 'balanco' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-neutral-400 hover:bg-white/5'}`}
+                >
+                  <BarChart3 className="w-4 h-4" /> Balanço Mensal
+                </button>
+              </div>
+              <div className="shrink-0 flex items-center">
+                <select 
+                  value={period} 
+                  onChange={(e) => setPeriod(Number(e.target.value))}
+                  className="w-full sm:w-auto bg-black/30 border border-white/10 text-white text-sm rounded-xl py-3 px-4 focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer"
+                >
+                  <option value={1}>Mensal</option>
+                  <option value={2}>Bimestral</option>
+                  <option value={3}>Trimestral</option>
+                  <option value={6}>Semestral</option>
+                  <option value={12}>Anual</option>
+                </select>
+              </div>
             </div>
 
             <div className="p-6 overflow-y-auto">
