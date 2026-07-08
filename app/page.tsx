@@ -6,7 +6,7 @@ import {
   Wallet, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight,
   Bell, User, Plus, Home as HomeIcon, Coffee, CreditCard, 
   ChevronLeft, ChevronRight, ArrowRight, Sparkles, LineChart, Target,
-  PieChart as PieChartIcon, Search, Trash2, Heart, CheckCircle2, Clock, Edit2, Calendar, FileText, Settings2, Eye, EyeOff
+  PieChart as PieChartIcon, Search, Trash2, Heart, CheckCircle2, Clock, Edit2, Calendar, FileText, Settings2, Eye, EyeOff, LayoutGrid
 } from "lucide-react";
 
 import { TransactionModal } from "../components/TransactionModal";
@@ -28,6 +28,7 @@ import { DashboardCategoryChart } from "../components/DashboardCategoryChart";
 import { GoalsModal } from "../components/GoalsModal";
 import { CategoryManagerModal } from "../components/CategoryManagerModal";
 import { ModulesModal, ModulesState, defaultModulesState } from "../components/ModulesModal";
+import { ToolsMenuModal } from "../components/ToolsMenuModal";
 import { SummaryCard } from "../components/SummaryCard";
 import { ExpenseCategoryCard } from "../components/ExpenseCategoryCard";
 import { TransactionRow } from "../components/TransactionRow";
@@ -50,6 +51,7 @@ export default function Dashboard() {
   const [isGoalsOpen, setIsGoalsOpen] = useState(false); 
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
   const [isModulesModalOpen, setIsModulesModalOpen] = useState(false);
   const [activeModules, setActiveModules] = useState<ModulesState>(defaultModulesState);
   const [isWalletsOpen, setIsWalletsOpen] = useState(false);
@@ -71,6 +73,8 @@ export default function Dashboard() {
       if (name === 'config') setIsProfileOpen(true);
       if (name === 'manual') setIsModalOpen(true);
       if (name === 'camera') setIsAiModalOpen(true);
+      if (name === 'ferramentas') setIsToolsMenuOpen(true);
+      if (name === 'personalizar') setIsModulesModalOpen(true);
     };
     window.addEventListener('openModal', handleOpenModal);
     return () => window.removeEventListener('openModal', handleOpenModal);
@@ -349,49 +353,14 @@ export default function Dashboard() {
           
           {/* Atalhos: Carrossel no Mobile, Wrap no Desktop */}
           <div className="flex overflow-x-auto md:overflow-visible items-center gap-3 w-full xl:w-auto pb-2 md:pb-0 snap-x snap-mandatory md:snap-none flex-nowrap md:flex-wrap [-ms-overflow-style:'none'] [scrollbar-width:'none'] [&::-webkit-scrollbar]:hidden">
-            {activeModules.casal && (
-              <motion.button onClick={() => setIsCoupleOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-pink-500/20">
-                <Heart className="w-4 h-4" /> <span>Casal</span>
-              </motion.button>
-            )}
-            {activeModules.metas && (
-              <motion.button onClick={() => setIsGoalsOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-yellow-500/20">
-                <Target className="w-4 h-4" /> <span>Metas</span>
-              </motion.button>
-            )}
-            {activeModules.relatorios && (
-              <motion.button onClick={() => setIsReportsOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-indigo-500/20">
-                <PieChartIcon className="w-4 h-4" /> <span>Relatórios</span>
-              </motion.button>
-            )}
-            {activeModules.orcamentos && (
-              <motion.button onClick={() => setIsBudgetOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-orange-500/20">
-                <Wallet className="w-4 h-4" /> <span>Orçamentos</span>
-              </motion.button>
-            )}
-            {activeModules.assinaturas && (
-              <motion.button onClick={() => setIsTrackerOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-teal-500/20">
-                <CreditCard className="w-4 h-4" /> <span>Assinaturas</span>
-              </motion.button>
-            )}
-            {activeModules.planejador && (
-              <motion.button onClick={() => setIsPlannerOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-emerald-500/20">
-                <Target className="w-4 h-4" /> <span>Planejador</span>
-              </motion.button>
-            )}
-            {activeModules.calendario && (
-              <motion.button onClick={() => setIsCalendarOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-blue-500/20">
-                <Calendar className="w-4 h-4" /> <span>Calendário</span>
-              </motion.button>
-            )}
+            <motion.button onClick={() => setIsToolsMenuOpen(true)} className="hidden md:flex snap-start shrink-0 items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-neutral-300 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-white/10">
+              <LayoutGrid className="w-4 h-4" /> <span>Ferramentas</span>
+            </motion.button>
             <motion.button onClick={() => setIsAiModalOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-6 py-2.5 rounded-full font-medium transition-all shadow-lg shadow-purple-500/25 active:scale-95 cursor-pointer border border-white/10">
               <Sparkles className="w-4 h-4" /> <span>Ler Foto</span>
             </motion.button>
             <motion.button onClick={handleOpenModal} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-white text-black px-6 py-2.5 rounded-full font-bold transition-all hover:bg-neutral-200 active:scale-95 cursor-pointer">
               <Plus className="w-5 h-5" /> <span>Novo Lançamento</span>
-            </motion.button>
-            <motion.button onClick={() => setIsModulesModalOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white px-3 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-white/10" title="Personalizar Tela">
-              <Settings2 className="w-5 h-5" />
             </motion.button>
           </div>
         </div>
@@ -543,6 +512,7 @@ export default function Dashboard() {
 
       <BudgetModal isOpen={isBudgetOpen} onClose={() => setIsBudgetOpen(false)} transactions={allTransactions} currentIncome={totalIncome} activeMonth={activeMonth} />
       <ModulesModal isOpen={isModulesModalOpen} onClose={() => setIsModulesModalOpen(false)} modules={activeModules} onSave={handleSaveModules} />
+      <ToolsMenuModal isOpen={isToolsMenuOpen} onClose={() => setIsToolsMenuOpen(false)} activeModules={activeModules} />
       <WelcomeModal />
     </div>
   );
