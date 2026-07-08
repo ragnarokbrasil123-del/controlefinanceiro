@@ -1,549 +1,683 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "motion/react";
-import { 
-  Wallet, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight,
-  Bell, User, Plus, Home as HomeIcon, Coffee, CreditCard, 
-  ChevronLeft, ChevronRight, ArrowRight, Sparkles, LineChart, Target,
-  PieChart as PieChartIcon, Search, Trash2, Heart, CheckCircle2, Clock, Edit2, Calendar, FileText
-} from "lucide-react";
+import { useState, useEffect } from 'react';
+import Image from 'next/image';
+import { createClient } from '@supabase/supabase-js';
+import { Calendar, Clock, User, Phone, Scissors, ShieldCheck, LogOut, Droplet, Download, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import logoImg from './logo.jpeg';
+import donoImg from './dono.jpeg';
 
-import { TransactionModal } from "../components/TransactionModal";
-import { EditTransactionModal } from "../components/EditTransactionModal";
-import { AiUploadModal } from "../components/AiUploadModal";
-import { FinancialPlannerModal } from "../components/FinancialPlannerModal";
-import { SubscriptionTrackerModal } from "../components/SubscriptionTrackerModal";
-import { ReportsModal } from "../components/ReportsModal";
-import { ActivityModal } from "../components/ActivityModal";
-import { ProfileModal } from "../components/ProfileModal";
-import { CoupleModal } from "../components/CoupleModal";
-import { FinancialCalendarModal } from "../components/FinancialCalendarModal";
-import { WalletsModal } from "../components/WalletsModal";
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-import { BudgetModal } from "../components/BudgetModal";
-import { WelcomeModal } from "../components/WelcomeModal";
-import { DashboardChart } from "../components/DashboardChart";
-import { DashboardCategoryChart } from "../components/DashboardCategoryChart";
-import { GoalsModal } from "../components/GoalsModal";
-import { CategoryManagerModal } from "../components/CategoryManagerModal";
-import { supabase } from "../lib/supabase";
+const servicos = [
+  { nome: 'Pezinho', preco: 'R$ 15', categoria: 'Básico' },
+  { nome: 'Sobrancelha', preco: 'R$ 10', categoria: 'Básico' },
+  { nome: 'Bigode', preco: 'R$ 10', categoria: 'Básico' },
+  { nome: 'Sobrancelha e Bigode', preco: 'R$ 15', categoria: 'Básico' },
+  { nome: 'Barba', preco: 'R$ 25', categoria: 'Básico' },
+  { nome: 'Cabelo', preco: 'R$ 35', categoria: 'Básico' },
+  { nome: 'Cabelo e Barba', preco: 'R$ 50', categoria: 'Básico' },
+  { nome: 'Platinado', preco: 'R$ 100', categoria: 'Químicas' },
+  { nome: 'Luzes', preco: 'R$ 70', categoria: 'Químicas' },
+  { nome: 'Alisante', preco: 'R$ 40', categoria: 'Químicas' },
+  { nome: 'Hidratação', preco: 'R$ 30', categoria: 'Químicas' },
+  { nome: 'Pigmentação', preco: 'R$ 20', categoria: 'Químicas' },
+];
 
-const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+export default function Home() {
+  const router = useRouter();
+  const [isUserLoggedIn, setIsUserLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  
+  const [agendamento, setAgendamento] = useState({
+    servicosSelecionados: [] as string[],
+    data: '',
+    hora: '',
+    cliente_nome: '',
+    cliente_telefone: ''
+  });
+  
+  const [horariosOcupados, setHorariosOcupados] = useState<string[]>([]);
+  const [horariosDisponiveis, setHorariosDisponiveis] = useState<string[]>([]);
+  const [loadingAgendamento, setLoadingAgendamento] = useState(false);
+  const [sucesso, setSucesso] = useState(false);
+  const [isLojaFechada, setIsLojaFechada] = useState(false);
 
-export default function Dashboard() {
-  const [activeMonth, setActiveMonth] = useState(new Date().getMonth());
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isAiModalOpen, setIsAiModalOpen] = useState(false); 
-  const [isPlannerOpen, setIsPlannerOpen] = useState(false); 
-  const [isTrackerOpen, setIsTrackerOpen] = useState(false); 
-  const [isReportsOpen, setIsReportsOpen] = useState(false); 
-  const [isActivityOpen, setIsActivityOpen] = useState(false); 
-  const [isProfileOpen, setIsProfileOpen] = useState(false); 
-  const [isCoupleOpen, setIsCoupleOpen] = useState(false); 
-  const [isGoalsOpen, setIsGoalsOpen] = useState(false); 
-  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [isWalletsOpen, setIsWalletsOpen] = useState(false);
-  const [wallets, setWallets] = useState<any[]>([]);
-  const [activeWalletId, setActiveWalletId] = useState<string | null>(null);
-  const [userId, setUserId] = useState("");
-
-  const [isBudgetOpen, setIsBudgetOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingTransaction, setEditingTransaction] = useState<any>(null);
-  const [transactionToEdit, setTransactionToEdit] = useState<any>(null);
-
-  // Escutar eventos do BottomNav
   useEffect(() => {
-    const handleOpenModal = (e: any) => {
-      const name = e.detail;
-      if (name === 'casais') setIsCoupleOpen(true);
-      if (name === 'relatorios') setIsReportsOpen(true);
-      if (name === 'config') setIsProfileOpen(true);
-      if (name === 'manual') setIsModalOpen(true);
-      if (name === 'camera') setIsAiModalOpen(true);
+    const checkStatusLoja = async () => {
+      const { data } = await supabase
+        .from('agendamentos')
+        .select('id')
+        .eq('servico', 'LOJA_FECHADA')
+        .limit(1);
+      if (data && data.length > 0) {
+        setIsLojaFechada(true);
+      }
     };
-    window.addEventListener('openModal', handleOpenModal);
-    return () => window.removeEventListener('openModal', handleOpenModal);
+    checkStatusLoja();
   }, []);
 
-  const [hasUnread, setHasUnread] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  const [userEmail, setUserEmail] = useState("");
-  const [userRole, setUserRole] = useState("client");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterPending, setFilterPending] = useState(false);
-  
-  const [allTransactions, setAllTransactions] = useState<any[]>([]);
-
-  const handlePrevMonth = () => setActiveMonth(prev => prev === 0 ? 11 : prev - 1);
-  const handleNextMonth = () => setActiveMonth(prev => prev === 11 ? 0 : prev + 1);
-  const handleOpenModal = () => setIsModalOpen(true);
+  // === SISTEMA DA BARREIRA DE INSTALAÇÃO ===
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isIOS, setIsIOS] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  const [hasChecked, setHasChecked] = useState(false);
 
   useEffect(() => {
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(console.error);
+    const isAppStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+    setIsStandalone(isAppStandalone);
 
-    async function checkUserAndFetch() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { window.location.href = '/login'; return; }
-      setUserEmail(session.user.email || "");
-      setUserId(session.user.id);
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const mobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+    setIsMobile(mobile);
 
-      const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
-      if (profile) setUserRole(profile.role);
+    const iphone = /iphone|ipad|ipod/.test(userAgent);
+    setIsIOS(iphone);
 
-      const [txResponse, walletsResponse] = await Promise.all([
-        supabase.from('transactions').select('*').eq('user_id', session.user.id).order('date', { ascending: false }),
-        supabase.from('wallets').select('*').eq('user_id', session.user.id)
-      ]);
-      if (txResponse.data) setAllTransactions(txResponse.data);
-      if (walletsResponse.data) setWallets(walletsResponse.data);
-      setIsLoading(false);
+    setHasChecked(true);
+
+    if (!isAppStandalone && mobile) {
+      const handleBeforeInstallPrompt = (e: any) => {
+        e.preventDefault();
+        setDeferredPrompt(e);
+      };
+      window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     }
-    checkUserAndFetch();
   }, []);
 
-  function handleEditTransaction(tx: any) {
-    setEditingTransaction(tx);
-    setIsEditModalOpen(true);
-  }
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setIsStandalone(true);
+      }
+      setDeferredPrompt(null);
+    } else {
+      alert("Para instalar no Android, clique nos 3 pontinhos do navegador e escolha 'Instalar Aplicativo' ou 'Adicionar à Tela Inicial'.");
+    }
+  };
+  // ==========================================
 
-  async function handleDeleteTransaction(id: string) {
-    const tx = allTransactions.find(t => t.id === id);
-    if (!tx) return;
-
-    if (tx.installment_group) {
-      const confirmBulk = window.confirm("Este lançamento se repete. Deseja excluir TODAS as parcelas a partir desta data?\n\n[OK] = Excluir esta e as futuras\n[Cancelar] = Excluir apenas esta");
-      
-      if (confirmBulk) {
-        const { error } = await supabase.from('transactions').delete()
-          .eq('installment_group', tx.installment_group)
-          .gte('date', tx.date);
-          
-        if (!error) {
-          setAllTransactions(prev => prev.filter(t => !(t.installment_group === tx.installment_group && t.date >= tx.date)));
-        } else {
-          alert("Erro ao excluir série.");
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setIsUserLoggedIn(true);
+        if (session.user.email === 'souza.higor@gmail.com' || session.user.email === 'pietro.radical.black@gmail.com') {
+          setIsAdmin(true);
         }
+
+        // Busca o último agendamento do usuário para preencher nome e telefone
+        const { data: ultimoAgendamento } = await supabase
+          .from('agendamentos')
+          .select('cliente_nome, cliente_telefone')
+          .eq('user_id', session.user.id)
+          .order('id', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (ultimoAgendamento) {
+          setAgendamento(prev => ({
+            ...prev,
+            cliente_nome: ultimoAgendamento.cliente_nome || '',
+            cliente_telefone: ultimoAgendamento.cliente_telefone || ''
+          }));
+        }
+      }
+    };
+    checkSession();
+  }, []);
+
+  useEffect(() => {
+    if (agendamento.data) {
+      buscarHorariosOcupados(agendamento.data);
+      
+      const [ano, mes, dia] = agendamento.data.split('-');
+      const date = new Date(Number(ano), Number(mes) - 1, Number(dia));
+      const dayOfWeek = date.getDay(); 
+
+      if (dayOfWeek === 0) {
+        setHorariosDisponiveis([]); 
         return;
       }
+
+      let startHour = 9;
+      let endHour = 21;
+
+      if (dayOfWeek === 1) { startHour = 15; endHour = 21; } 
+      else if (dayOfWeek === 3) { startHour = 9; endHour = 19; } 
+      else if (dayOfWeek === 4) { startHour = 9; endHour = 18; } 
+
+      const slots: string[] = [];
+      for (let h = startHour; h < endHour; h++) {
+        slots.push(`${h.toString().padStart(2, '0')}:00`);
+      }
+      setHorariosDisponiveis(slots);
+      setAgendamento(prev => ({ ...prev, hora: '' })); 
+    }
+  }, [agendamento.data]);
+
+  const buscarHorariosOcupados = async (data: string) => {
+    const { data: agendamentos } = await supabase
+      .from('agendamentos')
+      .select('hora')
+      .eq('data', data);
+    
+    if (agendamentos) {
+      setHorariosOcupados(agendamentos.map(a => a.hora));
+    }
+  };
+
+  const toggleServico = (nome: string) => {
+    setAgendamento(prev => {
+      const jaSelecionado = prev.servicosSelecionados.includes(nome);
+      if (jaSelecionado) {
+        return { ...prev, servicosSelecionados: prev.servicosSelecionados.filter(s => s !== nome) };
+      } else {
+        return { ...prev, servicosSelecionados: [...prev.servicosSelecionados, nome] };
+      }
+    });
+  };
+
+  const iniciarAgendamento = () => {
+    if (!isUserLoggedIn) {
+      alert("Por favor, faça login ou cadastre-se para agendar seu horário.");
+      router.push('/login');
+      return;
     }
 
-    const { error } = await supabase.from('transactions').delete().eq('id', id);
-    if (!error) setAllTransactions(prev => prev.filter(t => t.id !== id));
-    else alert("Erro ao excluir.");
-  }
+    if (agendamento.servicosSelecionados.length === 0 || !agendamento.data || !agendamento.hora || !agendamento.cliente_nome || !agendamento.cliente_telefone) {
+      alert('Por favor, preencha todos os campos e escolha pelo menos um serviço!');
+      return;
+    }
 
-  async function handleTogglePaid(id: string, currentStatus: boolean) {
-    const newStatus = !currentStatus;
-    const { error } = await supabase.from('transactions').update({ is_paid: newStatus }).eq('id', id);
+    finalizarAgendamento();
+  };
+
+  const finalizarAgendamento = async () => {
+    setLoadingAgendamento(true);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+
+    // Verifica se já existe um agendamento para este dia e horário antes de inserir
+    const { data: checkData, error: checkError } = await supabase
+      .from('agendamentos')
+      .select('id')
+      .eq('data', agendamento.data)
+      .eq('hora', agendamento.hora);
+
+    if (checkData && checkData.length > 0) {
+      alert('Desculpe, este horário acabou de ser reservado. Por favor, escolha outro.');
+      setLoadingAgendamento(false);
+      buscarHorariosOcupados(agendamento.data); // Atualiza os horários ocupados
+      return;
+    }
+
+    const servicosFormatados = agendamento.servicosSelecionados.join(' + ');
+
+    const { error } = await supabase
+      .from('agendamentos')
+      .insert([
+        { 
+          user_id: userId,
+          servico: servicosFormatados, 
+          data: agendamento.data, 
+          hora: agendamento.hora,
+          cliente_nome: agendamento.cliente_nome,
+          cliente_telefone: agendamento.cliente_telefone,
+          status: 'Pendente'
+        }
+      ]);
+
     if (!error) {
-      setAllTransactions(prev => prev.map(t => t.id === id ? { ...t, is_paid: newStatus } : t));
+      const numeroBarbeiro = "5511953676910";
+      const dataFormatada = agendamento.data.split('-').reverse().join('/');
+      
+      const texto = `💈 *NOVO AGENDAMENTO NO SITE!* 💈%0A%0A👤 *Cliente:* ${agendamento.cliente_nome}%0A📱 *WhatsApp:* ${agendamento.cliente_telefone}%0A✂️ *Serviço:* ${servicosFormatados}%0A📅 *Data:* ${dataFormatada}%0A⏰ *Horário:* ${agendamento.hora}%0A%0A⚠️ *Aviso:* Ciente da tolerância máxima de 10 minutos.`;
+      
+      window.open(`https://wa.me/${numeroBarbeiro}?text=${texto}`, '_blank');
+
+      setSucesso(true);
+      setTimeout(() => {
+        setSucesso(false);
+        setAgendamento({
+          servicosSelecionados: [],
+          data: '',
+          hora: '',
+          cliente_nome: '',
+          cliente_telefone: ''
+        });
+        buscarHorariosOcupados(agendamento.data);
+      }, 3000);
     } else {
-      alert("Erro ao atualizar status.");
+      alert('Erro ao agendar: ' + error.message);
     }
+    setLoadingAgendamento(false);
+  };
+
+  const toggleStatusLoja = async () => {
+    if (isLojaFechada) {
+      await supabase.from('agendamentos').delete().eq('servico', 'LOJA_FECHADA');
+      setIsLojaFechada(false);
+      alert('Barbearia ABERTA para novos agendamentos!');
+    } else {
+      await supabase.from('agendamentos').insert([{ 
+        servico: 'LOJA_FECHADA', 
+        data: '2099-12-31', 
+        hora: '00:00', 
+        cliente_nome: 'Sistema', 
+        status: 'Fechado' 
+      }]);
+      setIsLojaFechada(true);
+      alert('Barbearia FECHADA! Ninguém poderá agendar a partir de agora.');
+    }
+  };
+
+  const handleSair = async () => {
+    await supabase.auth.signOut();
+    setIsUserLoggedIn(false);
+    setIsAdmin(false);
+  };
+
+  // TELA DE BLOQUEIO (APARECE SE NÃO TIVER INSTALADO NO CELULAR)
+  if (hasChecked && !isStandalone && isMobile) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col items-center justify-center p-8 text-center selection:bg-blue-600 selection:text-zinc-950 relative overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-600/10 blur-[120px] pointer-events-none"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-500/10 blur-[120px] pointer-events-none"></div>
+        
+        <div className="w-32 h-32 bg-zinc-900 rounded-[2rem] p-2 mb-8 border border-blue-600/30 shadow-[0_0_50px_rgba(37,99,235,0.2)] relative z-10">
+            <Image src={logoImg} alt="Logo" className="w-full h-full object-cover rounded-[1.5rem]" />
+        </div>
+        
+        <h1 className="text-3xl md:text-4xl font-black mb-4 relative z-10">
+          Obrigatório <br/> <span className="text-blue-600">Instalar o App</span>
+        </h1>
+        
+        <p className="text-zinc-400 mb-10 max-w-sm text-lg font-medium relative z-10">
+          Para agendar seu horário, é necessário instalar nosso aplicativo oficial no seu celular.
+        </p>
+
+        <div className="relative z-10 w-full max-w-sm">
+          {isIOS ? (
+            <div className="bg-zinc-900/80 backdrop-blur-md p-6 rounded-3xl border border-zinc-800 text-left w-full shadow-2xl">
+              <div className="flex items-center justify-center gap-2 mb-6 bg-zinc-950 py-2 rounded-xl border border-zinc-800">
+                <span className="text-xl">🍎</span>
+                <p className="font-black text-white">Instalação no iPhone</p>
+              </div>
+              <ol className="text-sm text-zinc-300 space-y-5 font-medium">
+                <li className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-blue-600/10 text-blue-600 flex items-center justify-center flex-shrink-0 font-bold">1</div>
+                  <p>Toque no ícone de <span className="text-white font-bold bg-zinc-800 px-2 py-0.5 rounded ml-1">Compartilhar</span> <br/><span className="text-xs text-zinc-500">(O quadrado com uma seta para cima na barra inferior).</span></p>
+                </li>
+                <li className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-blue-600/10 text-blue-600 flex items-center justify-center flex-shrink-0 font-bold">2</div>
+                  <p>Role para baixo e escolha <span className="text-white font-bold bg-zinc-800 px-2 py-0.5 rounded ml-1">Adicionar à Tela de Início</span>.</p>
+                </li>
+                <li className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-blue-600/10 text-blue-600 flex items-center justify-center flex-shrink-0 font-bold">3</div>
+                  <p>Confirme clicando em <span className="text-white font-bold">Adicionar</span> e abra pela sua tela inicial!</p>
+                </li>
+              </ol>
+            </div>
+          ) : (
+            <button 
+              onClick={handleInstallClick}
+              className="w-full flex items-center justify-center gap-3 bg-blue-600 text-zinc-950 px-8 py-5 rounded-2xl font-black text-lg hover:bg-blue-500 transition-all shadow-[0_0_30px_rgba(37,99,235,0.3)] hover:shadow-[0_0_50px_rgba(37,99,235,0.5)] hover:-translate-y-1"
+            >
+              <Download size={24} />
+              Instalar Aplicativo Agora
+            </button>
+          )}
+        </div>
+      </div>
+    );
   }
-
-  const visibleTransactions = activeWalletId ? allTransactions.filter(t => t.wallet_id === activeWalletId) : allTransactions;
-
-  const currentMonthTransactions = visibleTransactions.filter(t => {
-    if (!t.date) return false;
-    const [year, month] = t.date.split('-'); 
-    return (parseInt(month) - 1) === activeMonth;
-  });
-
-  const totalIncome = currentMonthTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
-  const totalExpense = currentMonthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
-  const balance = totalIncome - totalExpense;
-
-  const contasFixas = currentMonthTransactions.filter(t => t.category === 'Contas Fixas');
-  const variaveis = currentMonthTransactions.filter(t => t.category === 'Variáveis');
-  const cartoes = currentMonthTransactions.filter(t => (t.category === 'Cartões' || t.category === 'Cartões de Crédito'));
-  const investimentos = currentMonthTransactions.filter(t => t.category === 'Investimentos');
-
-  const sumCategory = (list: any[]) => list.reduce((acc, t) => {
-    if (t.category === 'Investimentos') return acc + t.amount;
-    return acc + (t.type === 'expense' ? t.amount : -t.amount);
-  }, 0);
-  const formatMoney = (val: number) => `R$ ${val.toFixed(2).replace('.', ',')}`;
-
-  const filteredTransactions = visibleTransactions.filter(t => {
-    const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) || t.category.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesPending = filterPending ? (t.is_paid === false && t.type === 'expense') : true;
-    return matchesSearch && matchesPending;
-  });
-
-  const recentTransactions = (searchQuery || filterPending) ? filteredTransactions : visibleTransactions.slice(0, 8); 
-
-  const variaveisPercent = totalIncome > 0 ? (sumCategory(variaveis) / totalIncome) * 100 : 0;
-
-  const todayStr = new Date().toISOString().split('T')[0];
-  const threeDaysFromNow = new Date();
-  threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
-  const threeDaysStr = threeDaysFromNow.toISOString().split('T')[0];
-
-  const dueBills = visibleTransactions.filter(t => {
-    if (t.type !== 'expense' || t.is_paid) return false;
-    return t.date <= threeDaysStr;
-  });
-
-  useEffect(() => {
-    if (dueBills.length > 0) setHasUnread(true);
-    else setHasUnread(false);
-  }, [dueBills.length]);
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-50 font-sans selection:bg-indigo-500/30">
+    <div className="min-h-screen bg-zinc-950 text-zinc-50 font-sans selection:bg-blue-600 selection:text-zinc-950 relative overflow-hidden pb-20">
       
-      <nav className="hidden md:flex border-b border-white/10 bg-black/20 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between w-full">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 overflow-hidden bg-black/20">
-              <img src="/icon-192.png" alt="Logo" className="w-full h-full object-cover" />
-            </div>
-            <span className="font-bold text-xl tracking-tight">Nexa</span>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <select 
-              value={activeWalletId || ''} 
-              onChange={(e) => setActiveWalletId(e.target.value || null)}
-              className="bg-black/30 border border-white/10 text-white text-sm rounded-lg py-1.5 px-3 focus:outline-none focus:border-indigo-500 hidden sm:block"
-            >
-              <option value="">Todas Carteiras</option>
-              {wallets.map(w => (
-                <option key={w.id} value={w.id}>{w.name}</option>
-              ))}
-            </select>
-            <button onClick={() => setIsWalletsOpen(true)} className="text-xs bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 px-2 py-1.5 rounded-lg font-medium transition-colors border border-indigo-500/20 hidden sm:block">
-              Carteiras
-            </button>
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-600/10 blur-[120px] pointer-events-none"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-blue-500/10 blur-[120px] pointer-events-none"></div>
 
-            <button onClick={() => { setIsActivityOpen(true); setHasUnread(false); }} className="text-neutral-400 hover:text-white transition-colors relative ml-2">
-              <Bell className="w-5 h-5" />
-              {hasUnread && <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>}
-            </button>
-            <div onClick={() => setIsProfileOpen(true)} className={`w-9 h-9 border rounded-full flex items-center justify-center overflow-hidden cursor-pointer transition-colors ${userRole === 'admin' ? 'bg-indigo-500/20 border-indigo-500 text-indigo-400' : 'bg-neutral-800 border-white/10 text-neutral-400 hover:border-emerald-500'}`}>
-              <User className="w-4 h-4" />
-            </div>
+      <nav className="flex justify-between items-center p-6 md:px-12 bg-zinc-950/40 backdrop-blur-2xl sticky top-0 z-50 border-b border-white/5">
+        <div className="flex items-center gap-3">
+          <div className="w-[60px] h-[60px] min-w-[60px] flex-shrink-0 rounded-full overflow-hidden border border-blue-600/50 shadow-[0_0_20px_rgba(37,99,235,0.2)] bg-white flex items-center justify-center">
+            <Image src={logoImg} alt="Logo" className="w-full h-full object-contain" />
           </div>
+          <div className="flex flex-col items-center justify-center -space-y-1">
+            <span className="text-xl font-black tracking-widest text-zinc-100 drop-shadow-md leading-none">NOVO</span>
+            <span className="text-[10px] font-black tracking-widest text-blue-500 drop-shadow-md leading-none">DE</span>
+            <span className="text-xl font-black tracking-widest text-zinc-100 drop-shadow-md leading-none">NOVO</span>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          {isAdmin && (
+            <>
+              <button 
+                onClick={toggleStatusLoja} 
+                className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold transition-all border ${
+                  isLojaFechada 
+                    ? 'bg-red-500/10 text-red-500 border-red-500/30 hover:bg-red-500 hover:text-white'
+                    : 'bg-green-500/10 text-green-500 border-green-500/30 hover:bg-green-500 hover:text-white'
+                }`}
+                title={isLojaFechada ? 'Abrir Barbearia' : 'Fechar Barbearia'}
+              >
+                <span className="w-2 h-2 rounded-full bg-current animate-pulse"></span>
+                <span className="text-sm hidden sm:inline">{isLojaFechada ? 'Sistema Fechado' : 'Sistema Aberto'}</span>
+              </button>
+              <button onClick={() => router.push('/admin')} className="flex items-center gap-2 px-4 py-2 bg-blue-600/10 text-blue-600 rounded-full hover:bg-blue-600 hover:text-zinc-950 font-bold transition-all border border-blue-600/30">
+                <ShieldCheck size={16} />
+                <span className="text-sm hidden sm:inline">Painel do Admin</span>
+              </button>
+            </>
+          )}
+
+          {isUserLoggedIn ? (
+            <button onClick={handleSair} className="flex items-center gap-2 px-4 py-2 bg-white/5 text-zinc-300 rounded-full hover:bg-red-500 hover:text-white transition-all font-bold">
+              <LogOut size={16} />
+              <span className="text-sm hidden sm:inline">Sair</span>
+            </button>
+          ) : (
+            <button onClick={() => router.push('/login')} className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-zinc-950 rounded-full hover:bg-blue-500 font-bold transition-all shadow-[0_0_15px_rgba(37,99,235,0.3)]">
+              <User size={16} />
+              <span className="text-sm">Fazer Login</span>
+            </button>
+          )}
         </div>
       </nav>
 
-      <main className="max-w-md md:max-w-7xl mx-auto px-6 py-8 pb-32 md:pb-12 md:py-12">
+      <main className="flex flex-col xl:flex-row items-center justify-center p-6 md:p-12 gap-12 max-w-7xl mx-auto min-h-[calc(100vh-100px)]">
         
-        <header className="flex md:hidden justify-between items-center mb-8">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 overflow-hidden bg-black/20">
-              <img src="/icon-192.png" alt="Logo" className="w-full h-full object-cover" />
-            </div>
-            <div>
-              <p className="text-xs text-neutral-400 font-medium tracking-wide uppercase">Olá, {userEmail ? userEmail.split('@')[0] : 'Usuário'}</p>
-              <h1 className="text-2xl font-bold text-white tracking-tight">Seu Nexa</h1>
-            </div>
+        <div className="w-full xl:w-1/2 flex flex-col gap-8 relative z-10">
+          <div className="inline-block px-4 py-1.5 rounded-full border border-blue-600/30 bg-blue-600/10 text-blue-600 text-xs font-black tracking-widest w-fit shadow-[0_0_20px_rgba(37,99,235,0.1)]">
+            EXCELÊNCIA EM BARBEARIA
           </div>
           
-          <div className="flex gap-2">
-             <button onClick={() => setIsTrackerOpen(true)} className="p-2.5 bg-white/5 rounded-full text-neutral-400 hover:text-white transition-colors"><Search className="w-5 h-5"/></button>
-             <button onClick={() => setIsPlannerOpen(true)} className="p-2.5 bg-white/5 rounded-full text-neutral-400 hover:text-white transition-colors"><Target className="w-5 h-5"/></button>
-             <button onClick={() => { setIsActivityOpen(true); setHasUnread(false); }} className="p-2.5 bg-white/5 rounded-full text-neutral-400 hover:text-white transition-colors relative">
-                <Bell className="w-5 h-5"/>
-                {hasUnread && <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>}
-             </button>
-          </div>
-        </header>
+          <h1 className="text-5xl md:text-7xl font-black leading-[1.1] tracking-tight text-white drop-shadow-sm">
+            O seu estilo, <br/>
+            nossa obra de arte.
+          </h1>
+          
+          <p className="text-zinc-400 text-lg md:text-xl max-w-md leading-relaxed font-medium">
+            Uma experiência que combina a tradição clássica com as tendências modernas. Agende agora e eleve o seu visual com os melhores profissionais.
+          </p>
 
-        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-8 relative z-10">
-          <div className="shrink-0">
-            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-2">Visão Geral</h1>
-            <p className="text-neutral-400 text-sm md:text-base">Acompanhe e gerencie seu patrimônio</p>
-          </div>
-          
-          {/* Atalhos: Carrossel no Mobile, Wrap no Desktop */}
-          <div className="flex overflow-x-auto md:overflow-visible items-center gap-3 w-full xl:w-auto pb-2 md:pb-0 snap-x snap-mandatory md:snap-none flex-nowrap md:flex-wrap [-ms-overflow-style:'none'] [scrollbar-width:'none'] [&::-webkit-scrollbar]:hidden">
-            <motion.button onClick={() => setIsCoupleOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-pink-500/20">
-              <Heart className="w-4 h-4" /> <span>Casal</span>
-            </motion.button>
-            <motion.button onClick={() => setIsGoalsOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-yellow-500/20">
-              <Target className="w-4 h-4" /> <span>Metas</span>
-            </motion.button>
-            <motion.button onClick={() => setIsReportsOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-indigo-500/20">
-              <PieChartIcon className="w-4 h-4" /> <span>Relatórios</span>
-            </motion.button>
-            <motion.button onClick={() => setIsBudgetOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-orange-500/20">
-              <Wallet className="w-4 h-4" /> <span>Orçamentos</span>
-            </motion.button>
-            <motion.button onClick={() => setIsTrackerOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-teal-500/20">
-              <CreditCard className="w-4 h-4" /> <span>Assinaturas</span>
-            </motion.button>
-            <motion.button onClick={() => setIsPlannerOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-emerald-500/20">
-              <Target className="w-4 h-4" /> <span>Planejador</span>
-            </motion.button>
-            <motion.button onClick={() => setIsCalendarOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-blue-500/20">
-              <Calendar className="w-4 h-4" /> <span>Calendário</span>
-            </motion.button>
-            <motion.button onClick={() => setIsAiModalOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-6 py-2.5 rounded-full font-medium transition-all shadow-lg shadow-purple-500/25 active:scale-95 cursor-pointer border border-white/10">
-              <Sparkles className="w-4 h-4" /> <span>Ler Foto</span>
-            </motion.button>
-            <motion.button onClick={handleOpenModal} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-white text-black px-6 py-2.5 rounded-full font-bold transition-all hover:bg-neutral-200 active:scale-95 cursor-pointer">
-              <Plus className="w-5 h-5" /> <span>Novo Lançamento</span>
-            </motion.button>
+          <div className="relative h-[300px] md:h-[450px] w-full max-w-xl rounded-[2rem] overflow-hidden border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] group mt-4">
+            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent z-10 opacity-60"></div>
+            <Image src={donoImg} alt="Barbeiro" fill className="object-cover transition-transform duration-1000 group-hover:scale-110" />
+            <div className="absolute bottom-6 left-6 z-20 flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center shadow-[0_0_20px_rgba(37,99,235,0.5)]">
+                <Scissors className="text-zinc-950" />
+              </div>
+              <div>
+                <p className="text-white font-bold text-lg leading-tight">Cortes Premium</p>
+                <p className="text-zinc-300 text-sm font-semibold">Técnicas Exclusivas</p>
+              </div>
+            </div>
           </div>
         </div>
 
-        {isLoading ? (
-          <div className="flex md:grid md:grid-cols-3 gap-4 md:gap-6 overflow-x-auto md:overflow-visible pb-6 md:pb-12">
-            {[1,2,3].map(i => (
-              <div key={i} className="min-w-[80%] md:min-w-0 h-32 bg-white/5 border border-white/10 rounded-3xl animate-pulse"></div>
-            ))}
-          </div>
-        ) : (
-          <div className="flex md:grid md:grid-cols-3 gap-4 md:gap-6 overflow-x-auto md:overflow-visible pb-6 md:pb-12 snap-x snap-mandatory md:snap-none scrollbar-hide">
-            <div className="snap-center shrink-0 w-[85%] md:w-auto">
-              <SummaryCard title="Saldo no Mês" amount={formatMoney(balance)} isPositive={balance >= 0} icon={<Wallet className="text-indigo-400" />} delay={0.1} />
-            </div>
-            <div className="snap-center shrink-0 w-[80%] md:w-auto">
-              <SummaryCard title="Receitas" amount={formatMoney(totalIncome)} isPositive={true} icon={<TrendingUp className="text-emerald-400" />} delay={0.2} />
-            </div>
-            <div className="snap-center shrink-0 w-[80%] md:w-auto">
-              <SummaryCard title="Despesas" amount={formatMoney(totalExpense)} isPositive={false} icon={<TrendingDown className="text-rose-400" />} delay={0.3} />
-            </div>
-          </div>
-        )}
+        <div className="w-full xl:w-1/2 max-w-lg relative z-10">
+          <div className="bg-zinc-900/40 backdrop-blur-3xl p-8 md:p-10 rounded-[2.5rem] border border-white/10 shadow-2xl relative overflow-hidden">
+            
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 blur-[50px]"></div>
 
-        {/* Projeção de Fim de Mês */}
-        {!isLoading && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }} className={`mb-8 border rounded-3xl p-5 md:p-6 backdrop-blur-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative overflow-hidden ${balance >= 0 ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-rose-500/5 border-rose-500/20'}`}>
-            <div className={`absolute -right-10 -top-10 w-40 h-40 rounded-full blur-3xl opacity-20 ${balance >= 0 ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
-            <div className="flex items-center gap-4 relative z-10">
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${balance >= 0 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>
-                <Target className="w-6 h-6" />
+            <h2 className="text-3xl font-black mb-8 flex items-center gap-3 relative z-10">
+              <div className="w-2 h-8 bg-blue-600 rounded-full"></div>
+              Agende seu Horário
+            </h2>
+
+            {isLojaFechada ? (
+              <div className="relative z-10 bg-red-500/10 border border-red-500/30 p-8 rounded-2xl text-center flex flex-col items-center gap-4">
+                <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center">
+                  <span className="text-2xl">🔒</span>
+                </div>
+                <h3 className="text-2xl font-black text-red-500">Estamos Fechados</h3>
+                <p className="text-zinc-300 font-medium">
+                  Nossa agenda está temporariamente fechada para novos horários. Por favor, tente novamente mais tarde!
+                </p>
               </div>
+            ) : (
+              <>
+
+            <div className="mb-6 relative z-10">
+              <label className="block text-sm font-bold text-zinc-400 mb-3 uppercase tracking-wider flex items-center gap-2">
+                <Scissors size={16} className="text-blue-600" /> 1. Cortes e Barba
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {servicos.filter(s => s.categoria === 'Básico').map((servico) => {
+                  const isSelected = agendamento.servicosSelecionados.includes(servico.nome);
+                  return (
+                    <button
+                      key={servico.nome}
+                      onClick={() => toggleServico(servico.nome)}
+                      className={`p-2 rounded-xl text-sm font-semibold border transition-all flex flex-col items-center justify-center gap-1 min-h-[64px] ${
+                        isSelected
+                          ? 'bg-blue-600 text-zinc-950 border-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.4)]'
+                          : 'bg-zinc-900/50 text-zinc-300 border-zinc-800 hover:border-blue-600/50 hover:bg-zinc-800'
+                      }`}
+                    >
+                      <span className="text-center w-full px-1 leading-tight">{servico.nome}</span>
+                      <span className={isSelected ? 'text-zinc-800 text-[11px]' : 'text-blue-600/80 text-[11px]'}>{servico.preco}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mb-8 relative z-10">
+              <label className="block text-sm font-bold text-zinc-400 mb-3 uppercase tracking-wider flex items-center gap-2">
+                <Droplet size={16} className="text-blue-600" /> 2. Químicas e Tratamentos
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {servicos.filter(s => s.categoria === 'Químicas').map((servico) => {
+                  const isSelected = agendamento.servicosSelecionados.includes(servico.nome);
+                  return (
+                    <button
+                      key={servico.nome}
+                      onClick={() => toggleServico(servico.nome)}
+                      className={`p-2 rounded-xl text-sm font-semibold border transition-all flex flex-col items-center justify-center gap-1 min-h-[64px] ${
+                        isSelected
+                          ? 'bg-blue-600 text-zinc-950 border-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.4)]'
+                          : 'bg-zinc-900/50 text-zinc-300 border-zinc-800 hover:border-blue-600/50 hover:bg-zinc-800'
+                      }`}
+                    >
+                      <span className="text-center w-full px-1 leading-tight">{servico.nome}</span>
+                      <span className={isSelected ? 'text-zinc-800 text-[11px]' : 'text-blue-600/80 text-[11px]'}>{servico.preco}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 relative z-10">
               <div>
-                <h3 className="font-bold text-white text-lg">Previsão de Fim de Mês</h3>
-                <p className="text-neutral-400 text-sm">Baseado nas despesas fixas e variáveis agendadas</p>
+                <label className="block text-sm font-bold text-zinc-400 mb-3 uppercase tracking-wider flex items-center gap-2">
+                  <User size={16} className="text-blue-600" /> Seu Nome
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: João Silva"
+                  value={agendamento.cliente_nome}
+                  onChange={(e) => setAgendamento({ ...agendamento, cliente_nome: e.target.value })}
+                  className="w-full bg-zinc-900/50 border border-zinc-800 p-4 rounded-xl text-white outline-none focus:border-blue-600 transition-all font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-zinc-400 mb-3 uppercase tracking-wider flex items-center gap-2">
+                  <Phone size={16} className="text-blue-600" /> WhatsApp
+                </label>
+                <input
+                  type="tel"
+                  placeholder="(00) 00000-0000"
+                  value={agendamento.cliente_telefone}
+                  onChange={(e) => setAgendamento({ ...agendamento, cliente_telefone: e.target.value })}
+                  className="w-full bg-zinc-900/50 border border-zinc-800 p-4 rounded-xl text-white outline-none focus:border-blue-600 transition-all font-medium"
+                />
               </div>
             </div>
-            <div className="text-left md:text-right relative z-10 bg-black/20 p-4 rounded-2xl border border-white/5 w-full md:w-auto">
-              <p className="text-xs text-neutral-400 uppercase tracking-wider font-semibold mb-1">Saldo Livre Previsto</p>
-              <p className={`text-2xl font-extrabold tracking-tight ${balance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {formatMoney(balance)}
-              </p>
-              <p className="text-[11px] text-neutral-500 mt-1">Se não houver novos gastos, este será seu saldo.</p>
-            </div>
-          </motion.div>
-        )}
 
-        {/* Gráficos Principais */}
-        {!isLoading && (
-          <div className="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <DashboardChart transactions={allTransactions} />
-            <DashboardCategoryChart currentMonthTransactions={currentMonthTransactions} />
-          </div>
-        )}
-
-        <div className="flex flex-col lg:grid lg:grid-cols-3 gap-8">
-          
-          <div className="lg:col-span-2">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }} className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <h2 className="text-lg font-semibold tracking-tight">Organização</h2>
-                <button onClick={() => setIsCategoryOpen(true)} className="text-xs bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 px-2.5 py-1 rounded-full font-medium transition-colors border border-indigo-500/20">
-                  + Categorias
-                </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 relative z-10">
+              <div>
+                <label className="block text-sm font-bold text-zinc-400 mb-3 uppercase tracking-wider flex items-center gap-2">
+                  <Calendar size={16} className="text-blue-600" /> Data
+                </label>
+                <input
+                  type="date"
+                  value={agendamento.data}
+                  min={new Date().toISOString().split('T')[0]}
+                  // === NOVA REGRA DE TRAVAMENTO PARA 2 MESES ===
+                  max={(() => {
+                    const d = new Date();
+                    d.setMonth(d.getMonth() + 2);
+                    return d.toISOString().split('T')[0];
+                  })()}
+                  onChange={(e) => setAgendamento({ ...agendamento, data: e.target.value })}
+                  className="w-full bg-zinc-900/50 border border-zinc-800 p-4 rounded-xl text-white outline-none focus:border-blue-600 transition-all font-medium color-scheme-dark"
+                  style={{ colorScheme: 'dark' }}
+                />
               </div>
-              <div className="flex items-center gap-1 bg-white/5 p-1 rounded-full border border-white/10 w-fit">
-                <button onClick={handlePrevMonth} className="p-1.5 rounded-full text-neutral-400 hover:text-white transition-colors cursor-pointer"><ChevronLeft className="w-4 h-4" /></button>
-                <div className="w-24 text-center font-medium text-xs text-white tracking-wider uppercase">{MONTHS[activeMonth]}</div>
-                <button onClick={handleNextMonth} className="p-1.5 rounded-full text-neutral-400 hover:text-white transition-colors cursor-pointer"><ChevronRight className="w-4 h-4" /></button>
-              </div>
-            </motion.div>
 
-            <AnimatePresence mode="wait">
-              <motion.div key={activeMonth} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <ExpenseCategoryCard title="Contas Fixas" icon={<HomeIcon className="w-5 h-5 text-blue-400" />} total={formatMoney(sumCategory(contasFixas))} accentColor="bg-blue-500/10 border-blue-500/20" items={contasFixas} formatMoney={formatMoney} onAction={handleOpenModal} onEditItem={handleEditTransaction} />
-                <ExpenseCategoryCard title="Variáveis" icon={<Coffee className="w-5 h-5 text-amber-400" />} total={formatMoney(sumCategory(variaveis))} accentColor="bg-amber-500/10 border-amber-500/20" items={variaveis} formatMoney={formatMoney} onAction={handleOpenModal} onEditItem={handleEditTransaction} />
-                <ExpenseCategoryCard title="Cartões" icon={<CreditCard className="w-5 h-5 text-purple-400" />} total={formatMoney(sumCategory(cartoes))} accentColor="bg-purple-500/10 border-purple-500/20" items={cartoes} formatMoney={formatMoney} onAction={handleOpenModal} onEditItem={handleEditTransaction} />
-                <ExpenseCategoryCard title="Investimentos" icon={<LineChart className="w-5 h-5 text-emerald-400" />} total={formatMoney(sumCategory(investimentos))} accentColor="bg-emerald-500/10 border-emerald-500/20" items={investimentos} formatMoney={formatMoney} onAction={handleOpenModal} onEditItem={handleEditTransaction} />
-              </motion.div>
-            </AnimatePresence>
-          </div>
+              <div>
+                <label className="block text-sm font-bold text-zinc-400 mb-3 uppercase tracking-wider flex items-center gap-2">
+                  <Clock size={16} className="text-blue-600" /> Horário
+                </label>
+                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                  {agendamento.data ? (
+                    horariosDisponiveis.length > 0 ? (
+                      horariosDisponiveis.map((hora) => {
+                        const isOcupado = horariosOcupados.includes(hora);
+                        
+                        const isAlmoco = hora.startsWith('13:') || hora.startsWith('14:');
 
-          <div className="lg:col-span-1">
-            {/* Dicas do Nexa (Gamificação) */}
-            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 0.5 }} className="mb-6 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-3xl p-5 relative overflow-hidden">
-              <div className="flex items-start gap-3">
-                <div className="mt-1"><Sparkles className="w-5 h-5 text-indigo-400" /></div>
-                <div>
-                  <h3 className="text-sm font-bold text-indigo-300 mb-1">Dica do Nexa</h3>
-                  {variaveisPercent > 30 ? (
-                    <p className="text-xs text-neutral-300 leading-relaxed">Cuidado! Seus gastos variáveis já consomem <strong>{variaveisPercent.toFixed(1)}%</strong> da sua renda. Tente segurar as compras por impulso.</p>
-                  ) : balance > 0 ? (
-                    <p className="text-xs text-neutral-300 leading-relaxed">Seu orçamento está saudável e deve sobrar dinheiro! Que tal destinar esse valor para uma de suas Metas?</p>
-                  ) : balance < 0 ? (
-                    <p className="text-xs text-neutral-300 leading-relaxed">Alerta! Sua previsão é fechar no vermelho. Reveja os gastos agendados e cancele assinaturas que não usa.</p>
+                        if (isAlmoco) {
+                          return (
+                            <button
+                              key={hora}
+                              disabled
+                              className="p-1 rounded-xl text-sm font-bold border transition-all bg-zinc-900/20 text-zinc-600 border-zinc-800/50 cursor-not-allowed flex flex-col items-center justify-center gap-0.5"
+                            >
+                              <span className="line-through">{hora}</span>
+                              <span className="text-[10px] uppercase text-blue-600/50">Almoço</span>
+                            </button>
+                          );
+                        }
+
+                        return (
+                          <button
+                            key={hora}
+                            disabled={isOcupado}
+                            onClick={() => setAgendamento({ ...agendamento, hora })}
+                            className={`p-2 rounded-xl text-sm font-bold border transition-all ${
+                              isOcupado
+                                ? 'bg-red-500/10 text-red-500/50 border-red-500/20 cursor-not-allowed'
+                                : agendamento.hora === hora
+                                ? 'bg-blue-600 text-zinc-950 border-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.4)]'
+                                : 'bg-zinc-900/50 text-zinc-300 border-zinc-800 hover:border-blue-600/50 hover:bg-zinc-800'
+                            }`}
+                          >
+                            {hora}
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="col-span-2 text-center py-4 text-zinc-500 text-sm font-bold bg-zinc-900/30 rounded-xl border border-zinc-800">
+                        Fechado neste dia.
+                      </div>
+                    )
                   ) : (
-                    <p className="text-xs text-neutral-300 leading-relaxed">Continue acompanhando seus gastos diários para não ter surpresas no fim do mês.</p>
+                    <div className="col-span-2 text-center py-4 text-zinc-500 text-sm bg-zinc-900/30 rounded-xl border border-zinc-800 flex items-center justify-center">
+                      Escolha uma data
+                    </div>
                   )}
                 </div>
               </div>
-            </motion.div>
+            </div>
+            
+            {/* AVISO DE TOLERÂNCIA */}
+            <div className="mb-6 relative z-10 bg-yellow-500/10 border border-yellow-500/30 p-4 rounded-xl flex items-start gap-3">
+              <div className="mt-0.5 text-yellow-500">
+                <Clock size={20} />
+              </div>
+              <div>
+                 <p className="text-yellow-500 font-bold text-sm uppercase tracking-wider mb-1">Atenção ao Horário</p>
+                <p className="text-zinc-400 text-sm font-medium">Temos uma tolerância máxima de <strong>10 minutos</strong> de atraso. Após esse período, o agendamento poderá ser cancelado.</p>
+              </div>
+            </div>
 
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.6 }} className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-sm h-full">
-              <div className="flex flex-col gap-4 mb-6">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-semibold tracking-tight">Recentes</h2>
-                </div>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
-                    <input type="text" placeholder="Buscar gastos..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl py-2 pl-9 pr-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors" />
-                  </div>
-                  <button 
-                    onClick={() => setFilterPending(!filterPending)}
-                    className={`px-3 py-2 rounded-xl text-xs font-bold transition-colors border whitespace-nowrap ${filterPending ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-black/20 text-neutral-400 border-white/10 hover:text-white'}`}
-                  >
-                    A Vencer
-                  </button>
-                </div>
-              </div>
-              <div className="flex flex-col gap-3">
-                {recentTransactions.length === 0 ? (
-                  <p className="text-neutral-500 text-sm text-center py-4">Nenhuma transação lançada ainda.</p>
-                ) : (
-                  recentTransactions.map((tx) => (
-                    <TransactionRow key={tx.id} title={tx.title} category={tx.category} date={new Date(tx.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})} amount={`${tx.type === 'income' ? '+' : '-'} R$ ${tx.amount.toFixed(2).replace('.', ',')}`} type={tx.type} isPaid={tx.is_paid} onTogglePaid={() => handleTogglePaid(tx.id, tx.is_paid)} onDelete={() => handleDeleteTransaction(tx.id)} onEdit={() => handleEditTransaction(tx)} receiptUrl={tx.receipt_url} />
-                  ))
-                )}
-              </div>
-            </motion.div>
+            <button
+              onClick={iniciarAgendamento}
+              disabled={loadingAgendamento || sucesso}
+              className={`w-full py-5 rounded-2xl font-black text-lg transition-all relative overflow-hidden group ${
+                sucesso ? 'bg-green-500 text-white shadow-[0_0_30px_rgba(34,197,94,0.4)]' : 'bg-blue-600 text-zinc-950 hover:bg-blue-500 shadow-[0_0_30px_rgba(37,99,235,0.3)] hover:shadow-[0_0_40px_rgba(37,99,235,0.5)] hover:-translate-y-1'
+              }`}
+            >
+              {sucesso ? (
+                <span className="flex items-center justify-center gap-2">
+                  <ShieldCheck size={24} /> Agendado com Sucesso!
+                </span>
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  {loadingAgendamento ? 'Salvando...' : 'Confirmar Agendamento'}
+                </span>
+              )}
+            </button>
+              </>
+            )}
           </div>
-
         </div>
       </main>
-
-      <TransactionModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
-      <EditTransactionModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} transaction={editingTransaction} />
-      <AiUploadModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} />
-      <FinancialPlannerModal isOpen={isPlannerOpen} onClose={() => setIsPlannerOpen(false)} currentIncome={totalIncome} currentExpense={totalExpense} balance={balance} transactions={allTransactions} />
-      <SubscriptionTrackerModal isOpen={isTrackerOpen} onClose={() => setIsTrackerOpen(false)} transactions={allTransactions} />
-      <ReportsModal isOpen={isReportsOpen} onClose={() => setIsReportsOpen(false)} transactions={allTransactions} />
-      <ActivityModal isOpen={isActivityOpen} onClose={() => setIsActivityOpen(false)} transactions={allTransactions} dueBills={dueBills} />
-      <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} userEmail={userEmail} userRole={userRole} />
-      <CoupleModal isOpen={isCoupleOpen} onClose={() => setIsCoupleOpen(false)} />
-      <GoalsModal isOpen={isGoalsOpen} onClose={() => setIsGoalsOpen(false)} />
-      <CategoryManagerModal isOpen={isCategoryOpen} onClose={() => setIsCategoryOpen(false)} />
-      <WalletsModal isOpen={isWalletsOpen} onClose={() => setIsWalletsOpen(false)} userId={userId} />
-      <FinancialCalendarModal isOpen={isCalendarOpen} onClose={() => setIsCalendarOpen(false)} transactions={allTransactions} />
-
-      <BudgetModal isOpen={isBudgetOpen} onClose={() => setIsBudgetOpen(false)} transactions={allTransactions} currentIncome={totalIncome} activeMonth={activeMonth} />
-      <WelcomeModal />
-    </div>
-  );
-}
-
-function SummaryCard({ title, amount, isPositive, icon, delay }: any) {
-  return (
-    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5, delay }} className="bg-gradient-to-br from-white/10 to-white/5 border border-white/10 p-6 rounded-[2rem] backdrop-blur-xl relative overflow-hidden group">
-      <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/5 rounded-full blur-3xl"></div>
-      <div className="flex justify-between items-start mb-6">
-        <div className="p-3.5 bg-white/10 rounded-2xl border border-white/10 shadow-inner">{icon}</div>
-        <div className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-full ${isPositive ? 'text-emerald-400 bg-emerald-400/10' : 'text-rose-400 bg-rose-400/10'}`}>
-          {isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-        </div>
-      </div>
-      <p className="text-neutral-400 text-sm font-medium mb-1 tracking-wide">{title}</p>
-      <h3 className={`text-4xl font-extrabold tracking-tight ${amount === 'R$ 0,00' ? 'text-neutral-500' : 'text-white'}`}>{amount}</h3>
-    </motion.div>
-  );
-}
-
-function ExpenseCategoryCard({ title, icon, total, items, accentColor, onAction, onEditItem, formatMoney }: any) {
-  return (
-    <div className={`bg-white/5 border border-white/10 rounded-3xl p-5 backdrop-blur-sm flex flex-col h-full transition-all group`}>
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-xl border ${accentColor}`}>{icon}</div>
-          <h3 className="font-semibold text-neutral-200">{title}</h3>
-        </div>
-        <button onClick={onAction} className="text-neutral-400 bg-white/5 p-1.5 rounded-lg flex items-center hover:bg-white/10 transition-colors cursor-pointer"><Plus className="w-4 h-4" /></button>
-      </div>
-      <div className="flex-1 flex flex-col gap-3 mb-6">
-        {items.length === 0 ? <p className="text-neutral-600 text-sm italic py-2">Nenhum gasto neste mês.</p> : items.map((item: any) => (
-          <div key={item.id} className="flex justify-between items-center text-sm group/item">
-            <span className="text-neutral-300 pr-2 line-clamp-2 leading-tight">{item.title}</span>
-            <div className="flex items-center gap-2 shrink-0">
-               <span className={`font-medium whitespace-nowrap ${item.type === 'income' ? 'text-emerald-400' : 'text-white'}`}>
-                {item.type === 'income' ? '+ ' : ''}{formatMoney(item.amount)}
-              </span>
-              <button 
-                onClick={(e) => { e.stopPropagation(); onEditItem(item); }} 
-                className="text-indigo-400/50 hover:text-indigo-400 p-1.5 rounded-lg hover:bg-indigo-500/10 transition-colors cursor-pointer"
-                title="Editar gasto"
-              >
-                <Edit2 className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="pt-4 border-t border-white/10 mt-auto">
-        <div className="flex justify-between items-end">
-          <div>
-            <span className="block text-xs text-neutral-500 uppercase tracking-wider font-semibold mb-1">Total</span>
-            <span className={`text-xl font-bold tracking-tight ${total === 'R$ 0,00' ? 'text-neutral-500' : 'text-white'}`}>{total}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TransactionRow({ title, category, date, amount, type, isPaid, onTogglePaid, onDelete, onEdit, receiptUrl }: any) {
-  const isIncome = type === 'income';
-  return (
-    <div className={`flex flex-wrap items-center justify-between p-3.5 rounded-2xl border transition-colors gap-y-3 gap-x-2 overflow-hidden ${isPaid === false ? 'bg-amber-500/5 border-amber-500/10' : 'bg-black/20 border-white/5 hover:bg-white/5'}`}>
       
-      {/* Esquerda: Icone e Textos */}
-      <div className="flex items-center gap-3 flex-[1_1_180px] min-w-0">
-        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border shrink-0 ${isIncome ? 'bg-emerald-400/10 border-emerald-400/20 text-emerald-400' : 'bg-rose-400/10 border-rose-400/20 text-rose-400'}`}>
-          {isIncome ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
-        </div>
-        
-        <div className="flex flex-col min-w-0 py-0.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <h4 className={`font-semibold text-sm line-clamp-2 leading-snug ${isPaid === false ? 'text-amber-100' : 'text-white'}`}>
-              {title || "Sem título"}
-            </h4>
-            {isPaid === false && <span className="bg-amber-500/20 text-amber-400 text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider shrink-0 mt-0.5">Pendente</span>}
+      {/* HISTÓRIA SECTION */}
+      <section className="max-w-7xl mx-auto px-6 md:px-12 py-20 relative z-10 mt-12">
+        <div className="flex flex-col md:flex-row gap-12 items-center">
+          <div className="w-full md:w-1/2 flex flex-col gap-6">
+            <h2 className="text-4xl md:text-5xl font-black text-white flex items-center gap-4">
+              <span className="w-12 h-2 bg-blue-600 rounded-full inline-block"></span>
+              Mais que um corte de cabelo.
+            </h2>
+            <p className="text-zinc-400 text-lg leading-relaxed">
+              Desde 2018, a Barbearia Novo de Novo vem ajudando homens a renovarem sua autoestima, estilo e confiança.
+            </p>
+            <p className="text-zinc-400 text-lg leading-relaxed">
+              Com atendimento personalizado e horário marcado, oferecemos uma experiência tranquila, profissional e pensada para valorizar o seu tempo.
+            </p>
+            <p className="text-blue-500 font-bold text-xl mt-4">
+              Agende seu horário e saia Novo de Novo.
+            </p>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-neutral-500 uppercase tracking-wide font-medium mt-1">
-            <span className="line-clamp-1">{category || "Sem Categoria"}</span>
-            <span className="w-1 h-1 bg-neutral-700 rounded-full shrink-0"></span>
-            <span className="shrink-0">{date || "Sem data"}</span>
+          
+          <div className="w-full md:w-1/2 bg-zinc-900/40 backdrop-blur-3xl p-8 md:p-10 rounded-[2.5rem] border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative">
+            <div className="absolute top-[-20px] right-[-20px] w-24 h-24 bg-blue-600/20 blur-[30px] rounded-full"></div>
+            <p className="text-zinc-300 text-lg leading-relaxed mb-6 font-medium italic">
+              "A Barbearia Novo de Novo nasceu da paixão pela profissão e do compromisso com cada cliente."
+            </p>
+            <p className="text-zinc-400 text-md leading-relaxed mb-6">
+              Localizada no Jardim Clementino, atendemos desde 2018 com foco em qualidade, respeito e atenção aos detalhes.
+            </p>
+            <p className="text-zinc-400 text-md leading-relaxed">
+              Aqui, cada atendimento é realizado com horário marcado, proporcionando mais conforto, organização e dedicação para que você tenha a melhor experiência possível.
+            </p>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Direita: Valor e Botões */}
-      <div className="flex items-center justify-end gap-1.5 shrink-0 flex-[1_1_150px]">
-        <div className={`font-bold text-sm tracking-tight whitespace-nowrap mr-auto sm:mr-1 ${isIncome ? 'text-emerald-400' : (isPaid === false ? 'text-amber-400' : 'text-white')}`}>
-          {amount}
-        </div>
-        {isPaid !== undefined && (
-          <button onClick={onTogglePaid} className={`p-2 rounded-xl transition-colors cursor-pointer shrink-0 ${isPaid ? 'text-emerald-500/50 hover:text-emerald-400 hover:bg-emerald-500/10' : 'text-amber-500/80 hover:text-amber-400 hover:bg-amber-500/10'}`}>
-            {isPaid ? <CheckCircle2 className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
-          </button>
-        )}
-        {receiptUrl && (
-          <a href={receiptUrl} target="_blank" rel="noreferrer" className="p-2 text-indigo-500/50 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-xl transition-colors cursor-pointer shrink-0"><FileText className="w-4 h-4" /></a>
-        )}
-        <button onClick={onEdit} className="p-2 text-indigo-500/50 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-xl transition-colors cursor-pointer shrink-0"><Edit2 className="w-4 h-4" /></button>
-        <button onClick={onDelete} className="p-2 text-rose-500/50 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer shrink-0"><Trash2 className="w-4 h-4" /></button>
-      </div>
-      
+      <style dangerouslySetInnerHTML={{__html: `
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(37,99,235,0.2); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(37,99,235,0.5); }
+      `}} />
     </div>
   );
 }
