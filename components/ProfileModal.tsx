@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, LogOut, Shield, User, Lock, Check } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
-export function ProfileModal({ isOpen, onClose, userEmail, userRole }: { isOpen: boolean, onClose: () => void, userEmail: string, userRole: string }) {
+export function ProfileModal({ isOpen, onClose, userEmail, userName, userRole }: { isOpen: boolean, onClose: () => void, userEmail: string, userName?: string, userRole: string }) {
   const [newPassword, setNewPassword] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
 
@@ -58,7 +58,8 @@ export function ProfileModal({ isOpen, onClose, userEmail, userRole }: { isOpen:
               {userRole === 'admin' ? <Shield className="w-10 h-10" /> : <User className="w-10 h-10" />}
             </div>
             
-            <h3 className="text-lg font-bold text-white truncate w-full">{userEmail || 'Carregando...'}</h3>
+            <h3 className="text-lg font-bold text-white truncate w-full">{userName || userEmail || 'Carregando...'}</h3>
+            {userName && <p className="text-xs text-neutral-500 mt-1 truncate">{userEmail}</p>}
             <span className={`text-xs font-semibold px-3 py-1 rounded-full mt-3 ${userRole === 'admin' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
               {userRole === 'admin' ? 'Dono (Admin)' : 'Cliente Premium'}
             </span>
