@@ -53,7 +53,8 @@ REGRAS CRÍTICAS:
 
     promptText += `Usuário: ${message}\nNexa AI:`;
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // AQUI ESTÁ A CORREÇÃO: Usando o modelo exato que o Google aprova (gemini-flash-latest)
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
 
     const requestBody = {
       contents: [{ parts: [{ text: promptText }] }]
