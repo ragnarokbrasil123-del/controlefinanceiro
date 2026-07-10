@@ -6,12 +6,12 @@ import { X, TrendingUp, TrendingDown, Calendar, Wallet, ChevronDown } from "luci
 import { supabase } from "../lib/supabase";
 import { saveOfflineTransaction } from "../lib/offlineSync";
 
-export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
-  const [type, setType] = useState<'expense' | 'income'>('expense');
+export function TransactionModal({ isOpen, onClose, initialType = 'expense' }: { isOpen: boolean, onClose: () => void, initialType?: 'expense' | 'income' }) {
+  const [type, setType] = useState<'expense' | 'income'>(initialType);
   
   const [amount, setAmount] = useState("");
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState("Variáveis");
+  const [category, setCategory] = useState(initialType === 'expense' ? 'Variáveis' : 'Salário');
   const [date, setDate] = useState("");
   
   const [isInstallment, setIsInstallment] = useState(false);
@@ -29,10 +29,12 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
 
   useEffect(() => {
     if (isOpen) {
+      setType(initialType);
+      setCategory(initialType === 'expense' ? 'Variáveis' : 'Salário');
       setDate(new Date().toISOString().split('T')[0]);
       fetchData();
     }
-  }, [isOpen]);
+  }, [isOpen, initialType]);
 
   async function fetchData() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -97,6 +99,11 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
 
       let loopCount = (isInstallment || isRecurring) && type === 'expense' ? installments : 1;
       let amountPerInstallment = baseAmount;
+      
+      if (isInstallment && type === 'expense' && installments > 0) {
+        amountPerInstallment = baseAmount / installments;
+      }
+      
       if (isSplit && type === 'expense') amountPerInstallment = amountPerInstallment / 2;
 
       for (let i = 0; i < loopCount; i++) {
@@ -161,7 +168,9 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
 
           <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative w-full max-w-lg bg-neutral-900 border border-white/10 rounded-3xl p-6 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
             <div className="flex justify-between items-center mb-6 shrink-0">
-              <h2 className="text-xl font-bold text-white">Novo Lançamento</h2>
+              <h2 className="text-xl font-bold text-white">
+                {type === 'expense' ? 'Nova Despesa' : 'Nova Receita'}
+              </h2>
               <button onClick={onClose} className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-neutral-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
@@ -169,17 +178,8 @@ export function TransactionModal({ isOpen, onClose }: { isOpen: boolean, onClose
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4 overflow-y-auto pr-2 pb-4">
               
-              <div className="flex gap-2 p-1 bg-white/5 rounded-2xl border border-white/10 shrink-0">
-                <button type="button" onClick={() => handleTypeChange('expense')} className={`flex-1 py-2 flex items-center justify-center gap-2 rounded-xl text-sm font-medium transition-colors ${type === 'expense' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'text-neutral-400 hover:text-white'}`}>
-                  <TrendingDown className="w-4 h-4" /> Despesa
-                </button>
-                <button type="button" onClick={() => handleTypeChange('income')} className={`flex-1 py-2 flex items-center justify-center gap-2 rounded-xl text-sm font-medium transition-colors ${type === 'income' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-neutral-400 hover:text-white'}`}>
-                  <TrendingUp className="w-4 h-4" /> Receita
-                </button>
-              </div>
-
               <div>
-                <label className="block text-sm font-medium text-neutral-400 mb-1.5">{isInstallment ? "Valor da Parcela" : "Valor Total"}</label>
+                <label className="block text-sm font-medium text-neutral-400 mb-1.5">{isInstallment ? "Valor Total da Compra" : "Valor"}</label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 font-medium">R$</span>
                   <input type="number" step="0.01" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder:text-neutral-600 focus:outline-none focus:border-indigo-500 transition-colors" />
