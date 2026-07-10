@@ -15,6 +15,7 @@ import { AiUploadModal } from "../components/AiUploadModal";
 import { FinancialPlannerModal } from "../components/FinancialPlannerModal";
 import { SubscriptionTrackerModal } from "../components/SubscriptionTrackerModal";
 import { ReportsModal } from "../components/ReportsModal";
+import { StockTrackerModal } from "../components/StockTrackerModal";
 import { ActivityModal } from "../components/ActivityModal";
 import { ProfileModal } from "../components/ProfileModal";
 import { CoupleModal } from "../components/CoupleModal";
@@ -23,10 +24,9 @@ import { WalletsModal } from "../components/WalletsModal";
 
 import { BudgetModal } from "../components/BudgetModal";
 import { WelcomeModal } from "../components/WelcomeModal";
-import { DashboardChart } from "../components/DashboardChart";
-import { DashboardCategoryChart } from "../components/DashboardCategoryChart";
 import { GoalsModal } from "../components/GoalsModal";
 import { CategoryManagerModal } from "../components/CategoryManagerModal";
+import { AiChatModal } from "../components/AiChatModal";
 import { ModulesModal, ModulesState, defaultModulesState } from "../components/ModulesModal";
 import { ToolsMenuModal } from "../components/ToolsMenuModal";
 import { SummaryCard } from "../components/SummaryCard";
@@ -41,6 +41,7 @@ export default function Dashboard() {
   const [activeMonth, setActiveMonth] = useState(new Date().getMonth());
   const [showBalances, setShowBalances] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [transactionModalType, setTransactionModalType] = useState<'expense' | 'income'>('expense');
   const [isAiModalOpen, setIsAiModalOpen] = useState(false); 
   const [isPlannerOpen, setIsPlannerOpen] = useState(false); 
   const [isTrackerOpen, setIsTrackerOpen] = useState(false); 
@@ -52,7 +53,9 @@ export default function Dashboard() {
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
+  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
   const [isModulesModalOpen, setIsModulesModalOpen] = useState(false);
+  const [isStocksOpen, setIsStocksOpen] = useState(false);
   const [activeModules, setActiveModules] = useState<ModulesState>(defaultModulesState);
   const [isWalletsOpen, setIsWalletsOpen] = useState(false);
   const [wallets, setWallets] = useState<any[]>([]);
@@ -64,8 +67,21 @@ export default function Dashboard() {
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
   const [transactionToEdit, setTransactionToEdit] = useState<any>(null);
 
-  // Escutar eventos do BottomNav
   useEffect(() => {
+    const handleOpenTool = (tool: string) => {
+      switch(tool) {
+        case 'reports': setIsReportsOpen(true); break;
+        case 'goals': setIsGoalsOpen(true); break;
+        case 'categories': setIsCategoryOpen(true); break;
+        case 'planner': setIsPlannerOpen(true); break;
+        case 'ai_upload': setIsAiModalOpen(true); break;
+        case 'ai_chat': setIsAiChatOpen(true); break;
+        case 'casais': window.location.href = '/casais'; break;
+        case 'calendar': setIsCalendarOpen(true); break;
+        case 'subscriptions': setIsTrackerOpen(true); break;
+        case 'stocks': setIsStocksOpen(true); break;
+      }
+    };
     const handleOpenModal = (e: any) => {
       const name = e.detail;
       if (name === 'casais') setIsCoupleOpen(true);
@@ -75,6 +91,12 @@ export default function Dashboard() {
       if (name === 'camera') setIsAiModalOpen(true);
       if (name === 'ferramentas') setIsToolsMenuOpen(true);
       if (name === 'personalizar') setIsModulesModalOpen(true);
+      if (name === 'metas') setIsGoalsOpen(true);
+      if (name === 'orcamentos') setIsBudgetOpen(true);
+      if (name === 'assinaturas') setIsTrackerOpen(true);
+      if (name === 'planejador') setIsPlannerOpen(true);
+      if (name === 'calendario') setIsCalendarOpen(true);
+      if (name === 'acoes') setIsStocksOpen(true);
     };
     window.addEventListener('openModal', handleOpenModal);
     return () => window.removeEventListener('openModal', handleOpenModal);
@@ -84,6 +106,7 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   
   const [userEmail, setUserEmail] = useState("");
+  const [userName, setUserName] = useState("");
   const [userRole, setUserRole] = useState("client");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPending, setFilterPending] = useState(false);
@@ -92,7 +115,14 @@ export default function Dashboard() {
 
   const handlePrevMonth = () => setActiveMonth(prev => prev === 0 ? 11 : prev - 1);
   const handleNextMonth = () => setActiveMonth(prev => prev === 11 ? 0 : prev + 1);
-  const handleOpenModal = () => setIsModalOpen(true);
+  const handleOpenModal = () => {
+    setTransactionModalType('expense');
+    setIsModalOpen(true);
+  };
+  const handleOpenIncomeModal = () => {
+    setTransactionModalType('income');
+    setIsModalOpen(true);
+  };
 
   const handleSaveModules = (newModules: ModulesState) => {
     setActiveModules(newModules);
@@ -114,6 +144,7 @@ export default function Dashboard() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { window.location.href = '/login'; return; }
       setUserEmail(session.user.email || "");
+      setUserName(session.user.user_metadata?.display_name || "");
       setUserId(session.user.id);
 
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
@@ -289,6 +320,10 @@ export default function Dashboard() {
               Carteiras
             </button>
 
+            <button onClick={() => setIsAiChatOpen(true)} className="text-indigo-400 hover:text-indigo-300 transition-colors relative ml-2 hidden md:block" title="Nexa AI">
+              <Sparkles className="w-5 h-5" />
+            </button>
+
             <button onClick={() => { setIsActivityOpen(true); setHasUnread(false); }} className="text-neutral-400 hover:text-white transition-colors relative ml-2">
               <Bell className="w-5 h-5" />
               {hasUnread && <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span>}
@@ -302,18 +337,21 @@ export default function Dashboard() {
 
       <main className="max-w-md md:max-w-7xl mx-auto px-6 py-8 pb-32 md:pb-12 md:py-12">
         
-        <header className="flex md:hidden justify-between items-center mb-6">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 overflow-hidden bg-black/20">
+        <header className="flex md:hidden justify-between items-center mb-6 gap-2">
+          <div className="flex items-center gap-4 flex-1 min-w-0">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 overflow-hidden bg-black/20 shrink-0">
               <img src="/icon-192.png" alt="Logo" className="w-full h-full object-cover" />
             </div>
-            <div>
-              <p className="text-xs text-neutral-400 font-medium tracking-wide uppercase">Olá, {userEmail ? userEmail.split('@')[0] : 'Usuário'}</p>
-              <h1 className="text-2xl font-bold text-white tracking-tight">Seu Nexa</h1>
+            <div className="min-w-0">
+              <p className="text-xs text-neutral-400 font-medium tracking-wide uppercase truncate">Olá, {userName || (userEmail ? userEmail.split('@')[0] : 'Usuário')}</p>
+              <h1 className="text-2xl font-bold text-white tracking-tight truncate">Seu Nexa</h1>
             </div>
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex gap-2 shrink-0">
+             <button onClick={() => setIsAiChatOpen(true)} className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-full hover:bg-indigo-500/20 hover:text-indigo-300 transition-colors cursor-pointer" title="Nexa AI">
+               <Sparkles className="w-5 h-5" />
+             </button>
              <button onClick={() => setIsTrackerOpen(true)} className="p-2.5 bg-white/5 rounded-full text-neutral-400 hover:text-white transition-colors"><Search className="w-5 h-5"/></button>
              <button onClick={() => setIsPlannerOpen(true)} className="p-2.5 bg-white/5 rounded-full text-neutral-400 hover:text-white transition-colors"><Target className="w-5 h-5"/></button>
              <button onClick={() => { setIsActivityOpen(true); setHasUnread(false); }} className="p-2.5 bg-white/5 rounded-full text-neutral-400 hover:text-white transition-colors relative">
@@ -352,15 +390,15 @@ export default function Dashboard() {
           </div>
           
           {/* Atalhos: Carrossel no Mobile, Wrap no Desktop */}
-          <div className="flex overflow-x-auto md:overflow-visible items-center gap-3 w-full xl:w-auto pb-2 md:pb-0 snap-x snap-mandatory md:snap-none flex-nowrap md:flex-wrap [-ms-overflow-style:'none'] [scrollbar-width:'none'] [&::-webkit-scrollbar]:hidden">
-            <motion.button onClick={() => setIsToolsMenuOpen(true)} className="hidden md:flex snap-start shrink-0 items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-neutral-300 px-5 py-2.5 rounded-full font-medium transition-all active:scale-95 cursor-pointer border border-white/10">
-              <LayoutGrid className="w-4 h-4" /> <span>Ferramentas</span>
+          <div className="flex overflow-x-auto md:overflow-visible items-center gap-2 w-full xl:w-auto pb-2 md:pb-0 snap-x snap-mandatory md:snap-none flex-nowrap md:flex-wrap [-ms-overflow-style:'none'] [scrollbar-width:'none'] [&::-webkit-scrollbar]:hidden">
+            <motion.button onClick={() => setIsToolsMenuOpen(true)} className="hidden md:flex snap-start shrink-0 items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10 text-neutral-300 px-4 py-1.5 rounded-full text-sm font-medium transition-all active:scale-95 cursor-pointer border border-white/10">
+              <LayoutGrid className="w-3.5 h-3.5" /> <span>Ferramentas</span>
             </motion.button>
-            <motion.button onClick={() => setIsAiModalOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-6 py-2.5 rounded-full font-medium transition-all shadow-lg shadow-purple-500/25 active:scale-95 cursor-pointer border border-white/10">
-              <Sparkles className="w-4 h-4" /> <span>Ler Foto</span>
+            <motion.button onClick={() => setIsAiModalOpen(true)} className="snap-start shrink-0 flex items-center justify-center gap-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-4 py-1.5 text-sm rounded-full font-medium transition-all shadow-lg shadow-purple-500/25 active:scale-95 cursor-pointer border border-white/10">
+              <Sparkles className="w-3.5 h-3.5" /> <span>Ler Foto</span>
             </motion.button>
-            <motion.button onClick={handleOpenModal} className="snap-start shrink-0 flex items-center justify-center gap-2 bg-white text-black px-6 py-2.5 rounded-full font-bold transition-all hover:bg-neutral-200 active:scale-95 cursor-pointer">
-              <Plus className="w-5 h-5" /> <span>Novo Lançamento</span>
+            <motion.button onClick={handleOpenModal} className="snap-start shrink-0 flex items-center justify-center gap-1.5 bg-white text-black px-4 py-1.5 text-sm rounded-full font-bold transition-all hover:bg-neutral-200 active:scale-95 cursor-pointer">
+              <Plus className="w-4 h-4" /> <span>Novo Lançamento</span>
             </motion.button>
           </div>
         </div>
@@ -377,10 +415,10 @@ export default function Dashboard() {
               <SummaryCard title="Saldo no Mês" amount={formatMoney(balance)} isPositive={balance >= 0} icon={<Wallet className="text-indigo-400" />} delay={0.1} />
             </div>
             <div className="snap-center shrink-0 w-[80%] md:w-auto">
-              <SummaryCard title="Receitas" amount={formatMoney(totalIncome)} isPositive={true} icon={<TrendingUp className="text-emerald-400" />} delay={0.2} />
+              <SummaryCard title="Receitas" amount={formatMoney(totalIncome)} isPositive={true} icon={<TrendingUp className="text-emerald-400" />} delay={0.2} onAdd={handleOpenIncomeModal} />
             </div>
             <div className="snap-center shrink-0 w-[80%] md:w-auto">
-              <SummaryCard title="Despesas" amount={formatMoney(totalExpense)} isPositive={false} icon={<TrendingDown className="text-rose-400" />} delay={0.3} />
+              <SummaryCard title="Despesas" amount={formatMoney(totalExpense)} isPositive={false} icon={<TrendingDown className="text-rose-400" />} delay={0.3} onAdd={handleOpenModal} />
             </div>
           </div>
         )}
@@ -406,14 +444,6 @@ export default function Dashboard() {
               <p className="text-[11px] text-neutral-500 mt-1">Se não houver novos gastos, este será seu saldo.</p>
             </div>
           </motion.div>
-        )}
-
-        {/* Gráficos Principais */}
-        {!isLoading && (
-          <div className="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <DashboardChart transactions={allTransactions} />
-            <DashboardCategoryChart currentMonthTransactions={currentMonthTransactions} />
-          </div>
         )}
 
         <div className="flex flex-col lg:grid lg:grid-cols-3 gap-8">
@@ -496,14 +526,16 @@ export default function Dashboard() {
         </div>
       </main>
 
-      <TransactionModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <TransactionModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} initialType={transactionModalType} />
       <EditTransactionModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} transaction={editingTransaction} />
       <AiUploadModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} />
       <FinancialPlannerModal isOpen={isPlannerOpen} onClose={() => setIsPlannerOpen(false)} currentIncome={totalIncome} currentExpense={totalExpense} balance={balance} transactions={allTransactions} />
       <SubscriptionTrackerModal isOpen={isTrackerOpen} onClose={() => setIsTrackerOpen(false)} transactions={allTransactions} />
       <ReportsModal isOpen={isReportsOpen} onClose={() => setIsReportsOpen(false)} transactions={allTransactions} />
+      <AiChatModal isOpen={isAiChatOpen} onClose={() => setIsAiChatOpen(false)} financialContext={{ income: totalIncome, expense: totalExpense, balance, transactions: currentMonthTransactions, userName }} />
+      <StockTrackerModal isOpen={isStocksOpen} onClose={() => setIsStocksOpen(false)} />
       <ActivityModal isOpen={isActivityOpen} onClose={() => setIsActivityOpen(false)} transactions={allTransactions} dueBills={dueBills} />
-      <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} userEmail={userEmail} userRole={userRole} />
+      <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} userEmail={userEmail} userName={userName} userRole={userRole} />
       <CoupleModal isOpen={isCoupleOpen} onClose={() => setIsCoupleOpen(false)} />
       <GoalsModal isOpen={isGoalsOpen} onClose={() => setIsGoalsOpen(false)} />
       <CategoryManagerModal isOpen={isCategoryOpen} onClose={() => setIsCategoryOpen(false)} />
