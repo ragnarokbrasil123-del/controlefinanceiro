@@ -12,6 +12,7 @@ export type ModulesState = {
   assinaturas: boolean;
   planejador: boolean;
   calendario: boolean;
+  ai: boolean;
 };
 
 export const defaultModulesState: ModulesState = {
@@ -22,6 +23,7 @@ export const defaultModulesState: ModulesState = {
   assinaturas: true,
   planejador: true,
   calendario: true,
+  ai: true,
 };
 
 export function ModulesModal({ isOpen, onClose, modules, onSave }: { isOpen: boolean, onClose: () => void, modules: ModulesState, onSave: (newModules: ModulesState) => void }) {
