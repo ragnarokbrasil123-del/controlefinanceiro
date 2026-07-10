@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "motion/react";
-import { X, Heart, Target, PieChartIcon, Wallet, CreditCard, Calendar, Settings2 } from "lucide-react";
+import { X, Heart, Target, PieChartIcon, Wallet, CreditCard, Calendar, Settings2, TrendingUp, Sparkles, Bot } from "lucide-react";
 import { ModulesState } from "./ModulesModal";
 
 interface ToolsMenuModalProps {
@@ -43,6 +43,15 @@ export function ToolsMenuModal({ isOpen, onClose, activeModules }: ToolsMenuModa
           <div className="p-6 overflow-y-auto">
             <div className="grid grid-cols-2 gap-4">
               
+              {activeModules.ai && (
+                <button onClick={() => handleOpen('ai_chat')} className="flex flex-col items-center justify-center gap-3 p-4 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 rounded-2xl border border-indigo-500/20 transition-colors group">
+                  <div className="w-12 h-12 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center group-hover:scale-110 group-hover:bg-indigo-500/30 transition-all">
+                    <Bot className="w-6 h-6" />
+                  </div>
+                  <span className="text-sm font-medium text-white">Nexa AI Chat</span>
+                </button>
+              )}
+
               {activeModules.casal && (
                 <button onClick={() => handleOpen('casais')} className="flex flex-col items-center justify-center gap-3 p-4 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl transition-all active:scale-95 group">
                   <div className="w-12 h-12 bg-pink-500/20 text-pink-400 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -105,6 +114,13 @@ export function ToolsMenuModal({ isOpen, onClose, activeModules }: ToolsMenuModa
                   <span className="text-sm font-medium text-neutral-300">Calendário</span>
                 </button>
               )}
+
+              <button onClick={() => handleOpen('acoes')} className="flex flex-col items-center justify-center gap-3 p-4 bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl transition-all active:scale-95 group">
+                <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <TrendingUp className="w-6 h-6" />
+                </div>
+                <span className="text-sm font-medium text-neutral-300">Ações</span>
+              </button>
 
             </div>
           </div>
