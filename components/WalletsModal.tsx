@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Wallet, Trash2, Plus, CreditCard, Building2, Loader2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
-export function WalletsModal({ isOpen, onClose, userId }: { isOpen: boolean, onClose: () => void, userId: string }) {
+export function WalletsModal({ isOpen, onClose, userId, userPlan }: { isOpen: boolean, onClose: () => void, userId: string, userPlan?: string }) {
   const [wallets, setWallets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [newWalletName, setNewWalletName] = useState("");
@@ -30,6 +30,13 @@ export function WalletsModal({ isOpen, onClose, userId }: { isOpen: boolean, onC
   const handleCreateWallet = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newWalletName.trim()) return;
+    
+    if (userPlan === 'free' && wallets.length >= 1) {
+      window.dispatchEvent(new CustomEvent('openModal', { detail: 'paywall' }));
+      onClose();
+      return;
+    }
+
     setIsSaving(true);
     
     const { data, error } = await supabase.from('wallets').insert([{
