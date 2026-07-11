@@ -56,8 +56,8 @@ export function BudgetModal({ isOpen, onClose, transactions, currentIncome, acti
         amount: budgets[cat] || 0,
       }));
 
-      const { error } = await supabase.from('budgets').insert(inserts);
-      if (error) throw error;
+      const response = await supabase.from('budgets').insert(inserts);
+      if (response.error) throw response.error;
       alert("Orçamentos salvos com sucesso!");
       onClose();
     } catch (err: any) {
@@ -71,14 +71,27 @@ export function BudgetModal({ isOpen, onClose, transactions, currentIncome, acti
     if (currentIncome <= 0) return alert("Adicione alguma receita neste mês para a IA ter uma base!");
     setIsAiLoading(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || '';
+
       const res = await fetch("/api/auto-budget", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({ income: currentIncome })
       });
       
       const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      if (data.error) {
+        if (data.error === "PAYWALL_LIMIT_REACHED") {
+           window.dispatchEvent(new CustomEvent('openModal', { detail: 'paywall' }));
+           onClose();
+           return;
+        }
+        throw new Error(data.error);
+      }
 
       setBudgets(prev => ({
         ...prev,
