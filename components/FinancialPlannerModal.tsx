@@ -62,6 +62,15 @@ export function FinancialPlannerModal({ isOpen, onClose, currentIncome, currentE
         })
       });
       const data = await res.json();
+      if (data.error) {
+        if (data.error === "PAYWALL_LIMIT_REACHED") {
+           window.dispatchEvent(new CustomEvent('openModal', { detail: 'paywall' }));
+           onClose();
+           return;
+        }
+        setAdvice("Ocorreu um erro: " + data.error);
+        return;
+      }
       if (data.advice) {
         setAdvice(data.advice);
       } else {
