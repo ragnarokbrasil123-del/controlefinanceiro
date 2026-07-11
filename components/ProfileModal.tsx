@@ -85,6 +85,11 @@ export function ProfileModal({ isOpen, onClose, userEmail, userName, userRole }:
           </div>
 
           <div className="mt-auto space-y-3 shrink-0">
+            {userRole === 'admin' && (
+              <button onClick={() => { onClose(); window.dispatchEvent(new CustomEvent('openModal', { detail: 'adminPanel' })); }} className="flex items-center justify-center gap-2 w-full text-sm font-bold text-indigo-400 hover:text-white bg-indigo-500/10 hover:bg-indigo-500 py-3 rounded-xl transition-colors border border-indigo-500/20 hover:border-indigo-500">
+                <Shield className="w-4 h-4" /> Acessar Painel Admin
+              </button>
+            )}
             <button onClick={handleLGPDDelete} className="w-full text-xs font-bold text-rose-500 hover:text-white bg-rose-500/5 hover:bg-rose-500 py-3 rounded-xl transition-colors border border-rose-500/10 hover:border-rose-500">
               Excluir Minha Conta Permanentemente
             </button>
