@@ -1,15 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Plus, Target } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
-export function CoupleGoalModal({ isOpen, onClose, selectedGoal, onSave }: any) {
+export function CoupleGoalModal({ isOpen, onClose, selectedGoal, mode = 'create', onSave }: any) {
   const [title, setTitle] = useState("");
   const [targetAmount, setTargetAmount] = useState("");
   const [addAmount, setAddAmount] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Initialize fields when opening in edit mode
+  useEffect(() => {
+    if (isOpen && mode === 'edit' && selectedGoal) {
+      setTitle(selectedGoal.title || "");
+      setTargetAmount(selectedGoal.target_amount ? String(selectedGoal.target_amount) : "");
+    } else if (isOpen) {
+      setTitle("");
+      setTargetAmount("");
+      setAddAmount("");
+    }
+  }, [isOpen, mode, selectedGoal]);
 
   if (!isOpen) return null;
 
@@ -19,9 +31,12 @@ export function CoupleGoalModal({ isOpen, onClose, selectedGoal, onSave }: any) 
     if (!session) return;
 
     let error;
-    if (selectedGoal) {
+    if (mode === 'add_funds' && selectedGoal) {
       const newTotal = Number(selectedGoal.current_amount) + Number(addAmount);
       const res = await supabase.from('couple_goals').update({ current_amount: newTotal }).eq('id', selectedGoal.id);
+      error = res.error;
+    } else if (mode === 'edit' && selectedGoal) {
+      const res = await supabase.from('couple_goals').update({ title, target_amount: Number(targetAmount) }).eq('id', selectedGoal.id);
       error = res.error;
     } else {
       const res = await supabase.from('couple_goals').insert([{
@@ -53,13 +68,13 @@ export function CoupleGoalModal({ isOpen, onClose, selectedGoal, onSave }: any) 
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
               <Target className="w-5 h-5 text-pink-500" />
-              {selectedGoal ? "Depositar na Meta" : "Nova Meta do Casal"}
+              {mode === 'add_funds' ? "Depositar na Meta" : mode === 'edit' ? "Editar Meta do Casal" : "Nova Meta do Casal"}
             </h2>
             <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white bg-white/5 rounded-full"><X className="w-4 h-4" /></button>
           </div>
           
           <div className="space-y-4 mb-6">
-            {selectedGoal ? (
+            {mode === 'add_funds' ? (
               <div>
                 <label className="text-sm text-neutral-400 mb-1 block">Valor a adicionar (R$)</label>
                 <input type="number" value={addAmount} onChange={e => setAddAmount(e.target.value)} placeholder="Ex: 500" className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-white focus:border-pink-500 outline-none" />

@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from "motion/react";
 import { X, TrendingUp, TrendingDown, Plus, Trash2, RefreshCw } from "lucide-react";
 import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase";
 
 interface StockPosition {
   ticker: string;
@@ -20,7 +21,7 @@ interface StockData {
   error?: boolean;
 }
 
-export function StockTrackerModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
+export function StockTrackerModal({ isOpen, onClose, userId }: { isOpen: boolean, onClose: () => void, userId: string }) {
   const [positions, setPositions] = useState<StockPosition[]>([]);
   const [liveData, setLiveData] = useState<Record<string, StockData>>({});
   
@@ -31,23 +32,50 @@ export function StockTrackerModal({ isOpen, onClose }: { isOpen: boolean, onClos
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // Load from local storage
-    const saved = localStorage.getItem('@nexa/stocks');
-    if (saved) {
-      try {
-        setPositions(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to parse saved stocks", e);
-      }
-    }
-  }, []);
+    if (!isOpen || !userId) return;
 
-  useEffect(() => {
-    // Save to local storage when changed
-    if (positions.length > 0) {
-      localStorage.setItem('@nexa/stocks', JSON.stringify(positions));
-    }
-  }, [positions]);
+    const loadAndMigrate = async () => {
+      // 1. Fetch from Supabase
+      const { data, error } = await supabase.from('stocks').select('*').eq('user_id', userId);
+      
+      let currentPositions = data ? data.map(d => ({
+        ticker: d.ticker,
+        quantity: Number(d.quantity),
+        averagePrice: Number(d.average_price)
+      })) : [];
+
+      // 2. Check local storage for migration
+      const saved = localStorage.getItem('@nexa/stocks');
+      if (saved) {
+        try {
+          const localPositions: StockPosition[] = JSON.parse(saved);
+          const toMigrate = localPositions.filter(lp => !currentPositions.find(cp => cp.ticker === lp.ticker));
+          
+          if (toMigrate.length > 0) {
+            const inserts = toMigrate.map(p => ({
+              user_id: userId,
+              ticker: p.ticker,
+              quantity: p.quantity,
+              average_price: p.averagePrice
+            }));
+            
+            const { error: insertError } = await supabase.from('stocks').insert(inserts);
+            if (!insertError) {
+              currentPositions = [...currentPositions, ...toMigrate];
+            }
+          }
+          // Remove from local storage after checking/migrating
+          localStorage.removeItem('@nexa/stocks');
+        } catch (e) {
+          console.error("Failed to migrate saved stocks", e);
+        }
+      }
+
+      setPositions(currentPositions);
+    };
+
+    loadAndMigrate();
+  }, [isOpen, userId]);
 
   useEffect(() => {
     if (isOpen && positions.length > 0) {
@@ -75,9 +103,9 @@ export function StockTrackerModal({ isOpen, onClose }: { isOpen: boolean, onClos
     }
   };
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTicker || !newQuantity || !newAvgPrice) return;
+    if (!newTicker || !newQuantity || !newAvgPrice || !userId) return;
 
     const ticker = newTicker.toUpperCase().trim();
     if (positions.find(p => p.ticker === ticker)) {
@@ -85,24 +113,42 @@ export function StockTrackerModal({ isOpen, onClose }: { isOpen: boolean, onClos
       return;
     }
 
-    setPositions(prev => [...prev, {
+    setIsLoading(true);
+    const newStock = {
+      user_id: userId,
       ticker,
       quantity: Number(newQuantity),
-      averagePrice: Number(newAvgPrice)
-    }]);
+      average_price: Number(newAvgPrice)
+    };
 
-    setNewTicker("");
-    setNewQuantity("");
-    setNewAvgPrice("");
-    setIsAdding(false);
+    const { error } = await supabase.from('stocks').insert([newStock]);
+    
+    if (!error) {
+      setPositions(prev => [...prev, {
+        ticker,
+        quantity: Number(newQuantity),
+        averagePrice: Number(newAvgPrice)
+      }]);
+      setNewTicker("");
+      setNewQuantity("");
+      setNewAvgPrice("");
+      setIsAdding(false);
+    } else {
+      alert("Erro ao adicionar ação no banco de dados.");
+    }
+    setIsLoading(false);
   };
 
-  const handleRemove = (ticker: string) => {
-    setPositions(prev => {
-      const updated = prev.filter(p => p.ticker !== ticker);
-      if (updated.length === 0) localStorage.removeItem('@nexa/stocks');
-      return updated;
-    });
+  const handleRemove = async (ticker: string) => {
+    if (!userId) return;
+    
+    const { error } = await supabase.from('stocks').delete().eq('user_id', userId).eq('ticker', ticker);
+    
+    if (!error) {
+      setPositions(prev => prev.filter(p => p.ticker !== ticker));
+    } else {
+      alert("Erro ao remover ação do banco de dados.");
+    }
   };
 
   const formatMoney = (val: number) => `R$ ${val.toFixed(2).replace('.', ',')}`;
