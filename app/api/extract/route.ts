@@ -1,9 +1,29 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
 export async function POST(request: Request) {
   try {
-    // Removido a validação de sessão aqui para evitar erro de 'Auth session missing' em navegadores embutidos de celular.
-    // A segurança da inserção já é garantida pelo frontend que exige o session.user.id.
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader) return NextResponse.json({ error: "Acesso Negado. Faça login." }, { status: 401 });
+    
+    const token = authHeader.replace('Bearer ', '');
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rwdbmpxchubsjtevcqyh.supabase.co';
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_Ji5fpwZTBSbQ5zacrld-xg_M21-MOlN';
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return NextResponse.json({ error: "Sessão inválida. Acesso Negado." }, { status: 401 });
+    }
+
+    // --- PAYWALL CHECK ---
+    const { count } = await supabase.from('ai_usage_logs').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
+    const { data: profile } = await supabase.from('profiles').select('plan_type, role').eq('id', user.id).single();
+    
+    if (profile && profile.role !== 'admin' && profile.plan_type === 'free' && count !== null && count >= 3) {
+      return NextResponse.json({ error: "PAYWALL_LIMIT_REACHED" }, { status: 403 });
+    }
+    // ---------------------
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
@@ -73,6 +93,10 @@ REGRA CRUCIAL DE CATEGORIA: Para despesas ("expense"), o campo "category" DEVE O
     textResponse = textResponse.replace(/<thought>[\s\S]*?<\/thought>/g, '').trim();
 
     const parsedJson = JSON.parse(textResponse);
+
+    // Registrar uso da IA
+    await supabase.from('ai_usage_logs').insert([{ user_id: user.id, feature: 'extract' }]);
+
     return NextResponse.json(parsedJson);
 
   } catch (error: any) {
