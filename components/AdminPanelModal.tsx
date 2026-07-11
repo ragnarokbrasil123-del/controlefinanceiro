@@ -140,7 +140,7 @@ export function AdminPanelModal({ isOpen, onClose }: { isOpen: boolean, onClose:
                         <span className="font-semibold text-sm">Funcionalidade Favorita</span>
                       </div>
                       <span className="text-2xl font-bold text-indigo-400">
-                        {Object.entries(featureStats).sort((a, b) => b[1] - a[1])[0]?.[0] ? getFeatureName(Object.entries(featureStats).sort((a, b) => b[1] - a[1])[0][0]) : '-'}
+                        {Object.entries(featureStats).sort((a: [string, any], b: [string, any]) => b[1] - a[1])[0]?.[0] ? getFeatureName(Object.entries(featureStats).sort((a: [string, any], b: [string, any]) => b[1] - a[1])[0][0]) : '-'}
                       </span>
                     </div>
                   </div>
@@ -150,7 +150,7 @@ export function AdminPanelModal({ isOpen, onClose }: { isOpen: boolean, onClose:
                     <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
                       <h3 className="font-bold text-white mb-4 flex items-center gap-2"><Key className="w-4 h-4 text-emerald-400"/> Top Usuários Gastões</h3>
                       <div className="space-y-3">
-                        {Object.entries(userStats).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([uid, count], index) => {
+                        {Object.entries(userStats).sort((a: [string, any], b: [string, any]) => b[1] - a[1]).slice(0, 5).map(([uid, count]: [string, any], index) => {
                           const userEmail = users.find(u => u.id === uid)?.email || uid;
                           return (
                             <div key={uid} className="flex justify-between items-center bg-black/20 p-3 rounded-xl border border-white/5">
