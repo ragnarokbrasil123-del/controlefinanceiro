@@ -21,6 +21,8 @@ import { ProfileModal } from "../components/ProfileModal";
 import { CoupleModal } from "../components/CoupleModal";
 import { FinancialCalendarModal } from "../components/FinancialCalendarModal";
 import { WalletsModal } from "../components/WalletsModal";
+import { AdminPanelModal } from "../components/AdminPanelModal";
+import { PaywallModal } from "../components/PaywallModal";
 
 import { BudgetModal } from "../components/BudgetModal";
 import { WelcomeModal } from "../components/WelcomeModal";
@@ -58,9 +60,12 @@ export default function Dashboard() {
   const [isStocksOpen, setIsStocksOpen] = useState(false);
   const [activeModules, setActiveModules] = useState<ModulesState>(defaultModulesState);
   const [isWalletsOpen, setIsWalletsOpen] = useState(false);
+  const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
+  const [isPaywallOpen, setIsPaywallOpen] = useState(false);
   const [wallets, setWallets] = useState<any[]>([]);
   const [activeWalletId, setActiveWalletId] = useState<string | null>(null);
   const [userId, setUserId] = useState("");
+  const [userPlan, setUserPlan] = useState("free");
 
   const [isBudgetOpen, setIsBudgetOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -84,6 +89,10 @@ export default function Dashboard() {
     };
     const handleOpenModal = (e: any) => {
       const name = e.detail;
+      if ((name === 'acoes' || name === 'casais') && userPlan === 'free') {
+        setIsPaywallOpen(true);
+        return;
+      }
       if (name === 'casais') setIsCoupleOpen(true);
       if (name === 'relatorios') setIsReportsOpen(true);
       if (name === 'config') setIsProfileOpen(true);
@@ -97,10 +106,12 @@ export default function Dashboard() {
       if (name === 'planejador') setIsPlannerOpen(true);
       if (name === 'calendario') setIsCalendarOpen(true);
       if (name === 'acoes') setIsStocksOpen(true);
+      if (name === 'adminPanel') setIsAdminPanelOpen(true);
+      if (name === 'paywall') setIsPaywallOpen(true);
     };
     window.addEventListener('openModal', handleOpenModal);
     return () => window.removeEventListener('openModal', handleOpenModal);
-  }, []);
+  }, [userPlan]);
 
   const [hasUnread, setHasUnread] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
@@ -147,8 +158,11 @@ export default function Dashboard() {
       setUserName(session.user.user_metadata?.display_name || "");
       setUserId(session.user.id);
 
-      const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
-      if (profile) setUserRole(profile.role);
+      const { data: profile } = await supabase.from('profiles').select('role, plan_type').eq('id', session.user.id).single();
+      if (profile) {
+        setUserRole(profile.role);
+        setUserPlan(profile.plan_type || 'free');
+      }
 
       const [txResponse, walletsResponse] = await Promise.all([
         supabase.from('transactions').select('*').eq('user_id', session.user.id).order('date', { ascending: false }),
@@ -533,14 +547,16 @@ export default function Dashboard() {
       <SubscriptionTrackerModal isOpen={isTrackerOpen} onClose={() => setIsTrackerOpen(false)} transactions={allTransactions} />
       <ReportsModal isOpen={isReportsOpen} onClose={() => setIsReportsOpen(false)} transactions={allTransactions} />
       <AiChatModal isOpen={isAiChatOpen} onClose={() => setIsAiChatOpen(false)} financialContext={{ income: totalIncome, expense: totalExpense, balance, transactions: currentMonthTransactions, userName }} />
-      <StockTrackerModal isOpen={isStocksOpen} onClose={() => setIsStocksOpen(false)} />
+      <StockTrackerModal isOpen={isStocksOpen} onClose={() => setIsStocksOpen(false)} userId={userId} />
       <ActivityModal isOpen={isActivityOpen} onClose={() => setIsActivityOpen(false)} transactions={allTransactions} dueBills={dueBills} />
       <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} userEmail={userEmail} userName={userName} userRole={userRole} />
       <CoupleModal isOpen={isCoupleOpen} onClose={() => setIsCoupleOpen(false)} />
       <GoalsModal isOpen={isGoalsOpen} onClose={() => setIsGoalsOpen(false)} />
       <CategoryManagerModal isOpen={isCategoryOpen} onClose={() => setIsCategoryOpen(false)} />
-      <WalletsModal isOpen={isWalletsOpen} onClose={() => setIsWalletsOpen(false)} userId={userId} />
+      <WalletsModal isOpen={isWalletsOpen} onClose={() => setIsWalletsOpen(false)} userId={userId} userPlan={userPlan} />
       <FinancialCalendarModal isOpen={isCalendarOpen} onClose={() => setIsCalendarOpen(false)} transactions={allTransactions} />
+      <AdminPanelModal isOpen={isAdminPanelOpen} onClose={() => setIsAdminPanelOpen(false)} />
+      <PaywallModal isOpen={isPaywallOpen} onClose={() => setIsPaywallOpen(false)} />
 
       <BudgetModal isOpen={isBudgetOpen} onClose={() => setIsBudgetOpen(false)} transactions={allTransactions} currentIncome={totalIncome} activeMonth={activeMonth} />
       <ModulesModal isOpen={isModulesModalOpen} onClose={() => setIsModulesModalOpen(false)} modules={activeModules} onSave={handleSaveModules} />
