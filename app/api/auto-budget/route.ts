@@ -1,7 +1,30 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
 export async function POST(req: Request) {
   try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) return NextResponse.json({ error: "Acesso Negado. Faça login." }, { status: 401 });
+    
+    const token = authHeader.replace('Bearer ', '');
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rwdbmpxchubsjtevcqyh.supabase.co';
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_Ji5fpwZTBSbQ5zacrld-xg_M21-MOlN';
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return NextResponse.json({ error: "Sessão inválida. Acesso Negado." }, { status: 401 });
+    }
+
+    // --- PAYWALL CHECK ---
+    const { count } = await supabase.from('ai_usage_logs').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
+    const { data: profile } = await supabase.from('profiles').select('plan_type, role').eq('id', user.id).single();
+    
+    if (profile && profile.role !== 'admin' && profile.plan_type === 'free' && count !== null && count >= 3) {
+      return NextResponse.json({ error: "PAYWALL_LIMIT_REACHED" }, { status: 403 });
+    }
+    // ---------------------
+
     const body = await req.json();
     const { income } = body;
 
@@ -43,6 +66,10 @@ Os valores numéricos (sem vírgula e sem símbolo de moeda) devem somar no máx
     textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
 
     const parsedJson = JSON.parse(textResponse);
+    
+    // Registrar uso da IA
+    await supabase.from('ai_usage_logs').insert([{ user_id: user.id, feature: 'auto-budget' }]);
+
     return NextResponse.json(parsedJson);
 
   } catch (error: any) {
