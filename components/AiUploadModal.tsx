@@ -11,8 +11,6 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
   const [errorMessage, setErrorMessage] = useState("");
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
 
-  if (!isOpen) return null;
-
   const handleFileSelect = async (e: any) => {
     alert("Passo 1: Foto identificada pelo botão!"); // DETETIVE 1
     const file = e.target.files?.[0];
@@ -44,6 +42,12 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
 
       if (!response.ok) {
         const errorText = await response.text();
+        if (errorText.includes("PAYWALL_LIMIT_REACHED")) {
+           window.dispatchEvent(new CustomEvent('openModal', { detail: 'paywall' }));
+           setIsUploading(false);
+           onClose();
+           return;
+        }
         alert("Erro na IA: " + errorText);
         throw new Error("A IA falhou em ler a imagem.");
       }
@@ -95,71 +99,75 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={!isUploading ? onClose : undefined} />
-        
-        <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="relative w-full max-w-md bg-neutral-900 border border-indigo-500/30 shadow-2xl shadow-indigo-500/20 rounded-3xl p-6 overflow-hidden">
+      {isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={!isUploading ? onClose : undefined} />
           
-          <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none"></div>
+          <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="relative w-full max-w-md bg-neutral-900 border border-indigo-500/30 shadow-2xl shadow-indigo-500/20 rounded-3xl p-6 overflow-hidden">
+            
+            <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none"></div>
 
-          <div className="flex justify-between items-center mb-2 relative">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-indigo-400" /> Leitura por IA
-            </h2>
-            {!isUploading && (
-              <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white bg-white/5 rounded-full transition-colors cursor-pointer"><X className="w-4 h-4" /></button>
-            )}
-          </div>
-          
-          <p className="text-neutral-400 text-sm mb-6 relative">
-            Tire uma foto ou envie um arquivo.
-          </p>
-
-          {isUploading ? (
-            <div className="flex flex-col items-center justify-center py-10 relative">
-              <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
-              <h3 className="text-white font-bold text-lg mb-1">Analisando imagem...</h3>
-            </div>
-          ) : success ? (
-            <div className="flex flex-col items-center justify-center py-10 relative">
-              <Sparkles className="w-8 h-8 text-emerald-400 mb-4" />
-              <h3 className="text-white font-bold text-lg mb-1">Leitura Concluída!</h3>
-            </div>
-          ) : (
-            <div className="relative">
-              {errorMessage && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl text-sm mb-4 text-center">
-                  {errorMessage}
-                </div>
+            <div className="flex justify-between items-center mb-2 relative">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-indigo-400" /> Leitura por IA
+              </h2>
+              {!isUploading && (
+                <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white bg-white/5 rounded-full transition-colors cursor-pointer"><X className="w-4 h-4" /></button>
               )}
-
-              <div className="mb-4 bg-white/5 p-4 rounded-2xl border border-white/10">
-                <label className="block text-sm font-medium text-neutral-400 mb-2">Mês/Data do Lançamento</label>
-                <input 
-                  type="date" 
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="w-full bg-black/20 border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-none focus:border-indigo-500 transition-colors"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <label className="flex flex-col items-center justify-center p-6 bg-white/5 hover:bg-indigo-500/20 rounded-2xl cursor-pointer">
-                  <Camera className="w-6 h-6 text-indigo-400 mb-2" />
-                  <span className="font-bold text-white text-sm">Tirar Foto</span>
-                  <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileSelect} />
-                </label>
-
-                <label className="flex flex-col items-center justify-center p-6 bg-white/5 hover:bg-purple-500/20 rounded-2xl cursor-pointer">
-                  <UploadCloud className="w-6 h-6 text-purple-400 mb-2" />
-                  <span className="font-bold text-white text-sm">Enviar Galeria</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
-                </label>
-              </div>
             </div>
-          )}
-        </motion.div>
-      </div>
+            
+            <p className="text-neutral-400 text-sm mb-6 relative">
+              Tire uma foto ou envie um arquivo.
+            </p>
+
+            {isUploading ? (
+              <div className="flex flex-col items-center justify-center py-10 relative">
+                <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
+                <h3 className="text-white font-bold text-lg mb-1">Analisando imagem...</h3>
+              </div>
+            ) : success ? (
+              <div className="flex flex-col items-center justify-center py-10 relative">
+                <Sparkles className="w-8 h-8 text-emerald-400 mb-4" />
+                <h3 className="text-white font-bold text-lg mb-1">Leitura Concluída!</h3>
+              </div>
+            ) : (
+              <div className="relative">
+                {errorMessage && (
+                  <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl text-sm mb-4 text-center">
+                    {errorMessage}
+                  </div>
+                )}
+
+                <div className="mb-4 bg-white/5 p-4 rounded-2xl border border-white/10">
+                  <label className="block text-sm font-medium text-neutral-400 mb-2">Mês/Data do Lançamento</label>
+                  <input 
+                    type="date" 
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="w-full bg-black/20 border border-white/10 rounded-xl py-2 px-4 text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <label className="flex flex-col items-center justify-center p-6 bg-white/5 hover:bg-indigo-500/20 rounded-2xl cursor-pointer">
+                    <Camera className="w-6 h-6 text-indigo-400 mb-2" />
+                    <span className="font-bold text-white text-sm">Tirar Foto</span>
+                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileSelect} />
+                  </label>
+
+                  <label className="flex flex-col items-center justify-center p-6 bg-white/5 hover:bg-purple-500/20 rounded-2xl cursor-pointer">
+                    <UploadCloud className="w-6 h-6 text-purple-400 mb-2" />
+                    <span className="font-bold text-white text-sm">Enviar Galeria</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
+                  </label>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </div>
+      )}
     </AnimatePresence>
   );
 }
+
+
