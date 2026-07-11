@@ -6,7 +6,7 @@ import { X, TrendingUp, TrendingDown, Calendar, Wallet, ChevronDown } from "luci
 import { supabase } from "../lib/supabase";
 import { saveOfflineTransaction } from "../lib/offlineSync";
 
-export function TransactionModal({ isOpen, onClose, initialType = 'expense' }: { isOpen: boolean, onClose: () => void, initialType?: 'expense' | 'income' }) {
+export function TransactionModal({ isOpen, onClose, initialType = 'expense', isCouple = false, coupleId }: { isOpen: boolean, onClose: () => void, initialType?: 'expense' | 'income', isCouple?: boolean, coupleId?: string }) {
   const [type, setType] = useState<'expense' | 'income'>(initialType);
   
   const [amount, setAmount] = useState("");
@@ -126,7 +126,8 @@ export function TransactionModal({ isOpen, onClose, initialType = 'expense' }: {
           is_paid: i === 0 ? isPaid : false,
           user_id: userId,
           wallet_id: walletId || null,
-          receipt_url: receiptUrl
+          receipt_url: receiptUrl,
+          couple_id: isCouple ? coupleId : null
         });
       }
 
