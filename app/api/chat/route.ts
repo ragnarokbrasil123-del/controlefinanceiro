@@ -16,6 +16,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Sessão inválida. Acesso Negado." }, { status: 401 });
     }
 
+    // --- PAYWALL CHECK ---
+    const { count } = await supabase.from('ai_usage_logs').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
+    const { data: profile } = await supabase.from('profiles').select('plan_type, role').eq('id', user.id).single();
+    
+    if (profile && profile.role !== 'admin' && profile.plan_type === 'free' && count !== null && count >= 3) {
+      return NextResponse.json({ error: "PAYWALL_LIMIT_REACHED" }, { status: 403 });
+    }
+    // ---------------------
+
     const body = await req.json();
     const { message, history, financialContext } = body;
 
@@ -53,8 +62,7 @@ REGRAS CRÍTICAS:
 
     promptText += `Usuário: ${message}\nNexa AI:`;
 
-    // AQUI ESTÁ A CORREÇÃO: Usando o modelo exato que o Google aprova (gemini-flash-latest)
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
     const requestBody = {
       contents: [{ parts: [{ text: promptText }] }]
@@ -75,6 +83,9 @@ REGRAS CRÍTICAS:
     const data = await response.json();
     let reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Desculpe, meu cérebro deu um branco! Pode repetir?";
     reply = reply.replace(/<thought>[\s\S]*?<\/thought>/g, '').trim();
+
+    // Registrar uso da IA
+    await supabase.from('ai_usage_logs').insert([{ user_id: user.id, feature: 'chat' }]);
 
     return NextResponse.json({ reply });
   } catch (error: any) {
