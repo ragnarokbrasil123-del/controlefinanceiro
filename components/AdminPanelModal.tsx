@@ -127,8 +127,8 @@ export function AdminPanelModal({ isOpen, onClose }: { isOpen: boolean, onClose:
                     </div>
                     <div className="text-xl font-extrabold text-indigo-400 mt-1">
                       {loading ? '-' : (
-                        Object.entries(featureStats).sort((a: any, b: any) => b[1] - a[1])[0] 
-                        ? getFeatureName(Object.entries(featureStats).sort((a: any, b: any) => b[1] - a[1])[0][0]) 
+                        (Object.entries(featureStats) as [string, number][]).sort((a, b) => b[1] - a[1])[0] 
+                        ? getFeatureName((Object.entries(featureStats) as [string, number][]).sort((a, b) => b[1] - a[1])[0][0]) 
                         : 'Nenhuma'
                       )}
                     </div>
@@ -140,12 +140,12 @@ export function AdminPanelModal({ isOpen, onClose }: { isOpen: boolean, onClose:
                     <h3 className="text-sm font-bold text-emerald-400 mb-4 flex items-center gap-2"><Key className="w-4 h-4" /> Top Usuários Gastões</h3>
                     <div className="space-y-3">
                       {Object.entries(userStats).length === 0 && <p className="text-neutral-500 text-sm">Nenhum uso registrado ainda.</p>}
-                      {Object.entries(userStats).sort((a: any, b: any) => b[1] - a[1]).slice(0,5).map(([uid, count], idx) => {
+                      {(Object.entries(userStats) as [string, number][]).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([uid, count], index) => {
                         const usr = users.find(u => u.id === uid);
                         return (
                           <div key={uid} className="flex justify-between items-center bg-black/20 p-3 rounded-xl border border-white/5">
                             <div className="flex items-center gap-3 overflow-hidden">
-                              <span className="text-neutral-500 font-bold w-4">{idx + 1}.</span>
+                              <span className="text-neutral-500 font-bold w-4">{index + 1}.</span>
                               <span className="text-sm text-neutral-200 truncate">{usr ? usr.email : uid.substring(0,8)+'...'}</span>
                             </div>
                             <span className="bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-lg text-xs font-bold">{count} chamadas</span>
