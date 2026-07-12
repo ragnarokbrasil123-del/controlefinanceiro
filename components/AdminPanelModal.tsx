@@ -21,12 +21,7 @@ export function AdminPanelModal({ isOpen, onClose }: { isOpen: boolean, onClose:
 
   const fetchLogs = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('ai_usage_logs')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(100);
-      
+    const { data, error } = await supabase.rpc('get_all_logs_for_admin');
     if (data) setLogs(data);
     setLoading(false);
   };
@@ -39,7 +34,11 @@ export function AdminPanelModal({ isOpen, onClose }: { isOpen: boolean, onClose:
   const handleTogglePlan = async (userId: string, currentPlan: string) => {
     setIsUpdating(userId);
     const newPlan = currentPlan === 'premium' ? 'free' : 'premium';
-    const { error } = await supabase.from('profiles').update({ plan_type: newPlan }).eq('id', userId);
+    const { error } = await supabase.rpc('update_user_plan_admin', { 
+      target_user_id: userId, 
+      new_plan: newPlan 
+    });
+    
     if (!error) {
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, plan_type: newPlan } : u));
     } else {
@@ -98,155 +97,143 @@ export function AdminPanelModal({ isOpen, onClose }: { isOpen: boolean, onClose:
           </div>
 
           <div className="flex gap-2 p-1 bg-white/5 rounded-2xl border border-white/10 shrink-0 mb-6 relative z-10">
-            <button onClick={() => setActiveTab('metrics')} className={`flex-1 py-2.5 flex items-center justify-center gap-2 rounded-xl text-sm font-bold transition-colors ${activeTab === 'metrics' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 hover:text-white'}`}>
+            <button onClick={() => setActiveTab('metrics')} className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === 'metrics' ? 'bg-indigo-500/20 text-indigo-300 shadow-sm border border-indigo-500/30' : 'text-neutral-400 hover:bg-white/5 hover:text-neutral-200'}`}>
               <Activity className="w-4 h-4" /> Métricas da API
             </button>
-            <button onClick={() => setActiveTab('users')} className={`flex-1 py-2.5 flex items-center justify-center gap-2 rounded-xl text-sm font-bold transition-colors ${activeTab === 'users' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 hover:text-white'}`}>
+            <button onClick={() => setActiveTab('users')} className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === 'users' ? 'bg-indigo-500/20 text-indigo-300 shadow-sm border border-indigo-500/30' : 'text-neutral-400 hover:bg-white/5 hover:text-neutral-200'}`}>
               <Users className="w-4 h-4" /> Gerenciar Clientes
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto pr-2 pb-4 flex flex-col gap-6 relative z-10 scrollbar-hide">
-            
+          <div className="flex-1 overflow-y-auto pr-2 pb-4 relative z-10">
             {activeTab === 'metrics' && (
-              loading && logs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-indigo-400">
-                  <Loader2 className="w-8 h-8 animate-spin mb-4" />
-                  <p>Buscando logs da API...</p>
+              <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+                    <div className="flex items-center gap-2 text-neutral-400 mb-2">
+                      <Activity className="w-4 h-4" /> <span className="text-sm font-medium">Total de Usos (Recentes)</span>
+                    </div>
+                    <div className="text-3xl font-extrabold text-white">{loading ? '-' : totalLogs}</div>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+                    <div className="flex items-center gap-2 text-neutral-400 mb-2">
+                      <Users className="w-4 h-4" /> <span className="text-sm font-medium">Usuários Ativos (Recentes)</span>
+                    </div>
+                    <div className="text-3xl font-extrabold text-white">{loading ? '-' : Object.keys(userStats).length}</div>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+                    <div className="flex items-center gap-2 text-neutral-400 mb-2">
+                      <Zap className="w-4 h-4" /> <span className="text-sm font-medium">Funcionalidade Favorita</span>
+                    </div>
+                    <div className="text-xl font-extrabold text-indigo-400 mt-1">
+                      {loading ? '-' : (
+                        Object.entries(featureStats).sort((a,b) => b[1] - a[1])[0] 
+                        ? getFeatureName(Object.entries(featureStats).sort((a,b) => b[1] - a[1])[0][0]) 
+                        : 'Nenhuma'
+                      )}
+                    </div>
+                  </div>
                 </div>
-              ) : (
-                <>
-                  {/* Resumo */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0">
-                    <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-                      <div className="flex items-center gap-3 mb-2 text-neutral-400">
-                        <Activity className="w-5 h-5" />
-                        <span className="font-semibold text-sm">Total de Usos (Recentes)</span>
-                      </div>
-                      <span className="text-3xl font-extrabold text-white">{totalLogs}</span>
-                    </div>
-                    
-                    <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-                      <div className="flex items-center gap-3 mb-2 text-neutral-400">
-                        <Users className="w-5 h-5" />
-                        <span className="font-semibold text-sm">Usuários Ativos (Recentes)</span>
-                      </div>
-                      <span className="text-3xl font-extrabold text-white">{Object.keys(userStats).length}</span>
-                    </div>
 
-                    <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-                      <div className="flex items-center gap-3 mb-2 text-neutral-400">
-                        <Zap className="w-5 h-5" />
-                        <span className="font-semibold text-sm">Funcionalidade Favorita</span>
-                      </div>
-                      <span className="text-2xl font-bold text-indigo-400">
-                        {Object.entries(featureStats).sort((a: [string, any], b: [string, any]) => b[1] - a[1])[0]?.[0] ? getFeatureName(Object.entries(featureStats).sort((a: [string, any], b: [string, any]) => b[1] - a[1])[0][0]) : '-'}
-                      </span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+                    <h3 className="text-sm font-bold text-emerald-400 mb-4 flex items-center gap-2"><Key className="w-4 h-4" /> Top Usuários Gastões</h3>
+                    <div className="space-y-3">
+                      {Object.entries(userStats).length === 0 && <p className="text-neutral-500 text-sm">Nenhum uso registrado ainda.</p>}
+                      {Object.entries(userStats).sort((a,b) => b[1] - a[1]).slice(0,5).map(([uid, count], idx) => {
+                        const usr = users.find(u => u.id === uid);
+                        return (
+                          <div key={uid} className="flex justify-between items-center bg-black/20 p-3 rounded-xl border border-white/5">
+                            <div className="flex items-center gap-3 overflow-hidden">
+                              <span className="text-neutral-500 font-bold w-4">{idx + 1}.</span>
+                              <span className="text-sm text-neutral-200 truncate">{usr ? usr.email : uid.substring(0,8)+'...'}</span>
+                            </div>
+                            <span className="bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-lg text-xs font-bold">{count} chamadas</span>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Top Usuários */}
-                    <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
-                      <h3 className="font-bold text-white mb-4 flex items-center gap-2"><Key className="w-4 h-4 text-emerald-400"/> Top Usuários Gastões</h3>
-                      <div className="space-y-3">
-                        {Object.entries(userStats).sort((a: [string, any], b: [string, any]) => b[1] - a[1]).slice(0, 5).map(([uid, count]: [string, any], index) => {
-                          const userEmail = users.find(u => u.id === uid)?.email || uid;
-                          return (
-                            <div key={uid} className="flex justify-between items-center bg-black/20 p-3 rounded-xl border border-white/5">
-                              <div className="truncate flex-1 pr-4">
-                                <span className="text-xs text-neutral-500 block truncate" title={uid}>ID: {uid}</span>
-                                <span className="text-sm font-semibold text-neutral-200 truncate">{userEmail}</span>
-                              </div>
-                              <span className="text-emerald-400 font-bold bg-emerald-500/10 px-3 py-1 rounded-lg shrink-0">{count} requisições</span>
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+                    <h3 className="text-sm font-bold text-rose-400 mb-4 flex items-center gap-2"><Activity className="w-4 h-4" /> Acessos em Tempo Real</h3>
+                    <div className="space-y-3 h-64 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10">
+                      {logs.length === 0 && <p className="text-neutral-500 text-sm">Nenhum uso registrado ainda.</p>}
+                      {logs.map(log => {
+                        const usr = users.find(u => u.id === log.user_id);
+                        return (
+                          <div key={log.id} className="flex flex-col bg-black/20 p-3 rounded-xl border border-white/5 gap-2">
+                            <div className="flex justify-between items-start">
+                              <span className="text-sm text-neutral-200 truncate pr-2 font-medium">{usr ? usr.email : 'Usuário Oculto'}</span>
+                              <span className="text-[10px] text-neutral-500 whitespace-nowrap">{new Date(log.created_at).toLocaleTimeString('pt-BR')}</span>
                             </div>
-                          );
-                        })}
-                        {Object.keys(userStats).length === 0 && <p className="text-sm text-neutral-500">Nenhum uso registrado ainda.</p>}
-                      </div>
-                    </div>
-
-                    {/* Logs Recentes */}
-                    <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
-                      <h3 className="font-bold text-white mb-4 flex items-center gap-2"><Activity className="w-4 h-4 text-rose-400"/> Acessos em Tempo Real</h3>
-                      <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 scrollbar-hide">
-                        {logs.map((log) => {
-                           const userEmail = users.find(u => u.id === log.user_id)?.email || log.user_id;
-                           return (
-                            <div key={log.id} className="flex justify-between items-center bg-black/20 p-3 rounded-xl border border-white/5">
-                              <div className="truncate flex-1 pr-2">
-                                <span className="text-sm font-bold text-indigo-300 block">{getFeatureName(log.feature)}</span>
-                                <span className="text-xs text-neutral-500 truncate block">{userEmail}</span>
-                              </div>
-                              <span className="text-xs text-neutral-400 bg-white/5 px-2 py-1 rounded-md shrink-0">
-                                {new Date(log.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
-                              </span>
+                            <div className="flex items-center gap-1">
+                              <ChevronRight className="w-3 h-3 text-indigo-500" />
+                              <span className="text-xs text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full">{getFeatureName(log.feature)}</span>
                             </div>
-                          );
-                        })}
-                        {logs.length === 0 && <p className="text-sm text-neutral-500">Nenhum uso registrado ainda.</p>}
-                      </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
-                </>
-              )
+                </div>
+              </motion.div>
             )}
 
             {activeTab === 'users' && (
-              <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
-                 <h3 className="font-bold text-white mb-4 flex items-center gap-2"><Users className="w-4 h-4 text-blue-400"/> Gerenciamento de Assinaturas</h3>
-                 <p className="text-sm text-neutral-400 mb-6">Aqui você pode alterar manualmente os clientes do plano <strong>Free</strong> (com limite de IA) para o plano <strong>Premium</strong> (Ilimitado).</p>
-                 
-                 <div className="space-y-3">
-                   {users.length === 0 && !loading ? (
-                      <p className="text-sm text-neutral-500">Nenhum usuário encontrado. Certifique-se de que a função SQL foi criada no Supabase.</p>
-                   ) : (
-                     users.map(u => (
-                       <div key={u.id} className="flex flex-col sm:flex-row sm:items-center justify-between bg-black/20 p-4 rounded-2xl border border-white/5 gap-4">
-                         <div className="truncate flex-1">
-                           <span className="text-xs text-neutral-500 block truncate mb-1">ID: {u.id}</span>
-                           <div className="flex items-center gap-2">
-                             <span className="text-base font-bold text-white truncate">{u.email}</span>
-                             {u.role === 'admin' && <span className="text-[10px] bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Dono</span>}
-                           </div>
-                         </div>
-                         
-                         <div className="flex items-center gap-4 shrink-0">
-                           <div className="flex flex-col items-end">
-                             <span className="text-xs text-neutral-500 mb-1 uppercase tracking-wider font-semibold">Plano Atual</span>
-                             {u.plan_type === 'premium' ? (
-                               <span className="flex items-center gap-1.5 text-sm font-bold text-purple-400 bg-purple-500/10 px-3 py-1 rounded-lg border border-purple-500/20">
-                                 <Crown className="w-4 h-4" /> Premium
-                               </span>
-                             ) : (
-                               <span className="flex items-center gap-1.5 text-sm font-bold text-neutral-400 bg-white/5 px-3 py-1 rounded-lg border border-white/10">
-                                 <Ban className="w-4 h-4" /> Free
-                               </span>
-                             )}
-                           </div>
-                           
-                           {u.role !== 'admin' && (
-                             <button 
-                               onClick={() => handleTogglePlan(u.id, u.plan_type)}
-                               disabled={isUpdating === u.id}
-                               className={`h-10 px-4 rounded-xl font-bold text-xs transition-colors flex items-center justify-center min-w-[120px] ${
-                                 u.plan_type === 'premium' 
-                                 ? 'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20' 
-                                 : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20'
-                               }`}
-                             >
-                               {isUpdating === u.id ? <Loader2 className="w-4 h-4 animate-spin" /> : (u.plan_type === 'premium' ? 'Rebaixar p/ Free' : 'Promover a Premium')}
-                             </button>
-                           )}
-                         </div>
-                       </div>
-                     ))
-                   )}
-                 </div>
-              </div>
-            )}
+              <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
+                
+                <div className="bg-white/5 border border-white/10 p-5 rounded-2xl mb-4 flex items-start gap-3">
+                  <div className="mt-0.5"><Users className="w-5 h-5 text-indigo-400" /></div>
+                  <div>
+                    <h3 className="font-bold text-white mb-1">Gerenciamento de Assinaturas</h3>
+                    <p className="text-sm text-neutral-400">Aqui você pode alterar manualmente os clientes do plano <strong>Free</strong> (com limite de IA) para o plano <strong>Premium</strong> (Ilimitado).</p>
+                  </div>
+                </div>
 
+                {users.map(usr => (
+                  <div key={usr.id} className="bg-black/30 border border-white/10 p-4 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors hover:border-indigo-500/30">
+                    <div>
+                      <div className="text-xs text-neutral-500 mb-1">ID: {usr.id}</div>
+                      <div className="font-bold text-white text-base">{usr.email}</div>
+                    </div>
+                    
+                    <div className="flex items-center gap-4">
+                      <div className="flex flex-col items-end">
+                        <span className="text-[10px] uppercase font-bold text-neutral-500 mb-1">Plano Atual</span>
+                        {usr.plan_type === 'premium' ? (
+                          <span className="flex items-center gap-1 bg-emerald-500/10 text-emerald-400 px-3 py-1.5 rounded-lg border border-emerald-500/20 text-sm font-bold">
+                            <Crown className="w-4 h-4" /> Premium
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 bg-neutral-800 text-neutral-400 px-3 py-1.5 rounded-lg border border-white/5 text-sm font-bold">
+                            <Ban className="w-4 h-4" /> Free
+                          </span>
+                        )}
+                      </div>
+                      
+                      <button 
+                        onClick={() => handleTogglePlan(usr.id, usr.plan_type)}
+                        disabled={isUpdating === usr.id || usr.role === 'admin'}
+                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center justify-center min-w-[140px] ${
+                          usr.role === 'admin' 
+                            ? 'bg-white/5 text-neutral-600 cursor-not-allowed'
+                            : usr.plan_type === 'premium' 
+                              ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20'
+                              : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20'
+                        }`}
+                      >
+                        {isUpdating === usr.id ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+                          usr.role === 'admin' ? 'Administrador' : (usr.plan_type === 'premium' ? 'Rebaixar p/ Free' : 'Promover a Premium')
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </motion.div>
+            )}
           </div>
+
         </motion.div>
       </div>
     </AnimatePresence>
