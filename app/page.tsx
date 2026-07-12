@@ -121,8 +121,8 @@ export default function Dashboard() {
   const [userRole, setUserRole] = useState("client");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPending, setFilterPending] = useState(false);
-  
   const [allTransactions, setAllTransactions] = useState<any[]>([]);
+  const [budgets, setBudgets] = useState<Record<string, number>>({});
 
   const handlePrevMonth = () => setActiveMonth(prev => prev === 0 ? 11 : prev - 1);
   const handleNextMonth = () => setActiveMonth(prev => prev === 11 ? 0 : prev + 1);
@@ -164,9 +164,10 @@ export default function Dashboard() {
         setUserPlan(profile.plan_type || 'free');
       }
 
-      const [txResponse, walletsResponse] = await Promise.all([
+      const [txResponse, walletsResponse, budgetsResponse] = await Promise.all([
         supabase.from('transactions').select('*').eq('user_id', session.user.id).order('date', { ascending: false }),
-        supabase.from('wallets').select('*').eq('user_id', session.user.id)
+        supabase.from('wallets').select('*').eq('user_id', session.user.id),
+        supabase.from('budgets').select('*').eq('user_id', session.user.id)
       ]);
       
       let transactions = txResponse.data || [];
@@ -213,10 +214,30 @@ export default function Dashboard() {
       }
       
       if (walletsResponse.data) setWallets(walletsResponse.data);
+      if (budgetsResponse.data) {
+        const bMap: Record<string, number> = {};
+        budgetsResponse.data.forEach((b: any) => {
+          bMap[b.category] = b.amount;
+        });
+        setBudgets(bMap);
+      }
       setIsLoading(false);
     }
     checkUserAndFetch();
   }, []);
+
+  async function refreshBudgets() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const { data } = await supabase.from('budgets').select('*').eq('user_id', session.user.id);
+    if (data) {
+      const bMap: Record<string, number> = {};
+      data.forEach((b: any) => {
+        bMap[b.category] = b.amount;
+      });
+      setBudgets(bMap);
+    }
+  }
 
   function handleEditTransaction(tx: any) {
     setEditingTransaction(tx);
@@ -289,6 +310,14 @@ export default function Dashboard() {
   });
 
   const recentTransactions = (searchQuery || filterPending) ? filteredTransactions : visibleTransactions.slice(0, 8); 
+
+  const budgetProgress = Object.keys(budgets).map(category => {
+    const limit = budgets[category];
+    const spent = currentMonthTransactions.filter(t => t.type === 'expense' && t.category === category).reduce((acc, t) => acc + t.amount, 0);
+    const percentage = limit > 0 ? Math.min((spent / limit) * 100, 100) : 0;
+    const overspent = spent > limit;
+    return { category, limit, spent, percentage, overspent };
+  }).filter(b => b.limit > 0);
 
   const variaveisPercent = totalIncome > 0 ? (sumCategory(variaveis) / totalIncome) * 100 : 0;
 
@@ -426,15 +455,57 @@ export default function Dashboard() {
         ) : (
           <div className="flex md:grid md:grid-cols-3 gap-4 md:gap-6 overflow-x-auto md:overflow-visible pb-6 md:pb-12 snap-x snap-mandatory md:snap-none scrollbar-hide">
             <div className="snap-center shrink-0 w-[85%] md:w-auto">
-              <SummaryCard title="Saldo no Mês" amount={formatMoney(balance)} isPositive={balance >= 0} icon={<Wallet className="text-indigo-400" />} delay={0.1} />
+              <SummaryCard title="Saldo no Mês" amount={formatMoney(balance)} isPositive={balance >= 0} icon={<Wallet className="text-indigo-400" />} delay={0.1} badgeText="Atual" actionIcon={<FileText className="w-4 h-4" />} onAdd={() => setIsReportsOpen(true)} />
             </div>
             <div className="snap-center shrink-0 w-[80%] md:w-auto">
-              <SummaryCard title="Receitas" amount={formatMoney(totalIncome)} isPositive={true} icon={<TrendingUp className="text-emerald-400" />} delay={0.2} onAdd={handleOpenIncomeModal} />
+              <SummaryCard title="Receitas" amount={formatMoney(totalIncome)} isPositive={true} icon={<TrendingUp className="text-emerald-400" />} delay={0.2} onAdd={handleOpenIncomeModal} badgeText="Mês" />
             </div>
             <div className="snap-center shrink-0 w-[80%] md:w-auto">
-              <SummaryCard title="Despesas" amount={formatMoney(totalExpense)} isPositive={false} icon={<TrendingDown className="text-rose-400" />} delay={0.3} onAdd={handleOpenModal} />
+              <SummaryCard title="Despesas" amount={formatMoney(totalExpense)} isPositive={false} icon={<TrendingDown className="text-rose-400" />} delay={0.3} onAdd={handleOpenModal} badgeText="Mês" />
             </div>
           </div>
+        )}
+
+        {/* Metas & Orçamentos (Budget Progress) */}
+        {!isLoading && budgetProgress.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.35 }} className="mb-8 border border-white/5 rounded-3xl p-5 md:p-6 bg-black/20 backdrop-blur-md">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-bold text-white text-lg flex items-center gap-2">
+                <Target className="w-5 h-5 text-indigo-400" /> Metas do Mês
+              </h3>
+              <button onClick={() => setIsBudgetOpen(true)} className="text-sm font-medium text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 rounded-full transition-colors cursor-pointer">
+                Ajustar Limites
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {budgetProgress.map((b, idx) => {
+                const isWarning = b.percentage >= 80 && b.percentage < 100;
+                const isDanger = b.percentage >= 100;
+                const barColor = isDanger ? 'bg-rose-500' : isWarning ? 'bg-amber-500' : 'bg-emerald-500';
+                
+                return (
+                  <div key={idx} className="flex flex-col gap-2">
+                    <div className="flex justify-between items-end">
+                      <span className="text-sm font-medium text-neutral-300">{b.category}</span>
+                      <div className="text-right">
+                        <span className={`text-sm font-bold ${isDanger ? 'text-rose-400' : 'text-white'}`}>{formatMoney(b.spent)}</span>
+                        <span className="text-xs text-neutral-500 ml-1">/ {formatMoney(b.limit)}</span>
+                      </div>
+                    </div>
+                    <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden flex">
+                      <motion.div 
+                        initial={{ width: 0 }} 
+                        animate={{ width: `${b.percentage}%` }} 
+                        transition={{ duration: 1, delay: 0.5 + (idx * 0.1) }}
+                        className={`h-full rounded-full ${barColor}`}
+                      />
+                    </div>
+                    {isDanger && <span className="text-[10px] text-rose-400 font-medium">Limite excedido em {formatMoney(b.spent - b.limit)}!</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
         )}
 
         {/* Projeção de Fim de Mês */}
@@ -545,7 +616,7 @@ export default function Dashboard() {
       <AiUploadModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} />
       <FinancialPlannerModal isOpen={isPlannerOpen} onClose={() => setIsPlannerOpen(false)} currentIncome={totalIncome} currentExpense={totalExpense} balance={balance} transactions={allTransactions} />
       <SubscriptionTrackerModal isOpen={isTrackerOpen} onClose={() => setIsTrackerOpen(false)} transactions={allTransactions} />
-      <ReportsModal isOpen={isReportsOpen} onClose={() => setIsReportsOpen(false)} transactions={allTransactions} />
+      <ReportsModal isOpen={isReportsOpen} onClose={() => setIsReportsOpen(false)} transactions={allTransactions} activeMonth={activeMonth} />
       <AiChatModal isOpen={isAiChatOpen} onClose={() => setIsAiChatOpen(false)} financialContext={{ income: totalIncome, expense: totalExpense, balance, transactions: currentMonthTransactions, userName }} />
       <StockTrackerModal isOpen={isStocksOpen} onClose={() => setIsStocksOpen(false)} userId={userId} />
       <ActivityModal isOpen={isActivityOpen} onClose={() => setIsActivityOpen(false)} transactions={allTransactions} dueBills={dueBills} />
@@ -558,7 +629,7 @@ export default function Dashboard() {
       <AdminPanelModal isOpen={isAdminPanelOpen} onClose={() => setIsAdminPanelOpen(false)} />
       <PaywallModal isOpen={isPaywallOpen} onClose={() => setIsPaywallOpen(false)} />
 
-      <BudgetModal isOpen={isBudgetOpen} onClose={() => setIsBudgetOpen(false)} transactions={allTransactions} currentIncome={totalIncome} activeMonth={activeMonth} />
+      <BudgetModal isOpen={isBudgetOpen} onClose={() => setIsBudgetOpen(false)} onSave={refreshBudgets} transactions={allTransactions} currentIncome={totalIncome} activeMonth={activeMonth} />
       <ModulesModal isOpen={isModulesModalOpen} onClose={() => setIsModulesModalOpen(false)} modules={activeModules} onSave={handleSaveModules} />
       <ToolsMenuModal isOpen={isToolsMenuOpen} onClose={() => setIsToolsMenuOpen(false)} activeModules={activeModules} />
       <WelcomeModal />
