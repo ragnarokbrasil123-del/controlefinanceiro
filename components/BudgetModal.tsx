@@ -7,7 +7,7 @@ import { supabase } from "../lib/supabase";
 
 const CATEGORIES = ["Contas Fixas", "Variáveis", "Investimentos"];
 
-export function BudgetModal({ isOpen, onClose, transactions, currentIncome, activeMonth }: { isOpen: boolean, onClose: () => void, transactions: any[], currentIncome: number, activeMonth: number }) {
+export function BudgetModal({ isOpen, onClose, onSave, transactions, currentIncome, activeMonth }: { isOpen: boolean, onClose: () => void, onSave?: () => void, transactions: any[], currentIncome: number, activeMonth: number }) {
   const [budgets, setBudgets] = useState<Record<string, number>>({
     "Contas Fixas": 0,
     "Variáveis": 0,
@@ -15,6 +15,9 @@ export function BudgetModal({ isOpen, onClose, transactions, currentIncome, acti
   });
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  const strategy = typeof window !== 'undefined' ? localStorage.getItem('nexa_financial_strategy') || '50_30_20' : '50_30_20';
+  const strategyLabel = strategy === '40_20_40' ? '40/20/40' : strategy === '80_20' ? '80/20' : '50/30/20';
 
   useEffect(() => {
     if (isOpen) {
@@ -59,6 +62,7 @@ export function BudgetModal({ isOpen, onClose, transactions, currentIncome, acti
       const response = await supabase.from('budgets').insert(inserts);
       if (response.error) throw response.error;
       alert("Orçamentos salvos com sucesso!");
+      if (onSave) onSave();
       onClose();
     } catch (err: any) {
       alert("Erro ao salvar orçamentos: " + err.message);
@@ -80,7 +84,7 @@ export function BudgetModal({ isOpen, onClose, transactions, currentIncome, acti
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
-        body: JSON.stringify({ income: currentIncome })
+        body: JSON.stringify({ income: currentIncome, strategy: strategyLabel })
       });
       
       const data = await res.json();
@@ -144,7 +148,7 @@ export function BudgetModal({ isOpen, onClose, transactions, currentIncome, acti
               <div className="bg-white/5 border border-white/10 rounded-2xl p-5 relative overflow-hidden group">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-all"></div>
                 <h3 className="text-white font-bold mb-2 flex items-center gap-2 relative z-10"><Sparkles className="w-4 h-4 text-purple-400" /> Auto-Orçamento IA</h3>
-                <p className="text-sm text-neutral-400 mb-4 relative z-10">Deixe o Gemini analisar sua renda de <strong className="text-white">{formatMoney(currentIncome)}</strong> e sugerir tetos saudáveis usando a regra 50/30/20.</p>
+                <p className="text-sm text-neutral-400 mb-4 relative z-10">Deixe o Gemini analisar sua renda de <strong className="text-white">{formatMoney(currentIncome)}</strong> e sugerir tetos saudáveis usando a regra {strategyLabel}.</p>
                 <button onClick={handleAiSuggest} disabled={isAiLoading} className="w-full relative z-10 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 border border-purple-500/30 font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
                   {isAiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                   {isAiLoading ? "Pensando..." : "Sugerir com IA"}
