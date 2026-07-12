@@ -1,63 +1,120 @@
 "use client";
 
 import { motion, AnimatePresence } from "motion/react";
-import { X, PieChart as PieChartIcon, BarChart3, TrendingUp, TrendingDown, Download } from "lucide-react";
+import { X, PieChart as PieChartIcon, BarChart3, TrendingUp, TrendingDown, Download, ChevronLeft, ChevronRight } from "lucide-react";
 import { 
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend 
 } from "recharts";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import { TransactionRow } from "./TransactionRow";
 
 const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#6366f1'];
 
-export function ReportsModal({ isOpen, onClose, transactions }: any) {
+export function ReportsModal({ isOpen, onClose, transactions, activeMonth }: any) {
   const [activeTab, setActiveTab] = useState<'categorias' | 'balanco'>('categorias');
   const [period, setPeriod] = useState<number>(6);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  
+  const [localMonth, setLocalMonth] = useState(activeMonth !== undefined ? activeMonth : new Date().getMonth());
+
+  useEffect(() => {
+    if (activeMonth !== undefined) {
+      setLocalMonth(activeMonth);
+    }
+  }, [activeMonth]);
 
   if (!isOpen) return null;
 
   const now = new Date();
-  const startDate = new Date(now.getFullYear(), now.getMonth() - period + 1, 1);
+  const baseMonth = localMonth;
+  let startM = 0;
+  let endM = 0;
   
+  if (period === 1) {
+    startM = baseMonth;
+    endM = baseMonth;
+  } else if (period === 2) {
+    startM = Math.floor(baseMonth / 2) * 2;
+    endM = startM + 1;
+  } else if (period === 3) {
+    startM = Math.floor(baseMonth / 3) * 3;
+    endM = startM + 2;
+  } else if (period === 6) {
+    startM = Math.floor(baseMonth / 6) * 6;
+    endM = startM + 5;
+  } else {
+    startM = 0;
+    endM = 11;
+  }
+
+  const startDate = new Date(now.getFullYear(), startM, 1);
+  const endDate = new Date(now.getFullYear(), endM + 1, 0, 23, 59, 59);
+
+  const getPeriodLabel = () => {
+    const year = now.getFullYear();
+    const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    if (period === 1) return `${months[startM]} de ${year}`;
+    if (period === 2) return `Bimestre (${months[startM]} e ${months[endM]}) de ${year}`;
+    if (period === 3) return `Trimestre (${months[startM]} a ${months[endM]}) de ${year}`;
+    if (period === 6) return `${startM === 0 ? '1º' : '2º'} Semestre de ${year}`;
+    return `Ano inteiro de ${year} (Jan - Dez)`;
+  };
+
   const filteredTransactions = transactions.filter((t: any) => {
     if (!t.date) return false;
     const [year, month, day] = t.date.split('-');
     const tDate = new Date(Number(year), Number(month) - 1, Number(day));
-    return tDate >= startDate;
+    return tDate >= startDate && tDate <= endDate;
   });
 
-  // Processar dados para o Gráfico de Pizza
   const expenses = filteredTransactions.filter((t: any) => t.type === 'expense');
-  const categoryDataRaw = expenses.reduce((acc: any, curr: any) => {
-    if (!acc[curr.category]) acc[curr.category] = 0;
-    acc[curr.category] += curr.amount;
-    return acc;
-  }, {});
+  
+  const expenseByCategory = expenses
+    .filter((t: any) => t.category !== 'Transferência')
+    .reduce((acc: any, curr: any) => {
+      acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
+      return acc;
+    }, {});
 
-  const categoryData = Object.keys(categoryDataRaw).map(key => ({
-    name: key,
-    value: categoryDataRaw[key]
+  const categoryData = Object.entries(expenseByCategory).map(([name, value]) => ({
+    name,
+    value: value as number,
   })).sort((a, b) => b.value - a.value);
 
   // Processar dados para o Gráfico de Barras
-  const monthlyDataRaw = filteredTransactions.reduce((acc: any, curr: any) => {
-    if (!curr.date) return acc;
-    const dateObj = new Date(curr.date);
-    const monthYear = dateObj.toLocaleString('pt-BR', { month: 'short', timeZone: 'UTC' }).toUpperCase();
+  const balanceData: any[] = [];
+  
+  // 1. Criar o array de meses preenchidos (do início ao fim do período)
+  for (let i = startM; i <= endM; i++) {
+    const d = new Date(Date.UTC(now.getFullYear(), i, 1));
+    const monthStr = d.toLocaleString('pt-BR', { month: 'short', timeZone: 'UTC' }).replace('.', '').toUpperCase();
+    const yearStr = d.getUTCFullYear().toString().slice(-2);
+    const monthYear = `${monthStr}/${yearStr}`;
     
-    if (!acc[monthYear]) acc[monthYear] = { name: monthYear, Receitas: 0, Despesas: 0 };
-    
-    if (curr.type === 'income') acc[monthYear].Receitas += curr.amount;
-    else acc[monthYear].Despesas += curr.amount;
-    
-    return acc;
-  }, {});
+    balanceData.push({ 
+      name: monthYear, 
+      Receitas: 0, 
+      Despesas: 0,
+      _matchKey: `${d.getUTCFullYear()}-${d.getUTCMonth()}`
+    });
+  }
 
-  // AQUI: Forçamos o tipo para evitar o pânico do TypeScript
-  const balanceData: any[] = Object.values(monthlyDataRaw).reverse();
+  // 2. Preencher com os dados reais
+  filteredTransactions.forEach((curr: any) => {
+    if (!curr.date) return;
+    const [year, month] = curr.date.split('-');
+    const matchKey = `${Number(year)}-${Number(month) - 1}`;
+    
+    const targetMonth = balanceData.find(m => m._matchKey === matchKey);
+    if (targetMonth) {
+      if (curr.type === 'income') targetMonth.Receitas += curr.amount;
+      else targetMonth.Despesas += curr.amount;
+    }
+  });
 
   const formatMoney = (value: number) => `R$ ${value.toFixed(2).replace('.', ',')}`;
 
@@ -193,7 +250,16 @@ export function ReportsModal({ isOpen, onClose, transactions }: any) {
                   <BarChart3 className="w-4 h-4" /> Balanço Mensal
                 </button>
               </div>
-              <div className="shrink-0 flex items-center">
+              <div className="shrink-0 flex items-center gap-2">
+                <select 
+                  value={localMonth} 
+                  onChange={(e) => setLocalMonth(Number(e.target.value))}
+                  className="w-full sm:w-auto bg-black/30 border border-white/10 text-white text-sm rounded-xl py-3 px-4 focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer"
+                >
+                  {['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map((m, idx) => (
+                    <option key={idx} value={idx}>{m}</option>
+                  ))}
+                </select>
                 <select 
                   value={period} 
                   onChange={(e) => setPeriod(Number(e.target.value))}
@@ -209,10 +275,42 @@ export function ReportsModal({ isOpen, onClose, transactions }: any) {
             </div>
 
             <div className="p-6 overflow-y-auto">
+              <div className="mb-6 text-center">
+                <p className="text-sm font-medium text-indigo-400 bg-indigo-500/10 inline-block px-3 py-1 rounded-full border border-indigo-500/20">
+                  Período analisado: {getPeriodLabel()}
+                </p>
+              </div>
               
               {activeTab === 'categorias' && (
                 <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col gap-6">
-                  {categoryData.length === 0 ? (
+                  {selectedCategory ? (
+                    <div className="flex flex-col gap-4">
+                      <div className="flex items-center gap-3 mb-2">
+                        <button onClick={() => setSelectedCategory(null)} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-neutral-400 transition-colors">
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        <h3 className="text-lg font-bold text-white tracking-tight">Despesas em {selectedCategory}</h3>
+                      </div>
+                      <div className="flex flex-col gap-3">
+                        {expenses
+                          .filter((t: any) => t.category === selectedCategory)
+                          .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                          .map((tx: any) => (
+                            <TransactionRow 
+                              key={tx.id} 
+                              title={tx.title} 
+                              category={tx.category} 
+                              date={new Date(tx.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})} 
+                              amount={`${tx.type === 'income' ? '+ ' : '- '}${formatMoney(tx.amount)}`} 
+                              type={tx.type} 
+                              isPaid={tx.is_paid} 
+                              receiptUrl={tx.receipt_url}
+                            />
+                          ))
+                        }
+                      </div>
+                    </div>
+                  ) : categoryData.length === 0 ? (
                     <div className="text-center py-10 text-neutral-500">Nenhuma despesa registrada. Adicione um lançamento!</div>
                   ) : (
                     <>
@@ -240,12 +338,19 @@ export function ReportsModal({ isOpen, onClose, transactions }: any) {
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
                         {categoryData.map((item, index) => (
-                          <div key={index} className="flex items-center justify-between p-3 bg-white/5 border border-white/5 rounded-xl">
+                          <div 
+                            key={index} 
+                            onClick={() => setSelectedCategory(item.name)}
+                            className="flex items-center justify-between p-3 bg-white/5 border border-white/5 rounded-xl cursor-pointer hover:bg-white/10 hover:border-white/10 transition-all active:scale-[0.98] group"
+                          >
                             <div className="flex items-center gap-3">
                               <div className="w-3 h-3 rounded-full shadow-lg" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
-                              <span className="text-sm font-medium text-neutral-300">{item.name}</span>
+                              <span className="text-sm font-medium text-neutral-300 group-hover:text-white transition-colors">{item.name}</span>
                             </div>
-                            <span className="text-sm font-bold text-white">{formatMoney(Number(item.value))}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold text-white">{formatMoney(Number(item.value))}</span>
+                              <ChevronRight className="w-4 h-4 text-neutral-500 group-hover:text-white transition-colors" />
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -264,12 +369,12 @@ export function ReportsModal({ isOpen, onClose, transactions }: any) {
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={balanceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                            <XAxis dataKey="name" stroke="#666" tick={{fill: '#999', fontSize: 12}} axisLine={false} tickLine={false} />
-                            <YAxis stroke="#666" tick={{fill: '#999', fontSize: 12}} axisLine={false} tickLine={false} tickFormatter={(val) => `R$ ${val}`} />
+                            <XAxis dataKey="name" stroke="#666" tick={{fill: '#999', fontSize: 10}} axisLine={false} tickLine={false} interval={0} angle={-45} textAnchor="end" height={50} />
+                            <YAxis stroke="#666" tick={{fill: '#999', fontSize: 11}} axisLine={false} tickLine={false} tickFormatter={(val) => `R$ ${val}`} />
                             <Tooltip content={<CustomTooltip />} cursor={{fill: '#ffffff05'}} />
                             <Legend wrapperStyle={{paddingTop: '20px'}} />
-                            <Bar dataKey="Receitas" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} />
-                            <Bar dataKey="Despesas" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={20} />
+                            <Bar dataKey="Receitas" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={30} />
+                            <Bar dataKey="Despesas" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={30} />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
