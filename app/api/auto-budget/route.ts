@@ -26,7 +26,8 @@ export async function POST(req: Request) {
     // ---------------------
 
     const body = await req.json();
-    const { income } = body;
+    const { income, strategy } = body;
+    const rule = strategy || '50/30/20';
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
 
     const promptText = `Atue como um planejador financeiro de elite.
 O usuário ganha R$ ${income} por mês.
-Usando a regra 50/30/20 como base, sugira um orçamento realista dividido nestas exatas categorias: "Contas Fixas", "Variáveis" e "Investimentos".
+Usando a regra ${rule} como base, sugira um orçamento realista dividido nestas exatas categorias: "Contas Fixas", "Variáveis" e "Investimentos".
 Retorne APENAS um objeto JSON válido, sem NENHUM texto antes ou depois, e sem marcação de crases (markdown). O objeto deve ter esta estrutura:
 {
   "Contas Fixas": 1500,
