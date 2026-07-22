@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, TrendingUp, TrendingDown, Calendar, Save, Loader2, ChevronDown } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { toast } from "./Toast";
 
 interface Transaction {
   id: string;
@@ -17,11 +18,13 @@ interface Transaction {
 export function EditTransactionModal({ 
   isOpen, 
   onClose, 
-  transaction 
+  transaction,
+  onSave
 }: { 
   isOpen: boolean; 
   onClose: () => void; 
   transaction: Transaction | null;
+  onSave?: () => void;
 }) {
   const [type, setType] = useState<'expense' | 'income'>('expense');
   const [amount, setAmount] = useState("");
@@ -64,7 +67,8 @@ export function EditTransactionModal({
     e.preventDefault();
     
     if (!title || !amount || !transaction) {
-      return alert("Por favor, preencha todos os campos obrigatórios.");
+      toast("Por favor, preencha todos os campos obrigatórios.", "warning");
+      return;
     }
 
     setIsLoading(true);
@@ -82,13 +86,13 @@ export function EditTransactionModal({
 
       if (error) throw error;
 
-      alert("🎉 Lançamento atualizado com sucesso!");
+      toast("🎉 Lançamento atualizado com sucesso!", "success");
       onClose();
-      window.location.reload(); 
+      if (onSave) onSave();
       
     } catch (error: any) {
       console.error(error);
-      alert("Erro ao salvar alterações: " + error.message);
+      toast("Erro ao salvar alterações: " + error.message, "error");
     } finally {
       setIsLoading(false);
     }

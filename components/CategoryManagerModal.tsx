@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Plus, Trash2, Tag, TrendingUp, TrendingDown } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { toast } from "./Toast";
 
 export function CategoryManagerModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
   const [categories, setCategories] = useState<any[]>([]);
@@ -31,7 +32,10 @@ export function CategoryManagerModal({ isOpen, onClose }: { isOpen: boolean, onC
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name) return alert("Preencha o nome da categoria.");
+    if (!name) {
+      toast("Preencha o nome da categoria.", "warning");
+      return;
+    }
     
     const { data: { session } } = await supabase.auth.getSession();
     const { data, error } = await supabase.from('categories').insert([{
@@ -41,11 +45,12 @@ export function CategoryManagerModal({ isOpen, onClose }: { isOpen: boolean, onC
     }]).select();
 
     if (error) {
-      alert("Erro ao criar categoria. Verifique se rodou o script SQL no Supabase.");
+      toast("Erro ao criar categoria. Verifique se rodou o script SQL no Supabase.", "error");
     } else if (data) {
       setCategories([...categories, data[0]].sort((a,b) => a.name.localeCompare(b.name)));
       setIsCreating(false);
       setName("");
+      toast("Categoria criada com sucesso!", "success");
     }
   };
 

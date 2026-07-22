@@ -2,118 +2,188 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Plus, Trash2, Tag, TrendingUp, TrendingDown } from "lucide-react";
+import { X, Plus, Trash2, Wallet, CreditCard, Building2, Loader2, Edit2, Check } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { toast } from "./Toast";
 
-export function CategoryManagerModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
-  const [categories, setCategories] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  const [isCreating, setIsCreating] = useState(false);
-  const [name, setName] = useState("");
-  const [type, setType] = useState<'expense' | 'income'>('expense');
+interface Wallet {
+  id: string;
+  name: string;
+  type: string;
+  balance: number;
+  user_id: string;
+}
+
+export function AccountManagerModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
+  const [wallets, setWallets] = useState<Wallet[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newWalletName, setNewWalletName] = useState("");
+  const [newWalletType, setNewWalletType] = useState("bank");
+  const [isSaving, setIsSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [userId, setUserId] = useState("");
 
   useEffect(() => {
-    if (isOpen) {
-      fetchCategories();
-    }
+    if (isOpen) loadWallets();
   }, [isOpen]);
 
-  async function fetchCategories() {
-    setIsLoading(true);
+  const loadWallets = async () => {
+    setLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
-    
-    const { data } = await supabase.from('categories').select('*').eq('user_id', session.user.id).order('name', { ascending: true });
-    if (data) setCategories(data);
-    setIsLoading(false);
-  }
+    setUserId(session.user.id);
+    const { data, error } = await supabase
+      .from('wallets')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: true });
+    if (!error && data) setWallets(data);
+    setLoading(false);
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name) return alert("Preencha o nome da categoria.");
-    
-    const { data: { session } } = await supabase.auth.getSession();
-    const { data, error } = await supabase.from('categories').insert([{
-      user_id: session?.user.id,
-      name,
-      type
-    }]).select();
-
-    if (error) {
-      alert("Erro ao criar categoria. Verifique se rodou o script SQL no Supabase.");
-    } else if (data) {
-      setCategories([...categories, data[0]].sort((a,b) => a.name.localeCompare(b.name)));
-      setIsCreating(false);
-      setName("");
+    if (!newWalletName.trim()) return;
+    setIsSaving(true);
+    const { data, error } = await supabase
+      .from('wallets')
+      .insert([{ name: newWalletName.trim(), type: newWalletType, user_id: userId, balance: 0 }])
+      .select();
+    if (!error && data) {
+      setWallets(prev => [...prev, data[0]]);
+      setNewWalletName("");
+      toast("Conta criada com sucesso! 💳", "success");
+    } else {
+      toast("Erro ao criar conta: " + (error?.message || 'Desconhecido'), "error");
     }
+    setIsSaving(false);
   };
 
   const handleDelete = async (id: string) => {
-    if(!window.confirm("Deseja apagar essa categoria? Ela desaparecerá das opções.")) return;
-    const { error } = await supabase.from('categories').delete().eq('id', id);
-    if (!error) setCategories(categories.filter(c => c.id !== id));
+    if (!confirm("Excluir esta conta? Transações vinculadas ficarão sem conta associada.")) return;
+    const { error } = await supabase.from('wallets').delete().eq('id', id);
+    if (!error) {
+      setWallets(prev => prev.filter(w => w.id !== id));
+      toast("Conta excluída.", "success");
+    } else {
+      toast("Erro ao excluir conta.", "error");
+    }
+  };
+
+  const handleRename = async (id: string) => {
+    if (!editName.trim()) return;
+    const { error } = await supabase.from('wallets').update({ name: editName.trim() }).eq('id', id);
+    if (!error) {
+      setWallets(prev => prev.map(w => w.id === id ? { ...w, name: editName.trim() } : w));
+      toast("Conta renomeada.", "success");
+      setEditingId(null);
+    } else {
+      toast("Erro ao renomear.", "error");
+    }
   };
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
-          <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative w-full max-w-md bg-neutral-900 border border-white/10 rounded-3xl p-6 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="relative w-full max-w-md bg-neutral-900 border border-white/10 rounded-3xl p-6 shadow-2xl max-h-[85vh] flex flex-col"
+          >
             <div className="flex justify-between items-center mb-6 shrink-0">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2"><Tag className="w-5 h-5 text-indigo-400"/> Categorias</h2>
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Wallet className="w-5 h-5 text-indigo-400" /> Minhas Contas
+              </h2>
               <button onClick={onClose} className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-neutral-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="overflow-y-auto pr-2 pb-4 flex flex-col gap-4">
-              
-              {!isCreating && (
-                <button onClick={() => setIsCreating(true)} className="w-full flex items-center justify-center gap-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 py-3 rounded-xl font-medium transition-all cursor-pointer">
-                  <Plus className="w-4 h-4" /> Nova Categoria
-                </button>
-              )}
-
-              {isCreating && (
-                <form onSubmit={handleCreate} className="bg-white/5 border border-white/10 p-4 rounded-2xl flex flex-col gap-4">
-                  <h3 className="font-semibold text-white">Criar Nova Categoria</h3>
-                  
-                  <div className="flex gap-2 bg-black/20 p-1 rounded-xl">
-                    <button type="button" onClick={() => setType('expense')} className={`flex-1 py-2 flex justify-center items-center gap-1 rounded-lg text-sm font-medium ${type === 'expense' ? 'bg-rose-500/20 text-rose-400' : 'text-neutral-500 hover:text-neutral-300'}`}><TrendingDown className="w-3 h-3"/> Despesa</button>
-                    <button type="button" onClick={() => setType('income')} className={`flex-1 py-2 flex justify-center items-center gap-1 rounded-lg text-sm font-medium ${type === 'income' ? 'bg-emerald-500/20 text-emerald-400' : 'text-neutral-500 hover:text-neutral-300'}`}><TrendingUp className="w-3 h-3"/> Receita</button>
-                  </div>
-
-                  <input type="text" placeholder="Nome (Ex: Viagens, Ifood...)" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white focus:border-indigo-500 outline-none" required autoFocus />
-                  
-                  <div className="flex gap-2 mt-2">
-                    <button type="button" onClick={() => setIsCreating(false)} className="flex-1 py-3 text-neutral-400 bg-black/20 hover:bg-white/5 rounded-xl transition-colors">Cancelar</button>
-                    <button type="submit" className="flex-1 py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-medium rounded-xl transition-colors">Salvar</button>
-                  </div>
-                </form>
-              )}
-
-              <div className="flex flex-col gap-2 mt-2">
-                <h3 className="text-sm font-medium text-neutral-500 uppercase tracking-wider mb-2">Suas Categorias</h3>
-                {isLoading ? (
-                  <p className="text-center text-neutral-500 py-4">Carregando...</p>
-                ) : categories.length === 0 ? (
-                  <p className="text-center text-neutral-500 py-4 text-sm">Nenhuma categoria criada. Crie uma acima ou use as padrões.</p>
-                ) : (
-                  categories.map(cat => (
-                    <div key={cat.id} className="flex justify-between items-center bg-white/5 border border-white/10 p-3 rounded-xl">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-2 h-2 rounded-full ${cat.type === 'income' ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
-                        <span className="text-white font-medium">{cat.name}</span>
-                      </div>
-                      <button onClick={() => handleDelete(cat.id)} className="p-2 text-neutral-600 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"><Trash2 className="w-4 h-4"/></button>
-                    </div>
-                  ))
-                )}
+            {/* Add new wallet form */}
+            <form onSubmit={handleCreate} className="flex gap-2 mb-6 shrink-0">
+              <div className="flex-1 flex gap-0 bg-black/20 border border-white/10 rounded-xl overflow-hidden">
+                <select
+                  value={newWalletType}
+                  onChange={e => setNewWalletType(e.target.value)}
+                  className="bg-transparent text-white text-sm outline-none px-3 py-2 border-r border-white/10 cursor-pointer"
+                >
+                  <option value="bank" className="bg-neutral-900">🏦 Conta</option>
+                  <option value="credit" className="bg-neutral-900">💳 Cartão</option>
+                </select>
+                <input
+                  type="text"
+                  value={newWalletName}
+                  onChange={e => setNewWalletName(e.target.value)}
+                  placeholder="Ex: Nubank, Itaú, XP..."
+                  className="flex-1 bg-transparent text-white placeholder-neutral-500 text-sm focus:outline-none px-3"
+                  required
+                />
               </div>
+              <button
+                type="submit"
+                disabled={isSaving || !newWalletName.trim()}
+                className="bg-indigo-500 hover:bg-indigo-600 disabled:bg-indigo-500/40 text-white px-3 rounded-xl flex items-center justify-center transition-colors shrink-0"
+              >
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              </button>
+            </form>
 
+            {/* Wallets list */}
+            <div className="overflow-y-auto flex-1">
+              {loading ? (
+                <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-indigo-400" /></div>
+              ) : wallets.length === 0 ? (
+                <div className="text-center py-10 bg-white/5 rounded-2xl border border-white/5">
+                  <Wallet className="w-8 h-8 text-neutral-500 mx-auto mb-3" />
+                  <p className="text-neutral-400 text-sm">Nenhuma conta cadastrada.</p>
+                  <p className="text-neutral-500 text-xs mt-1">Crie sua primeira conta acima.</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {wallets.map(wallet => (
+                    <div key={wallet.id} className="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/8 transition-colors group">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${wallet.type === 'credit' ? 'bg-purple-500/20 text-purple-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                          {wallet.type === 'credit' ? <CreditCard className="w-5 h-5" /> : <Building2 className="w-5 h-5" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          {editingId === wallet.id ? (
+                            <input
+                              autoFocus
+                              value={editName}
+                              onChange={e => setEditName(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') handleRename(wallet.id); if (e.key === 'Escape') setEditingId(null); }}
+                              className="w-full bg-black/30 border border-indigo-500/50 rounded-lg px-2 py-1 text-white text-sm focus:outline-none"
+                            />
+                          ) : (
+                            <h3 className="text-white font-medium truncate">{wallet.name}</h3>
+                          )}
+                          <p className="text-xs text-neutral-400">{wallet.type === 'credit' ? 'Cartão de Crédito' : 'Conta Bancária'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0 ml-2">
+                        {editingId === wallet.id ? (
+                          <button onClick={() => handleRename(wallet.id)} className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors">
+                            <Check className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <button onClick={() => { setEditingId(wallet.id); setEditName(wallet.name); }} className="p-2 text-neutral-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button onClick={() => handleDelete(wallet.id)} className="p-2 text-neutral-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </motion.div>
         </div>

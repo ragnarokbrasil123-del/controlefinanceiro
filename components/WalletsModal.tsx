@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Wallet, Trash2, Plus, CreditCard, Building2, Loader2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { toast } from "./Toast";
 
-export function WalletsModal({ isOpen, onClose, userId, userPlan }: { isOpen: boolean, onClose: () => void, userId: string, userPlan?: string }) {
+export function WalletsModal({ isOpen, onClose, userId }: { isOpen: boolean, onClose: () => void, userId: string }) {
   const [wallets, setWallets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [newWalletName, setNewWalletName] = useState("");
@@ -30,13 +31,6 @@ export function WalletsModal({ isOpen, onClose, userId, userPlan }: { isOpen: bo
   const handleCreateWallet = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newWalletName.trim()) return;
-    
-    if (userPlan === 'free' && wallets.length >= 1) {
-      window.dispatchEvent(new CustomEvent('openModal', { detail: 'paywall' }));
-      onClose();
-      return;
-    }
-
     setIsSaving(true);
     
     const { data, error } = await supabase.from('wallets').insert([{
@@ -49,8 +43,9 @@ export function WalletsModal({ isOpen, onClose, userId, userPlan }: { isOpen: bo
     if (!error && data) {
       setWallets([...wallets, data[0]]);
       setNewWalletName("");
+      toast("Carteira criada com sucesso! 💳", "success");
     } else {
-      alert("Erro ao criar carteira: " + (error?.message || 'Desconhecido'));
+      toast("Erro ao criar carteira: " + (error?.message || 'Desconhecido'), "error");
     }
     setIsSaving(false);
   };
@@ -60,8 +55,9 @@ export function WalletsModal({ isOpen, onClose, userId, userPlan }: { isOpen: bo
       const { error } = await supabase.from('wallets').delete().eq('id', id);
       if (!error) {
         setWallets(wallets.filter(w => w.id !== id));
+        toast("Carteira excluída.", "success");
       } else {
-        alert("Erro ao excluir carteira.");
+        toast("Erro ao excluir carteira.", "error");
       }
     }
   };

@@ -5,23 +5,12 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Target, PiggyBank, ShieldCheck, Zap, Home as HomeIcon, Coins, Sparkles, Loader2, Bot } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
 import { supabase } from "../lib/supabase";
+import { toast } from "./Toast";
 
 export function FinancialPlannerModal({ isOpen, onClose, currentIncome, currentExpense, balance, transactions }: { isOpen: boolean, onClose: () => void, currentIncome: number, currentExpense: number, balance: number, transactions: any[] }) {
   const [activeTab, setActiveTab] = useState<'calculator' | 'advisor'>('calculator');
   const [salary, setSalary] = useState(currentIncome > 0 ? currentIncome.toString() : "3000");
-  const [strategy, setStrategy] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('nexa_financial_strategy') || '50_30_20';
-    }
-    return '50_30_20';
-  });
-
-  const handleStrategyChange = (id: string) => {
-    setStrategy(id);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('nexa_financial_strategy', id);
-    }
-  };
+  const [strategy, setStrategy] = useState('50_30_20');
   
   const [advice, setAdvice] = useState("");
   const [isFetchingAdvice, setIsFetchingAdvice] = useState(false);
@@ -74,15 +63,6 @@ export function FinancialPlannerModal({ isOpen, onClose, currentIncome, currentE
         })
       });
       const data = await res.json();
-      if (data.error) {
-        if (data.error === "PAYWALL_LIMIT_REACHED") {
-           window.dispatchEvent(new CustomEvent('openModal', { detail: 'paywall' }));
-           onClose();
-           return;
-        }
-        setAdvice("Ocorreu um erro: " + data.error);
-        return;
-      }
       if (data.advice) {
         setAdvice(data.advice);
       } else {
@@ -115,10 +95,9 @@ export function FinancialPlannerModal({ isOpen, onClose, currentIncome, currentE
         date: new Date().toISOString()
       }]);
       if (error) throw error;
-      alert("Salário salvo com sucesso como Receita deste mês!");
-      window.location.reload();
+      toast("💸 Salário salvo como Receita deste mês!", "success");
     } catch (e: any) {
-      alert("Erro ao salvar: " + e.message);
+      toast("Erro ao salvar: " + e.message, "error");
     } finally {
       setIsSaving(false);
     }
@@ -175,7 +154,7 @@ export function FinancialPlannerModal({ isOpen, onClose, currentIncome, currentE
                     <label className="block text-sm font-medium text-neutral-400">Perfil Financeiro (Estratégia)</label>
                     <div className="flex gap-2 p-1 bg-white/5 border border-white/10 rounded-xl overflow-x-auto scrollbar-hide">
                       {strategies.map(s => (
-                        <button key={s.id} onClick={() => handleStrategyChange(s.id)} className={`flex-1 whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${strategy === s.id ? 'bg-white/10 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}>
+                        <button key={s.id} onClick={() => setStrategy(s.id)} className={`flex-1 whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${strategy === s.id ? 'bg-white/10 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}>
                           {s.name}
                         </button>
                       ))}

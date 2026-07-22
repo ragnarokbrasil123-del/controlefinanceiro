@@ -1,120 +1,88 @@
 "use client";
 
 import { motion, AnimatePresence } from "motion/react";
-import { X, PieChart as PieChartIcon, BarChart3, TrendingUp, TrendingDown, Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, PieChart as PieChartIcon, BarChart3, TrendingUp, TrendingDown, Download, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { 
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend 
 } from "recharts";
-import { useState, useEffect } from "react";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
-import { TransactionRow } from "./TransactionRow";
+import { useState } from "react";
+import { toast } from "./Toast";
 
 const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#6366f1'];
 
-export function ReportsModal({ isOpen, onClose, transactions, activeMonth }: any) {
-  const [activeTab, setActiveTab] = useState<'categorias' | 'balanco'>('categorias');
-  const [period, setPeriod] = useState<number>(6);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  
-  const [localMonth, setLocalMonth] = useState(activeMonth !== undefined ? activeMonth : new Date().getMonth());
+const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-  useEffect(() => {
-    if (activeMonth !== undefined) {
-      setLocalMonth(activeMonth);
+export function ReportsModal({ isOpen, onClose, transactions, allTransactions, activeMonth, activeYear, onPrevMonth, onNextMonth }: any) {
+  const [activeTab, setActiveTab] = useState<'categorias' | 'balanco'>('categorias');
+  const [periodFilter, setPeriodFilter] = useState<'month' | 'quarter' | 'semester' | 'year' | 'all'>('month');
+
+  // Filtragem e ordenação cronológica das transações (útil para o CSV e PDF)
+  const displayedTransactions = allTransactions.filter((t: any) => {
+    if (!t.date) return false;
+    if (periodFilter === 'all') return true;
+
+    const [tYearStr, tMonthStr] = t.date.split('-');
+    const tYear = parseInt(tYearStr);
+    const tMonth = parseInt(tMonthStr) - 1;
+
+    if (periodFilter === 'month') return tYear === activeYear && tMonth === activeMonth;
+    if (periodFilter === 'year') return tYear === activeYear;
+
+    const tDate = new Date(tYear, tMonth, 1);
+    const aDate = new Date(activeYear, activeMonth, 1);
+    const monthsDiff = (aDate.getFullYear() - tDate.getFullYear()) * 12 + (aDate.getMonth() - tDate.getMonth());
+
+    if (periodFilter === 'quarter') return monthsDiff >= 0 && monthsDiff < 3;
+    if (periodFilter === 'semester') return monthsDiff >= 0 && monthsDiff < 6;
+    
+    return true;
+  }).sort((a: any, b: any) => a.date.localeCompare(b.date));
+
+  const getPeriodLabel = () => {
+    switch (periodFilter) {
+      case 'month': return `${MONTHS[activeMonth] || 'Mês'} ${activeYear || ''}`;
+      case 'quarter': return `Último Trimestre`;
+      case 'semester': return `Último Semestre`;
+      case 'year': return `Ano de ${activeYear}`;
+      case 'all': return 'Histórico Completo';
+      default: return '';
     }
-  }, [activeMonth]);
+  };
+  const periodLabel = getPeriodLabel();
 
   if (!isOpen) return null;
 
-  const now = new Date();
-  const baseMonth = localMonth;
-  let startM = 0;
-  let endM = 0;
-  
-  if (period === 1) {
-    startM = baseMonth;
-    endM = baseMonth;
-  } else if (period === 2) {
-    startM = Math.floor(baseMonth / 2) * 2;
-    endM = startM + 1;
-  } else if (period === 3) {
-    startM = Math.floor(baseMonth / 3) * 3;
-    endM = startM + 2;
-  } else if (period === 6) {
-    startM = Math.floor(baseMonth / 6) * 6;
-    endM = startM + 5;
-  } else {
-    startM = 0;
-    endM = 11;
-  }
+  // Processar dados para o Gráfico de Pizza
+  const expenses = displayedTransactions.filter((t: any) => t.type === 'expense');
+  const categoryDataRaw = expenses.reduce((acc: any, curr: any) => {
+    if (!acc[curr.category]) acc[curr.category] = 0;
+    acc[curr.category] += curr.amount;
+    return acc;
+  }, {});
 
-  const startDate = new Date(now.getFullYear(), startM, 1);
-  const endDate = new Date(now.getFullYear(), endM + 1, 0, 23, 59, 59);
-
-  const getPeriodLabel = () => {
-    const year = now.getFullYear();
-    const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-    if (period === 1) return `${months[startM]} de ${year}`;
-    if (period === 2) return `Bimestre (${months[startM]} e ${months[endM]}) de ${year}`;
-    if (period === 3) return `Trimestre (${months[startM]} a ${months[endM]}) de ${year}`;
-    if (period === 6) return `${startM === 0 ? '1º' : '2º'} Semestre de ${year}`;
-    return `Ano inteiro de ${year} (Jan - Dez)`;
-  };
-
-  const filteredTransactions = transactions.filter((t: any) => {
-    if (!t.date) return false;
-    const [year, month, day] = t.date.split('-');
-    const tDate = new Date(Number(year), Number(month) - 1, Number(day));
-    return tDate >= startDate && tDate <= endDate;
-  });
-
-  const expenses = filteredTransactions.filter((t: any) => t.type === 'expense');
-  
-  const expenseByCategory = expenses
-    .filter((t: any) => t.category !== 'Transferência')
-    .reduce((acc: any, curr: any) => {
-      acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
-      return acc;
-    }, {});
-
-  const categoryData = Object.entries(expenseByCategory).map(([name, value]) => ({
-    name,
-    value: value as number,
+  const categoryData = Object.keys(categoryDataRaw).map(key => ({
+    name: key,
+    value: categoryDataRaw[key]
   })).sort((a, b) => b.value - a.value);
 
-  // Processar dados para o Gráfico de Barras
-  const balanceData: any[] = [];
-  
-  // 1. Criar o array de meses preenchidos (do início ao fim do período)
-  for (let i = startM; i <= endM; i++) {
-    const d = new Date(Date.UTC(now.getFullYear(), i, 1));
-    const monthStr = d.toLocaleString('pt-BR', { month: 'short', timeZone: 'UTC' }).replace('.', '').toUpperCase();
-    const yearStr = d.getUTCFullYear().toString().slice(-2);
-    const monthYear = `${monthStr}/${yearStr}`;
+  // Processar dados para o Gráfico de Barras — sempre usa histórico completo para o gráfico de barras
+  const barSourceData = allTransactions || transactions;
+  const monthlyDataRaw = barSourceData.reduce((acc: any, curr: any) => {
+    if (!curr.date) return acc;
+    const dateObj = new Date(curr.date);
+    const monthYear = dateObj.toLocaleString('pt-BR', { month: 'short', timeZone: 'UTC' }).toUpperCase();
     
-    balanceData.push({ 
-      name: monthYear, 
-      Receitas: 0, 
-      Despesas: 0,
-      _matchKey: `${d.getUTCFullYear()}-${d.getUTCMonth()}`
-    });
-  }
+    if (!acc[monthYear]) acc[monthYear] = { name: monthYear, Receitas: 0, Despesas: 0 };
+    
+    if (curr.type === 'income') acc[monthYear].Receitas += curr.amount;
+    else acc[monthYear].Despesas += curr.amount;
+    
+    return acc;
+  }, {});
 
-  // 2. Preencher com os dados reais
-  filteredTransactions.forEach((curr: any) => {
-    if (!curr.date) return;
-    const [year, month] = curr.date.split('-');
-    const matchKey = `${Number(year)}-${Number(month) - 1}`;
-    
-    const targetMonth = balanceData.find(m => m._matchKey === matchKey);
-    if (targetMonth) {
-      if (curr.type === 'income') targetMonth.Receitas += curr.amount;
-      else targetMonth.Despesas += curr.amount;
-    }
-  });
+  // AQUI: Forçamos o tipo para evitar o pânico do TypeScript
+  const balanceData: any[] = Object.values(monthlyDataRaw).slice(0, 6).reverse();
 
   const formatMoney = (value: number) => `R$ ${value.toFixed(2).replace('.', ',')}`;
 
@@ -137,10 +105,13 @@ export function ReportsModal({ isOpen, onClose, transactions, activeMonth }: any
   };
 
   const handleExportCSV = () => {
-    if (!filteredTransactions || filteredTransactions.length === 0) return alert("Nenhuma transação para exportar.");
+    if (!displayedTransactions || displayedTransactions.length === 0) {
+      toast("Nenhuma transação para exportar.", "warning");
+      return;
+    }
     
     const headers = ["ID", "Título", "Categoria", "Valor", "Tipo", "Data", "Status"];
-    const rows = filteredTransactions.map((t: any) => [
+    const rows = displayedTransactions.map((t: any) => [
       t.id,
       `"${t.title.replace(/"/g, '""')}"`,
       `"${t.category}"`,
@@ -155,51 +126,109 @@ export function ReportsModal({ isOpen, onClose, transactions, activeMonth }: any
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `extrato_nexa_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `extrato_nexa_${periodLabel.replace(' ', '_')}_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    toast("CSV exportado com sucesso! 📄", "success");
   };
 
-  const handleExportPDF = () => {
-    if (!filteredTransactions || filteredTransactions.length === 0) return alert("Nenhuma transação para exportar.");
-    const doc = new jsPDF();
-    doc.text("Relatório Financeiro - Nexa", 14, 15);
-    
-    const tableColumn = ["Data", "Título", "Categoria", "Valor", "Tipo"];
-    const tableRows: any[] = [];
-    
-    filteredTransactions.forEach((t: any) => {
-      const ticketData = [
-        new Date(t.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'}),
-        t.title,
-        t.category,
-        `R$ ${t.amount.toFixed(2).replace('.', ',')}`,
-        t.type === 'income' ? 'Receita' : 'Despesa'
-      ];
-      tableRows.push(ticketData);
-    });
-    
-    autoTable(doc, { head: [tableColumn], body: tableRows, startY: 20 });
-    doc.save(`relatorio_nexa_${new Date().toISOString().split('T')[0]}.pdf`);
-  };
+  const handleExportPDF = async () => {
+    if (!displayedTransactions || displayedTransactions.length === 0) {
+      toast("Nenhuma transação para exportar.", "warning");
+      return;
+    }
 
-  const handleExportExcel = () => {
-    if (!filteredTransactions || filteredTransactions.length === 0) return alert("Nenhuma transação para exportar.");
-    const data = filteredTransactions.map((t: any) => ({
-      ID: t.id,
-      Título: t.title,
-      Categoria: t.category,
-      Valor: t.amount,
-      Tipo: t.type === 'income' ? 'Receita' : 'Despesa',
-      Data: new Date(t.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'}),
-      Status: t.is_paid === false ? 'Pendente' : 'Pago'
-    }));
-    
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Relatório");
-    XLSX.writeFile(workbook, `extrato_nexa_${new Date().toISOString().split('T')[0]}.xlsx`);
+    try {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const today = new Date().toLocaleDateString('pt-BR');
+
+      // Header
+      doc.setFillColor(17, 17, 27);
+      doc.rect(0, 0, pageWidth, 40, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(22);
+      doc.setFont('helvetica', 'bold');
+      doc.text('NEXA', 15, 20);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(160, 160, 180);
+      doc.text('Relatório Financeiro', 15, 30);
+      doc.text(`Período: ${periodLabel}`, 15, 37);
+      doc.text(`Gerado em: ${today}`, pageWidth - 15, 30, { align: 'right' });
+
+      // Summary
+      const totalIncome = displayedTransactions.filter((t: any) => t.type === 'income').reduce((a: number, t: any) => a + t.amount, 0);
+      const totalExpense = displayedTransactions.filter((t: any) => t.type === 'expense').reduce((a: number, t: any) => a + t.amount, 0);
+      const balance = totalIncome - totalExpense;
+
+      doc.setTextColor(30, 30, 30);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Resumo Geral', 15, 55);
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(16, 185, 129);
+      doc.text(`Receitas Totais: R$ ${totalIncome.toFixed(2).replace('.', ',')}`, 15, 65);
+      doc.setTextColor(239, 68, 68);
+      doc.text(`Despesas Totais: R$ ${totalExpense.toFixed(2).replace('.', ',')}`, 15, 73);
+      doc.setTextColor(balance >= 0 ? 16 : 239, balance >= 0 ? 185 : 68, balance >= 0 ? 129 : 68);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Saldo: R$ ${balance.toFixed(2).replace('.', ',')}`, 15, 81);
+
+      // Table header
+      let y = 95;
+      doc.setTextColor(255, 255, 255);
+      doc.setFillColor(99, 102, 241);
+      doc.rect(10, y - 6, pageWidth - 20, 10, 'F');
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Data', 13, y);
+      doc.text('Título', 35, y);
+      doc.text('Categoria', 100, y);
+      doc.text('Tipo', 145, y);
+      doc.text('Valor', 165, y);
+      doc.text('Status', 187, y);
+      y += 8;
+
+
+
+      doc.setFont('helvetica', 'normal');
+      displayedTransactions.slice().reverse().forEach((t: any, i: number) => {
+        if (y > 270) {
+          doc.addPage();
+          y = 20;
+        }
+        const isIncome = t.type === 'income';
+        doc.setFillColor(i % 2 === 0 ? 245 : 255, i % 2 === 0 ? 245 : 255, i % 2 === 0 ? 250 : 255);
+        doc.rect(10, y - 5, pageWidth - 20, 9, 'F');
+        doc.setTextColor(60, 60, 60);
+        doc.text(new Date(t.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' }), 13, y);
+        doc.text(t.title?.substring(0, 30) || '-', 35, y);
+        doc.text(t.category?.substring(0, 20) || '-', 100, y);
+        doc.setTextColor(isIncome ? 16 : 239, isIncome ? 185 : 68, isIncome ? 129 : 68);
+        doc.text(isIncome ? 'Receita' : 'Despesa', 145, y);
+        doc.setTextColor(60, 60, 60);
+        doc.text(`R$ ${t.amount.toFixed(2).replace('.', ',')}`, 165, y);
+        doc.setTextColor(t.is_paid === false ? 217 : 16, t.is_paid === false ? 119 : 185, t.is_paid === false ? 6 : 129);
+        doc.text(t.is_paid === false ? 'Pendente' : 'Pago', 187, y);
+        y += 9;
+      });
+
+      // Footer
+      doc.setTextColor(160, 160, 180);
+      doc.setFontSize(8);
+      doc.text('Gerado pelo Nexa — Controle Financeiro Inteligente', pageWidth / 2, 290, { align: 'center' });
+
+      doc.save(`relatorio_nexa_${new Date().toISOString().split('T')[0]}.pdf`);
+      toast("📄 PDF exportado com sucesso!", "success");
+    } catch (err) {
+      console.error(err);
+      toast("Erro ao gerar PDF.", "error");
+    }
   };
 
   return (
@@ -215,102 +244,70 @@ export function ReportsModal({ isOpen, onClose, transactions, activeMonth }: any
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
             className="relative w-full max-w-2xl bg-neutral-900 sm:rounded-3xl rounded-t-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-white/10"
           >
-            <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
+            <div className="p-6 border-b border-white/10 flex justify-between items-start bg-white/5 flex-wrap gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30 shadow-inner">
                   <PieChartIcon className="w-5 h-5 text-indigo-400" />
                 </div>
-                <h2 className="text-xl font-bold text-white tracking-tight">Relatórios Premium</h2>
+                <div>
+                  <h2 className="text-xl font-bold text-white tracking-tight">Relatórios</h2>
+                  {periodFilter === 'month' ? (
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <button onClick={onPrevMonth} className="p-0.5 text-neutral-400 hover:text-white transition-colors cursor-pointer"><ChevronLeft className="w-3.5 h-3.5" /></button>
+                      <p className="text-xs text-neutral-300 font-medium">{periodLabel}</p>
+                      <button onClick={onNextMonth} className="p-0.5 text-neutral-400 hover:text-white transition-colors cursor-pointer"><ChevronRight className="w-3.5 h-3.5" /></button>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-neutral-400 mt-0.5">{periodLabel}</p>
+                  )}
+                </div>
               </div>
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <button onClick={handleExportPDF} className="flex items-center gap-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-rose-500/20">
-                  <Download className="w-4 h-4" /> PDF
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Filtro de Período */}
+                <select 
+                  value={periodFilter} 
+                  onChange={(e: any) => setPeriodFilter(e.target.value)}
+                  className="bg-black/30 border border-white/10 rounded-lg px-3 py-1.5 text-xs font-medium text-neutral-300 outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 cursor-pointer appearance-none pr-8 relative"
+                  style={{ backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%239CA3AF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.7rem top 50%', backgroundSize: '0.65rem auto' }}
+                >
+                  <option value="month">Mensal</option>
+                  <option value="quarter">Trimestral</option>
+                  <option value="semester">Semestral</option>
+                  <option value="year">Anual</option>
+                  <option value="all">Todo Histórico</option>
+                </select>
+                <button onClick={handleExportCSV} className="flex items-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-emerald-500/20">
+                  <Download className="w-4 h-4" /> CSV
                 </button>
-                <button onClick={handleExportExcel} className="flex items-center gap-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-emerald-500/20">
-                  <Download className="w-4 h-4" /> Excel
+                <button onClick={handleExportPDF} className="flex items-center gap-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-rose-500/20">
+                  <FileText className="w-4 h-4" /> PDF
                 </button>
-                <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white hover:bg-white/10 rounded-full transition-colors ml-2">
+                <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white hover:bg-white/10 rounded-full transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row p-4 gap-4 bg-black/20 border-b border-white/5">
-              <div className="flex gap-2 flex-1 overflow-x-auto scrollbar-hide">
-                <button 
-                  onClick={() => setActiveTab('categorias')}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium transition-all whitespace-nowrap ${activeTab === 'categorias' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 hover:bg-white/5'}`}
-                >
-                  <PieChartIcon className="w-4 h-4" /> Despesas por Categoria
-                </button>
-                <button 
-                  onClick={() => setActiveTab('balanco')}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium transition-all whitespace-nowrap ${activeTab === 'balanco' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-neutral-400 hover:bg-white/5'}`}
-                >
-                  <BarChart3 className="w-4 h-4" /> Balanço Mensal
-                </button>
-              </div>
-              <div className="shrink-0 flex items-center gap-2">
-                <select 
-                  value={localMonth} 
-                  onChange={(e) => setLocalMonth(Number(e.target.value))}
-                  className="w-full sm:w-auto bg-black/30 border border-white/10 text-white text-sm rounded-xl py-3 px-4 focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer"
-                >
-                  {['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map((m, idx) => (
-                    <option key={idx} value={idx}>{m}</option>
-                  ))}
-                </select>
-                <select 
-                  value={period} 
-                  onChange={(e) => setPeriod(Number(e.target.value))}
-                  className="w-full sm:w-auto bg-black/30 border border-white/10 text-white text-sm rounded-xl py-3 px-4 focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer"
-                >
-                  <option value={1}>Mensal</option>
-                  <option value={2}>Bimestral</option>
-                  <option value={3}>Trimestral</option>
-                  <option value={6}>Semestral</option>
-                  <option value={12}>Anual</option>
-                </select>
-              </div>
+            <div className="flex p-4 gap-2 bg-black/20 border-b border-white/5 overflow-x-auto scrollbar-hide">
+              <button 
+                onClick={() => setActiveTab('categorias')}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium transition-all whitespace-nowrap ${activeTab === 'categorias' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'text-neutral-400 hover:bg-white/5'}`}
+              >
+                <PieChartIcon className="w-4 h-4" /> Despesas por Categoria
+              </button>
+              <button 
+                onClick={() => setActiveTab('balanco')}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium transition-all whitespace-nowrap ${activeTab === 'balanco' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-neutral-400 hover:bg-white/5'}`}
+              >
+                <BarChart3 className="w-4 h-4" /> Balanço Mensal
+              </button>
             </div>
 
             <div className="p-6 overflow-y-auto">
-              <div className="mb-6 text-center">
-                <p className="text-sm font-medium text-indigo-400 bg-indigo-500/10 inline-block px-3 py-1 rounded-full border border-indigo-500/20">
-                  Período analisado: {getPeriodLabel()}
-                </p>
-              </div>
               
               {activeTab === 'categorias' && (
                 <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex flex-col gap-6">
-                  {selectedCategory ? (
-                    <div className="flex flex-col gap-4">
-                      <div className="flex items-center gap-3 mb-2">
-                        <button onClick={() => setSelectedCategory(null)} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-neutral-400 transition-colors">
-                          <ChevronLeft className="w-5 h-5" />
-                        </button>
-                        <h3 className="text-lg font-bold text-white tracking-tight">Despesas em {selectedCategory}</h3>
-                      </div>
-                      <div className="flex flex-col gap-3">
-                        {expenses
-                          .filter((t: any) => t.category === selectedCategory)
-                          .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                          .map((tx: any) => (
-                            <TransactionRow 
-                              key={tx.id} 
-                              title={tx.title} 
-                              category={tx.category} 
-                              date={new Date(tx.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})} 
-                              amount={`${tx.type === 'income' ? '+ ' : '- '}${formatMoney(tx.amount)}`} 
-                              type={tx.type} 
-                              isPaid={tx.is_paid} 
-                              receiptUrl={tx.receipt_url}
-                            />
-                          ))
-                        }
-                      </div>
-                    </div>
-                  ) : categoryData.length === 0 ? (
+                  {categoryData.length === 0 ? (
                     <div className="text-center py-10 text-neutral-500">Nenhuma despesa registrada. Adicione um lançamento!</div>
                   ) : (
                     <>
@@ -338,19 +335,12 @@ export function ReportsModal({ isOpen, onClose, transactions, activeMonth }: any
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
                         {categoryData.map((item, index) => (
-                          <div 
-                            key={index} 
-                            onClick={() => setSelectedCategory(item.name)}
-                            className="flex items-center justify-between p-3 bg-white/5 border border-white/5 rounded-xl cursor-pointer hover:bg-white/10 hover:border-white/10 transition-all active:scale-[0.98] group"
-                          >
+                          <div key={index} className="flex items-center justify-between p-3 bg-white/5 border border-white/5 rounded-xl">
                             <div className="flex items-center gap-3">
                               <div className="w-3 h-3 rounded-full shadow-lg" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
-                              <span className="text-sm font-medium text-neutral-300 group-hover:text-white transition-colors">{item.name}</span>
+                              <span className="text-sm font-medium text-neutral-300">{item.name}</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-bold text-white">{formatMoney(Number(item.value))}</span>
-                              <ChevronRight className="w-4 h-4 text-neutral-500 group-hover:text-white transition-colors" />
-                            </div>
+                            <span className="text-sm font-bold text-white">{formatMoney(Number(item.value))}</span>
                           </div>
                         ))}
                       </div>
@@ -369,12 +359,12 @@ export function ReportsModal({ isOpen, onClose, transactions, activeMonth }: any
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={balanceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                            <XAxis dataKey="name" stroke="#666" tick={{fill: '#999', fontSize: 10}} axisLine={false} tickLine={false} interval={0} angle={-45} textAnchor="end" height={50} />
-                            <YAxis stroke="#666" tick={{fill: '#999', fontSize: 11}} axisLine={false} tickLine={false} tickFormatter={(val) => `R$ ${val}`} />
+                            <XAxis dataKey="name" stroke="#666" tick={{fill: '#999', fontSize: 12}} axisLine={false} tickLine={false} />
+                            <YAxis stroke="#666" tick={{fill: '#999', fontSize: 12}} axisLine={false} tickLine={false} tickFormatter={(val) => `R$ ${val}`} />
                             <Tooltip content={<CustomTooltip />} cursor={{fill: '#ffffff05'}} />
                             <Legend wrapperStyle={{paddingTop: '20px'}} />
-                            <Bar dataKey="Receitas" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={30} />
-                            <Bar dataKey="Despesas" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={30} />
+                            <Bar dataKey="Receitas" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} />
+                            <Bar dataKey="Despesas" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={20} />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>

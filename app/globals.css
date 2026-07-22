@@ -1,10 +1,1 @@
 @import "tailwindcss";
-
-/* 
- * Correção Global de Responsividade para Modais:
- * Impede que os elementos internos sejam "esmagados" em telas pequenas
- * forçando-os a manter o tamanho original e ativando o scroll nativo.
- */
-.overflow-y-auto > * {
-  flex-shrink: 0;
-}

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Building, PiggyBank, Home, Save } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { toast } from "./Toast";
 
 export function CoupleWealthModal({ isOpen, onClose, currentData, onSave }: any) {
   const [wealth, setWealth] = useState("");
@@ -44,10 +45,11 @@ export function CoupleWealthModal({ isOpen, onClose, currentData, onSave }: any)
 
     setLoading(false);
     if (!error) {
+      toast("Cofre do casal atualizado! ❤️", "success");
       onSave(); 
       onClose();
     } else {
-      alert("Erro ao salvar dados.");
+      toast("Erro ao salvar dados.", "error");
     }
   };
 

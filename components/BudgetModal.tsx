@@ -2,96 +2,87 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Save, Loader2, Target, Sparkles } from "lucide-react";
+import { X, Target, Sparkles, Loader2, Save } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { toast } from "./Toast";
 
 const CATEGORIES = ["Contas Fixas", "Variáveis", "Investimentos"];
 
-export function BudgetModal({ isOpen, onClose, onSave, transactions, currentIncome, activeMonth }: any) {
+export function BudgetModal({ isOpen, onClose, transactions, currentIncome, activeMonth }: { isOpen: boolean, onClose: () => void, transactions: any[], currentIncome: number, activeMonth: number }) {
   const [budgets, setBudgets] = useState<Record<string, number>>({
     "Contas Fixas": 0,
     "Variáveis": 0,
-    "Investimentos": 0
+    "Investimentos": 0,
   });
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
-  const strategy = typeof window !== 'undefined' ? localStorage.getItem('nexa_financial_strategy') || '50_30_20' : '50_30_20';
-  const strategyLabel = strategy === '40_20_40' ? '40/20/40' : strategy === '80_20' ? '80/20' : '50/30/20';
 
   useEffect(() => {
     if (isOpen) {
-      loadBudgets();
+      fetchBudgets();
     }
   }, [isOpen]);
 
-  const loadBudgets = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data, error } = await supabase.from('budgets').select('*').eq('user_id', user.id);
-      if (error) throw error;
-      
-      const newBudgets: Record<string, number> = {};
-      data?.forEach(b => { newBudgets[b.category] = b.limit_amount; });
-      setBudgets(prev => ({ ...prev, ...newBudgets }));
-    } catch (err) {
-      console.error("Erro ao carregar orçamentos:", err);
+  const fetchBudgets = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    let query = supabase.from('budgets').select('*');
+    if (session) query = query.eq('user_id', session.user.id);
+
+    const { data, error } = await query;
+    if (data && data.length > 0) {
+      const bMap: Record<string, number> = {};
+      data.forEach(b => {
+        bMap[b.category] = b.amount;
+      });
+      setBudgets(prev => ({ ...prev, ...bMap }));
     }
   };
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Usuário não logado");
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id || null;
 
-      for (const cat of CATEGORIES) {
-        const val = budgets[cat] || 0;
-        
-        const { data: existing } = await supabase.from('budgets').select('id').eq('user_id', user.id).eq('category', cat).single();
-
-        if (existing) {
-          await supabase.from('budgets').update({ limit_amount: val }).eq('id', existing.id);
-        } else {
-          await supabase.from('budgets').insert([{ user_id: user.id, category: cat, limit_amount: val }]);
-        }
+      // Delete existing budgets for this user (or just generic ones if no user)
+      if (userId) {
+        await supabase.from('budgets').delete().eq('user_id', userId);
+      } else {
+        await supabase.from('budgets').delete().is('user_id', null);
       }
-      
-      onSave(); // atualiza a home
+
+      const inserts = Object.keys(budgets).map(cat => ({
+        user_id: userId,
+        category: cat,
+        amount: budgets[cat] || 0,
+      }));
+
+      const { error } = await supabase.from('budgets').insert(inserts);
+      if (error) throw error;
+      toast("🌟 Orçamentos salvos com sucesso!", "success");
       onClose();
     } catch (err: any) {
-      alert("Erro ao salvar orçamentos: " + err.message);
+      toast("Erro ao salvar orçamentos: " + err.message, "error");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleAiSuggest = async () => {
-    if (currentIncome <= 0) return alert("Adicione alguma receita neste mês para a IA ter uma base!");
+    if (currentIncome <= 0) {
+      toast("Adicione alguma receita neste mês para a IA ter uma base!", "warning");
+      return;
+    }
     setIsAiLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token || '';
-
       const res = await fetch("/api/auto-budget", {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ income: currentIncome, strategy: strategyLabel })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ income: currentIncome })
       });
       
       const data = await res.json();
-      if (data.error) {
-        if (data.error === "PAYWALL_LIMIT_REACHED") {
-           window.dispatchEvent(new CustomEvent('openModal', { detail: 'paywall' }));
-           onClose();
-           return;
-        }
-        throw new Error(data.error);
-      }
+      if (data.error) throw new Error(data.error);
 
       setBudgets(prev => ({
         ...prev,
@@ -101,14 +92,14 @@ export function BudgetModal({ isOpen, onClose, onSave, transactions, currentInco
       }));
 
     } catch (err: any) {
-      alert("Erro da IA: " + err.message);
+      toast("Erro da IA: " + err.message, "error");
     } finally {
       setIsAiLoading(false);
     }
   };
 
   const getSpentAmount = (cat: string) => {
-    return transactions.filter((t: any) => {
+    return transactions.filter(t => {
       if (t.type !== 'expense') return false;
       // Tratar Investimentos como despesa no contexto de "onde foi o dinheiro"
       if (cat === 'Investimentos' && t.category !== 'Investimentos') return false;
@@ -117,7 +108,7 @@ export function BudgetModal({ isOpen, onClose, onSave, transactions, currentInco
       if (!t.date) return false;
       const [year, month] = t.date.split('-');
       return (parseInt(month) - 1) === activeMonth;
-    }).reduce((acc: number, t: any) => acc + t.amount, 0);
+    }).reduce((acc, t) => acc + t.amount, 0);
   };
 
   const formatMoney = (v: number) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
@@ -141,11 +132,11 @@ export function BudgetModal({ isOpen, onClose, onSave, transactions, currentInco
 
             <div className="flex-1 overflow-y-auto pr-2 pb-4 flex flex-col gap-5">
               
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 relative overflow-hidden group shrink-0">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-5 relative overflow-hidden group">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-all"></div>
                 <h3 className="text-white font-bold mb-2 flex items-center gap-2 relative z-10"><Sparkles className="w-4 h-4 text-purple-400" /> Auto-Orçamento IA</h3>
-                <p className="text-sm text-neutral-400 mb-4 relative z-10">Deixe o Gemini analisar sua renda de <strong className="text-white">{formatMoney(currentIncome)}</strong> e sugerir tetos saudáveis usando a regra {strategyLabel}.</p>
-                <button onClick={handleAiSuggest} disabled={isAiLoading} className="w-full relative z-10 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 border border-purple-500/30 font-semibold py-2 rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                <p className="text-sm text-neutral-400 mb-4 relative z-10">Deixe o Gemini analisar sua renda de <strong className="text-white">{formatMoney(currentIncome)}</strong> e sugerir tetos saudáveis usando a regra 50/30/20.</p>
+                <button onClick={handleAiSuggest} disabled={isAiLoading} className="w-full relative z-10 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 border border-purple-500/30 font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
                   {isAiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                   {isAiLoading ? "Pensando..." : "Sugerir com IA"}
                 </button>
@@ -162,7 +153,7 @@ export function BudgetModal({ isOpen, onClose, onSave, transactions, currentInco
                   if (percent >= 100) barColor = "bg-rose-500";
 
                   return (
-                    <div key={cat} className="bg-black/20 border border-white/5 p-3 rounded-2xl shrink-0">
+                    <div key={cat} className="bg-black/20 border border-white/5 p-4 rounded-2xl">
                       <div className="flex justify-between items-center mb-2">
                         <span className="font-semibold text-white">{cat}</span>
                         <div className="flex items-center gap-2">
@@ -195,7 +186,6 @@ export function BudgetModal({ isOpen, onClose, onSave, transactions, currentInco
                 Salvar Orçamentos
               </button>
             </div>
-
           </motion.div>
         </div>
       )}

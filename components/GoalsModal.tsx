@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Target, Plus, TrendingUp, TrendingDown, Trash2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { toast } from "./Toast";
 
 export function GoalsModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
   const [goals, setGoals] = useState<any[]>([]);
@@ -35,7 +36,10 @@ export function GoalsModal({ isOpen, onClose }: { isOpen: boolean, onClose: () =
 
   const handleCreateGoal = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !targetAmount) return alert("Preencha título e valor alvo.");
+    if (!title || !targetAmount) {
+      toast("Preencha título e valor alvo.", "warning");
+      return;
+    }
     
     const { data: { session } } = await supabase.auth.getSession();
     const { data, error } = await supabase.from('goals').insert([{
@@ -46,12 +50,13 @@ export function GoalsModal({ isOpen, onClose }: { isOpen: boolean, onClose: () =
     }]).select();
 
     if (error) {
-      alert("Erro ao criar meta. Verifique se rodou o script SQL no Supabase.");
+      toast("Erro ao criar meta. Verifique se rodou o script SQL no Supabase.", "error");
     } else if (data) {
       setGoals([data[0], ...goals]);
       setIsCreating(false);
       setTitle("");
       setTargetAmount("");
+      toast("Meta criada! 🎯", "success");
     }
   };
 
@@ -65,11 +70,12 @@ export function GoalsModal({ isOpen, onClose }: { isOpen: boolean, onClose: () =
     const { error } = await supabase.from('goals').update({ current_amount: newAmount }).eq('id', activeGoal.id);
     
     if (error) {
-      alert("Erro ao atualizar meta.");
+      toast("Erro ao atualizar meta.", "error");
     } else {
       setGoals(goals.map(g => g.id === activeGoal.id ? { ...g, current_amount: newAmount } : g));
       setActiveGoal(null);
       setTransactionAmount("");
+      toast(transactionType === 'add' ? "Valor adicionado à meta! 💰" : "Valor removido da meta.", "info");
     }
   };
 

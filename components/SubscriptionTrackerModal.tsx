@@ -8,15 +8,13 @@ export function SubscriptionTrackerModal({ isOpen, onClose, transactions }: { is
 
   // O algoritmo que vasculha nomes
   const keywords = ['netflix', 'spotify', 'amazon', 'prime', 'academia', 'gympass', 'smartfit', 'internet', 'claro', 'vivo', 'tim', 'youtube', 'hbo', 'disney', 'apple', 'icloud', 'xbox', 'playstation', 'oi', 'banda larga', 'wifi'];
-  const essentialKeywords = ['agua', 'água', 'luz', 'energia', 'iptu', 'ipva', 'aluguel', 'condominio', 'condomínio', 'gás', 'gas', 'cref', 'imposto', 'escola', 'faculdade', 'investimento', 'nexa', 'poupança', 'aporte', 'cdb', 'selic'];
+  const essentialKeywords = ['agua', 'água', 'luz', 'energia', 'iptu', 'ipva', 'aluguel', 'condominio', 'condomínio', 'gás', 'gas', 'cref', 'imposto', 'escola', 'faculdade'];
   
   // Pegamos as transações que são despesas
   const recentTx = transactions.filter(t => t.type === 'expense');
 
-  // Filtramos aquelas que parecem assinaturas (excluindo as essenciais e investimentos)
+  // Filtramos aquelas que parecem assinaturas (excluindo as essenciais)
   const subscriptions = recentTx.filter(t => {
-    if (t.category === 'Investimentos') return false;
-    
     const titleLower = t.title.toLowerCase();
     if (essentialKeywords.some(k => titleLower.includes(k))) return false;
     
@@ -94,7 +92,7 @@ export function SubscriptionTrackerModal({ isOpen, onClose, transactions }: { is
                 uniqueSubscriptions.map((sub, idx) => {
                   const yearly = sub.amount * 12;
                   const titleLower = sub.title.toLowerCase();
-                  const isEssential = ['agua', 'água', 'luz', 'energia', 'iptu', 'ipva', 'aluguel', 'condominio', 'condomínio', 'gás', 'gas', 'cref', 'imposto', 'escola', 'faculdade', 'investimento', 'nexa', 'poupança', 'aporte', 'cdb', 'selic'].some(k => titleLower.includes(k));
+                  const isEssential = ['agua', 'água', 'luz', 'energia', 'iptu', 'ipva', 'aluguel', 'condominio', 'condomínio', 'gás', 'gas', 'cref', 'imposto', 'escola', 'faculdade'].some(k => titleLower.includes(k));
                   const isTelecom = ['tim', 'vivo', 'claro', 'oi', 'internet', 'wifi', 'banda larga'].some(k => titleLower.includes(k));
 
                   // Mostrar sugestão apenas se não for essencial e for maior que 40

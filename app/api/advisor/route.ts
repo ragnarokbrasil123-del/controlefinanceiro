@@ -16,15 +16,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Sessão inválida. Acesso Negado." }, { status: 401 });
     }
 
-    // --- PAYWALL CHECK ---
-    const { count } = await supabase.from('ai_usage_logs').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
-    const { data: profile } = await supabase.from('profiles').select('plan_type, role').eq('id', user.id).single();
-    
-    if (profile && profile.role !== 'admin' && profile.plan_type === 'free' && count !== null && count >= 3) {
-      return NextResponse.json({ error: "PAYWALL_LIMIT_REACHED" }, { status: 403 });
-    }
-    // ---------------------
-
     const body = await req.json();
     const { income, expense, balance, transactions, strategy } = body;
 
@@ -68,13 +59,9 @@ Use emojis. NUNCA DEVOLVA JSON OU CÓDIGO. Escreva em formato Markdown, como se 
     let advice = data.candidates?.[0]?.content?.parts?.[0]?.text || "Não consegui formular um conselho agora.";
     advice = advice.replace(/<thought>[\s\S]*?<\/thought>/g, '').trim();
 
-    // Registrar uso da IA
-    await supabase.from('ai_usage_logs').insert([{ user_id: user.id, feature: 'advisor' }]);
-
     return NextResponse.json({ advice });
   } catch (error: any) {
     console.error("Erro na API Advisor:", error);
     return NextResponse.json({ error: "Erro ao gerar conselho: " + error.message }, { status: 500 });
   }
 }
-
