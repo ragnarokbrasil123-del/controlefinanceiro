@@ -24,7 +24,6 @@ import { WalletsModal } from "../components/WalletsModal";
 
 import { BudgetModal } from "../components/BudgetModal";
 import { WelcomeModal } from "../components/WelcomeModal";
-import { DashboardChart } from "../components/DashboardChart";
 import { GoalsModal } from "../components/GoalsModal";
 import { CategoryManagerModal } from "../components/CategoryManagerModal";
 import { supabase } from "../lib/supabase";
@@ -381,13 +380,6 @@ export default function Dashboard() {
               <p className="text-[11px] text-neutral-500 mt-1">Se não houver novos gastos, este será seu saldo.</p>
             </div>
           </motion.div>
-        )}
-
-        {/* Gráfico Principal */}
-        {!isLoading && (
-          <div className="mb-8">
-            <DashboardChart transactions={allTransactions} />
-          </div>
         )}
 
         <div className="flex flex-col lg:grid lg:grid-cols-3 gap-8">
