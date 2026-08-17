@@ -28,7 +28,7 @@ export default function CasaisDashboard() {
     if (sData) setSettings(sData);
 
     // Busca as Metas e ordena pelas mais antigas
-    const { data: gData } = await supabase.from('couple_goals').select('*').order('created_at', { ascending: true });
+    const { data: gData } = await supabase.from('couple_goals').select('*').eq('user_id', session.user.id).order('created_at', { ascending: true });
     if (gData) setGoals(gData);
   };
 

@@ -1,9 +1,20 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
 export async function POST(request: Request) {
   try {
-    // Removido a validação de sessão aqui para evitar erro de 'Auth session missing' em navegadores embutidos de celular.
-    // A segurança da inserção já é garantida pelo frontend que exige o session.user.id.
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader) return NextResponse.json({ error: "Sessão expirada. Faça login novamente." }, { status: 401 });
+
+    const token = authHeader.replace('Bearer ', '');
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rwdbmpxchubsjtevcqyh.supabase.co';
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_Ji5fpwZTBSbQ5zacrld-xg_M21-MOlN';
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
+
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+    if (authError || !user) {
+      return NextResponse.json({ error: "Sessão expirada. Faça login novamente." }, { status: 401 });
+    }
 
     const formData = await request.formData();
     const file = formData.get("file") as File;

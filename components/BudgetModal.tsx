@@ -75,9 +75,15 @@ export function BudgetModal({ isOpen, onClose, transactions, currentIncome, acti
     }
     setIsAiLoading(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || '';
+
       const res = await fetch("/api/auto-budget", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({ income: currentIncome })
       });
       
