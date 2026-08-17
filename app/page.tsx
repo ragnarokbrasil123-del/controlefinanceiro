@@ -25,7 +25,6 @@ import { WalletsModal } from "../components/WalletsModal";
 import { BudgetModal } from "../components/BudgetModal";
 import { WelcomeModal } from "../components/WelcomeModal";
 import { DashboardChart } from "../components/DashboardChart";
-import { DashboardCategoryChart } from "../components/DashboardCategoryChart";
 import { GoalsModal } from "../components/GoalsModal";
 import { CategoryManagerModal } from "../components/CategoryManagerModal";
 import { supabase } from "../lib/supabase";
@@ -384,11 +383,10 @@ export default function Dashboard() {
           </motion.div>
         )}
 
-        {/* Gráficos Principais */}
+        {/* Gráfico Principal */}
         {!isLoading && (
-          <div className="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="mb-8">
             <DashboardChart transactions={allTransactions} />
-            <DashboardCategoryChart currentMonthTransactions={currentMonthTransactions} />
           </div>
         )}
 
