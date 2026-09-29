@@ -1,20 +1,10 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { requireUser } from '../../../lib/api-auth';
 
 export async function POST(req: Request) {
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) return NextResponse.json({ error: "Sessão expirada. Faça login novamente." }, { status: 401 });
-
-    const token = authHeader.replace('Bearer ', '');
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rwdbmpxchubsjtevcqyh.supabase.co';
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_Ji5fpwZTBSbQ5zacrld-xg_M21-MOlN';
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
-
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
-    if (authError || !user) {
-      return NextResponse.json({ error: "Sessão expirada. Faça login novamente." }, { status: 401 });
-    }
+    const auth = await requireUser(req);
+    if (auth.response) return auth.response;
 
     const body = await req.json();
     const { income } = body;

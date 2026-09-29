@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, TrendingUp, TrendingDown, Calendar, Wallet, ChevronDown } from "lucide-react";
+import { X, TrendingUp, TrendingDown, Calendar, Wallet, ChevronDown, AlertTriangle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
 
@@ -220,6 +220,28 @@ export function TransactionModal({ isOpen, onClose, onSave }: { isOpen: boolean,
                     </select>
                     <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500 pointer-events-none" />
                   </div>
+
+                  {/* Receita + Investimentos é quase sempre engano: quem compra
+                      um ativo está tirando dinheiro da conta, não recebendo.
+                      Só faz sentido em venda ou resgate. */}
+                  {type === 'income' && category === 'Investimentos' && (
+                    <div className="mt-3 flex items-start gap-2.5 bg-amber-500/5 border border-amber-500/20 rounded-xl p-3">
+                      <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <div className="text-xs leading-relaxed">
+                        <p className="text-amber-200 font-semibold mb-1">Isso é uma venda ou resgate?</p>
+                        <p className="text-neutral-400">
+                          Se você está <strong className="text-neutral-300">comprando</strong> um ativo, o certo é lançar como <strong className="text-neutral-300">Despesa</strong> — o dinheiro sai da conta e vira patrimônio.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => { setType('expense'); setCategory('Investimentos'); }}
+                          className="mt-2 text-amber-400 hover:text-amber-300 font-semibold underline underline-offset-2 cursor-pointer"
+                        >
+                          Mudar para Despesa
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {wallets.length > 0 && (

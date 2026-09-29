@@ -1,20 +1,10 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { requireUser } from '../../../lib/api-auth';
 
 export async function POST(request: Request) {
   try {
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader) return NextResponse.json({ error: "Sessão expirada. Faça login novamente." }, { status: 401 });
-
-    const token = authHeader.replace('Bearer ', '');
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rwdbmpxchubsjtevcqyh.supabase.co';
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_Ji5fpwZTBSbQ5zacrld-xg_M21-MOlN';
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
-
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
-    if (authError || !user) {
-      return NextResponse.json({ error: "Sessão expirada. Faça login novamente." }, { status: 401 });
-    }
+    const auth = await requireUser(request);
+    if (auth.response) return auth.response;
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
@@ -87,6 +77,8 @@ REGRA CRUCIAL DE CATEGORIA: Para despesas ("expense"), o campo "category" DEVE O
     return NextResponse.json(parsedJson);
 
   } catch (error: any) {
-    return NextResponse.json({ error: "Erro Hacker: " + error.message }, { status: 500 });
+    // Detalhe fica no log do servidor; o cliente recebe mensagem genérica.
+    console.error("Erro na API extract:", error);
+    return NextResponse.json({ error: "Não consegui ler esse arquivo. Tente outra foto." }, { status: 500 });
   }
 }

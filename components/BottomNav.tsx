@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Home, Heart, BarChart3, Settings, Plus, Camera, PenTool } from "lucide-react";
+import { Home, CreditCard, BarChart3, Settings, Plus, Camera, PenTool } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 export function BottomNav() {
@@ -10,6 +10,12 @@ export function BottomNav() {
 
   const openModal = (name: string) => {
     setActiveTab(name);
+    // 'home' não abre modal nenhum — antes o botão Início era decorativo.
+    // Agora ele volta ao topo do dashboard, que é o comportamento esperado.
+    if (name === 'home') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     window.dispatchEvent(new CustomEvent('openModal', { detail: name }));
   };
 
@@ -24,9 +30,9 @@ export function BottomNav() {
               <Home className="w-6 h-6" />
               <span className="text-[10px] font-medium tracking-wide">Início</span>
             </button>
-            <button onClick={() => openModal('casais')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'casais' ? 'text-indigo-400' : 'text-neutral-500 hover:text-indigo-300'}`}>
-              <Heart className="w-6 h-6" />
-              <span className="text-[10px] font-medium tracking-wide">Casais</span>
+            <button onClick={() => openModal('cartoes')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'cartoes' ? 'text-indigo-400' : 'text-neutral-500 hover:text-indigo-300'}`}>
+              <CreditCard className="w-6 h-6" />
+              <span className="text-[10px] font-medium tracking-wide">Cartões</span>
             </button>
           </div>
 

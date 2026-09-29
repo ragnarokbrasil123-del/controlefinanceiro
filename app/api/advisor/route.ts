@@ -1,23 +1,13 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { requireUser } from '../../../lib/api-auth';
 
 export async function POST(req: Request) {
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) return NextResponse.json({ error: "Acesso Negado. Faça login." }, { status: 401 });
-    
-    const token = authHeader.replace('Bearer ', '');
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rwdbmpxchubsjtevcqyh.supabase.co';
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_Ji5fpwZTBSbQ5zacrld-xg_M21-MOlN';
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      return NextResponse.json({ error: "Sessão inválida. Acesso Negado." }, { status: 401 });
-    }
+    const auth = await requireUser(req);
+    if (auth.response) return auth.response;
 
     const body = await req.json();
-    const { income, expense, balance, transactions, strategy } = body;
+    const { income, expense, balance, transactions, strategy, stage } = body;
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -31,7 +21,10 @@ Aqui estão os dados dele:
 - Despesas Totais: R$ ${expense}
 - Saldo Restante: R$ ${balance}
 - Perfil Estratégico do Usuário: ${strategy || 'Equilibrado (50/30/20)'}
+- Estágio Financeiro Atual: ${stage || 'não informado'}
 - Algumas transações recentes: ${JSON.stringify(transactions?.slice(0, 5))}
+
+REGRA CRUCIAL: se o Estágio Financeiro for "Modo Emergência", NÃO sugira investir nem guardar dinheiro. Nesse estágio a prioridade é cortar gastos e quitar dívida cara — juros de rotativo superam qualquer rendimento.
 
 Seja direto e humano. Analise os gastos baseando-se MUITO no Perfil Estratégico escolhido. Dê um "puxão de orelha" se ele não estiver respeitando o perfil escolhido, e faça um elogio se o saldo estiver positivo ou alinhado com o perfil.
 Dê 3 dicas curtas e práticas em bullet points para ele melhorar no próximo mês.

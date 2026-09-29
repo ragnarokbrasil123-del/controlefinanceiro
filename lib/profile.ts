@@ -1,0 +1,473 @@
+/**
+ * Perfil financeiro — o "protocolo" que adapta o app a cada usuário.
+ *
+ * Antes deste arquivo, os limites do dashboard eram constantes universais
+ * (30% / 50% da renda, reserva de R$ 21.000). Isso quebra na prática: 50% em
+ * gastos variáveis é normal para um autônomo e é alerta para um CLT; uma
+ * reserva de R$ 21.000 é pouco para quem ganha R$ 15.000 e é inalcançável para
+ * quem ganha R$ 1.800.
+ *
+ * Aqui tudo é derivado de duas fontes:
+ *   1. O que o usuário DECLAROU no onboarding (tabela profiles)
+ *   2. O que o app OBSERVOU nas transações reais
+ *
+ * A observação tem prioridade sobre a declaração sempre que existir dado
+ * suficiente — usuário chuta a própria renda, o extrato não.
+ *
+ * Nada aqui faz I/O. Recebe dados prontos e devolve números, para continuar
+ * testável e para não criar mais uma chamada de getSession().
+ */
+
+// ---------------------------------------------------------------------------
+// Tipos
+// ---------------------------------------------------------------------------
+
+export type IncomeType = 'fixa' | 'variavel';
+export type StrategyId = '50_30_20' | '40_20_40' | '80_20';
+export type MainGoal = 'quitar_dividas' | 'reserva' | 'investir' | 'organizar';
+
+/** Espelha as colunas de profiles criadas em 2026-09-29-perfil-financeiro.sql */
+export interface FinancialProfile {
+  monthly_income: number | null;
+  income_type: IncomeType | null;
+  strategy: StrategyId | null;
+  has_debt: boolean | null;
+  main_goal: MainGoal | null;
+  onboarded_at: string | null;
+}
+
+export type StageId =
+  | 'emergencia'
+  | 'estabilidade'
+  | 'reserva'
+  | 'acumulacao'
+  | 'independencia';
+
+export interface Stage {
+  id: StageId;
+  /** 1 a 5 — útil para comparar progresso e para barras de evolução */
+  level: number;
+  label: string;
+  /** A única coisa que o usuário deveria fazer agora */
+  priority: string;
+  /** Cor do tema, alinhada ao PILLAR_ACCENTS do dashboard */
+  accent: 'rose' | 'amber' | 'blue' | 'indigo' | 'emerald';
+}
+
+/** Tudo que a UI precisa saber sobre este usuário, já calculado. */
+export interface ProfileInsights {
+  stage: Stage;
+  /** Renda mensal de referência (observada, com fallback no declarado) */
+  referenceIncome: number;
+  /** Custo de vida mensal médio, excluindo aportes */
+  monthlyCost: number;
+  /** Limites de alerta do gargalo, adaptados ao perfil */
+  gargaloWarn: number;
+  gargaloCritical: number;
+  /** Metas de reserva de emergência em R$ */
+  reserveMinimum: number;
+  reserveIdeal: number;
+  /** Quantos meses de custo de vida o usuário já tem guardado */
+  reserveMonths: number;
+  /** Quanto há hoje na reserva, em R$ */
+  reserveAmount: number;
+  /** Total já aportado em Investimentos, em R$ */
+  investedTotal: number;
+  /** % da renda que o usuário deveria aportar, conforme a estratégia */
+  suggestedSavingsRate: number;
+  /** Valor sugerido de aporte mensal, em R$ */
+  suggestedContribution: number;
+  /** Se false, o app NÃO deve sugerir aporte (dívida cara vem antes) */
+  shouldSuggestContribution: boolean;
+  /** true enquanto o usuário não respondeu o onboarding */
+  needsOnboarding: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Estratégias de alocação
+// Mantidas em sincronia com as do FinancialPlannerModal.
+// ---------------------------------------------------------------------------
+
+export const STRATEGIES: Record<StrategyId, {
+  id: StrategyId;
+  name: string;
+  description: string;
+  fixed: number;
+  variable: number;
+  save: number;
+}> = {
+  '50_30_20': {
+    id: '50_30_20',
+    name: 'Equilibrado (50/30/20)',
+    description: '50% contas fixas, 30% variáveis, 20% guardado. O padrão para a maioria.',
+    fixed: 0.5, variable: 0.3, save: 0.2,
+  },
+  '40_20_40': {
+    id: '40_20_40',
+    name: 'Agressivo / FIRE (40/20/40)',
+    description: 'Corta o consumo ao máximo para guardar 40%. Para quem quer independência cedo.',
+    fixed: 0.4, variable: 0.2, save: 0.4,
+  },
+  '80_20': {
+    id: '80_20',
+    name: 'Simplista (80/20)',
+    description: 'Vive com 80% e guarda 20%, sem microgerenciar categorias.',
+    fixed: 0.8, variable: 0.0, save: 0.2,
+  },
+};
+
+export const DEFAULT_STRATEGY: StrategyId = '50_30_20';
+
+// ---------------------------------------------------------------------------
+// Estágios financeiros
+// ---------------------------------------------------------------------------
+
+export const STAGES: Record<StageId, Stage> = {
+  emergencia: {
+    id: 'emergencia', level: 1, accent: 'rose',
+    label: 'Modo Emergência',
+    priority: 'Parar de cavar. Corte cartões e gastos variáveis e quite a dívida cara antes de qualquer outra coisa.',
+  },
+  estabilidade: {
+    id: 'estabilidade', level: 2, accent: 'amber',
+    label: 'Buscando Estabilidade',
+    priority: 'Fechar todo mês no azul e formar o primeiro mês de reserva.',
+  },
+  reserva: {
+    id: 'reserva', level: 3, accent: 'blue',
+    label: 'Construindo Reserva',
+    priority: 'Completar a reserva de emergência antes de investir em qualquer outra coisa.',
+  },
+  acumulacao: {
+    id: 'acumulacao', level: 4, accent: 'indigo',
+    label: 'Acumulação',
+    priority: 'Reserva pronta. Agora o excedente vai para investimento de longo prazo.',
+  },
+  independencia: {
+    id: 'independencia', level: 5, accent: 'emerald',
+    label: 'Independência',
+    priority: 'Patrimônio sustenta seu custo de vida. Foco em preservar e diversificar.',
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Helpers internos
+// ---------------------------------------------------------------------------
+
+/** Categorias que representam o gargalo de consumo. */
+export const GARGALO_CATEGORIES = ['Variáveis', 'Cartões', 'Cartões de Crédito'];
+
+/** Aporte não é gasto — nunca entra no custo de vida. */
+const INVESTMENT_CATEGORY = 'Investimentos';
+
+type Tx = {
+  type?: string;
+  category?: string;
+  amount?: number;
+  date?: string;
+};
+
+/** 'YYYY-MM' de uma data ISO, sem construir Date (evita o bug de fuso). */
+function monthKey(isoDate: string): string {
+  return isoDate.slice(0, 7);
+}
+
+function median(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0
+    ? sorted[mid]
+    : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+/**
+ * Mediana mensal de um subconjunto de transações, nos últimos `months` meses
+ * que tenham movimento.
+ *
+ * Mediana e não média: um 13º salário ou uma compra grande de uma vez só
+ * distorceria a média e faria o app superestimar a renda recorrente (ou o
+ * custo recorrente) do usuário.
+ */
+function monthlyMedian(transactions: Tx[], predicate: (t: Tx) => boolean, months = 6): number {
+  const totals = new Map<string, number>();
+
+  for (const t of transactions) {
+    if (!t.date || !predicate(t)) continue;
+    const key = monthKey(t.date);
+    totals.set(key, (totals.get(key) ?? 0) + (t.amount ?? 0));
+  }
+
+  if (totals.size === 0) return 0;
+
+  const recent = [...totals.entries()]
+    .sort((a, b) => b[0].localeCompare(a[0]))  // mês mais recente primeiro
+    .slice(0, months)
+    .map(([, total]) => total);
+
+  return median(recent);
+}
+
+// ---------------------------------------------------------------------------
+// Cálculos públicos
+// ---------------------------------------------------------------------------
+
+/**
+ * Renda de referência do usuário.
+ * Prioriza o observado (mediana das receitas reais); cai no declarado apenas
+ * enquanto não houver histórico.
+ */
+export function getReferenceIncome(profile: FinancialProfile | null, transactions: Tx[]): number {
+  // Exclui Investimentos: venda ou resgate de ativo é patrimônio mudando de
+  // lugar, não renda recorrente. Incluir distorceria a mediana e, com ela, a
+  // meta de reserva, o aporte sugerido e todos os limites de alerta.
+  const observed = monthlyMedian(
+    transactions,
+    t => t.type === 'income' && t.category !== INVESTMENT_CATEGORY,
+  );
+  if (observed > 0) return observed;
+  return profile?.monthly_income ?? 0;
+}
+
+/**
+ * Custo de vida mensal: despesas recorrentes, excluindo aportes.
+ * Se não houver histórico, estima em 70% da renda — conservador o bastante
+ * para não prometer uma reserva pequena demais.
+ */
+export function getMonthlyCost(transactions: Tx[], referenceIncome: number): number {
+  const observed = monthlyMedian(
+    transactions,
+    t => t.type === 'expense' && t.category !== INVESTMENT_CATEGORY,
+  );
+  if (observed > 0) return observed;
+  return referenceIncome * 0.7;
+}
+
+/**
+ * Limites de alerta do gargalo (cartões + variáveis), como % da renda.
+ *
+ * A base é a própria estratégia escolhida: quem optou pelo FIRE aceitou um
+ * teto de consumo menor, então merece ser avisado antes. Renda variável ganha
+ * folga porque o mês ruim é estrutural, não descuido.
+ */
+export function getGargaloThresholds(profile: FinancialProfile | null): { warn: number; critical: number } {
+  const strategyId = profile?.strategy ?? DEFAULT_STRATEGY;
+  const strategy = STRATEGIES[strategyId] ?? STRATEGIES[DEFAULT_STRATEGY];
+
+  // O teto natural de consumo da estratégia é o que sobra fora do aporte,
+  // descontando as contas fixas. Ex.: 50/30/20 -> 30% de variáveis.
+  const base = strategy.variable > 0 ? strategy.variable : 0.4;
+
+  const warn = base * 100;
+  const critical = Math.min(warn + 20, 70);
+
+  if (profile?.income_type === 'variavel') {
+    return { warn: warn + 5, critical: Math.min(critical + 5, 75) };
+  }
+  return { warn, critical };
+}
+
+/**
+ * Metas da reserva de emergência, em R$.
+ *
+ * Regra de planejamento padrão: 3 a 6 meses de CUSTO DE VIDA (não de renda).
+ * Renda variável exige o dobro, porque a queda de faturamento e a emergência
+ * costumam chegar juntas.
+ */
+export function getReserveTargets(profile: FinancialProfile | null, monthlyCost: number): { minimum: number; ideal: number } {
+  const isVariable = profile?.income_type === 'variavel';
+  const minMonths = isVariable ? 6 : 3;
+  const idealMonths = isVariable ? 12 : 6;
+
+  return {
+    minimum: Math.round(monthlyCost * minMonths),
+    ideal: Math.round(monthlyCost * idealMonths),
+  };
+}
+
+/**
+ * Classifica o usuário em um dos 5 estágios.
+ *
+ * A ordem dos testes importa: emergência tem precedência sobre tudo. Não
+ * adianta parabenizar quem tem reserva formada mas está pagando 15% ao mês de
+ * rotativo — esse dinheiro está sendo destruído, não construído.
+ */
+export function computeStage(params: {
+  profile: FinancialProfile | null;
+  referenceIncome: number;
+  monthlyCost: number;
+  monthIncome: number;
+  monthExpense: number;
+  gargaloPercent: number;
+  reserveAmount: number;
+  investedTotal: number;
+  reserveIdeal: number;
+}): Stage {
+  const {
+    profile, monthlyCost, monthIncome, monthExpense,
+    gargaloPercent, reserveAmount, investedTotal, reserveIdeal,
+  } = params;
+
+  const hasDebt = profile?.has_debt === true;
+  const spendingMoreThanEarning = monthIncome > 0 && monthExpense >= monthIncome;
+  const patrimonio = reserveAmount + investedTotal;
+
+  // 1. Emergência — está cavando o buraco ou pagando juros caros.
+  if (hasDebt || spendingMoreThanEarning || gargaloPercent > 50) {
+    return STAGES.emergencia;
+  }
+
+  // 5. Independência — patrimônio cobre ~92 meses de custo de vida (regra dos 4%).
+  if (monthlyCost > 0 && patrimonio >= monthlyCost * 92) {
+    return STAGES.independencia;
+  }
+
+  // 4. Acumulação — reserva completa, sobra vai para investimento.
+  if (reserveIdeal > 0 && reserveAmount >= reserveIdeal) {
+    return STAGES.acumulacao;
+  }
+
+  // 2. Estabilidade — ainda não tem nem um mês de colchão.
+  if (monthlyCost > 0 && reserveAmount < monthlyCost) {
+    return STAGES.estabilidade;
+  }
+
+  // 3. Reserva — tem colchão, falta completar.
+  return STAGES.reserva;
+}
+
+export interface StageStep {
+  stage: Stage;
+  status: 'done' | 'current' | 'locked';
+  /** O que precisa acontecer para concluir este estágio. */
+  goal: string;
+  /** Alvo em R$, quando o critério for financeiro. */
+  target: number | null;
+  /** Quanto falta em R$ para bater o alvo. */
+  remaining: number | null;
+}
+
+/**
+ * Monta a escada dos 5 estágios com o critério concreto de cada degrau,
+ * calculado sobre os números reais do usuário.
+ *
+ * Existe porque a faixa do dashboard mostrava "Estágio 1/5" sem dizer quais
+ * eram os outros quatro nem quanto faltava para o próximo — uma barra de
+ * progresso sem régua.
+ */
+export function getStageLadder(insights: ProfileInsights): StageStep[] {
+  const { stage, monthlyCost, reserveAmount, reserveIdeal, investedTotal, gargaloCritical } = insights;
+
+  const patrimonio = reserveAmount + investedTotal;
+  const independenceTarget = monthlyCost * 92;
+
+  const defs: Array<{ id: StageId; goal: string; target: number | null; current: number }> = [
+    {
+      id: 'emergencia',
+      goal: `Quitar a dívida cara e manter cartões e variáveis abaixo de ${gargaloCritical.toFixed(0)}% da renda.`,
+      target: null,
+      current: 0,
+    },
+    {
+      id: 'estabilidade',
+      goal: 'Guardar o primeiro mês de custo de vida.',
+      target: monthlyCost > 0 ? monthlyCost : null,
+      current: reserveAmount,
+    },
+    {
+      id: 'reserva',
+      goal: 'Completar a reserva de emergência ideal.',
+      target: reserveIdeal > 0 ? reserveIdeal : null,
+      current: reserveAmount,
+    },
+    {
+      id: 'acumulacao',
+      goal: 'Acumular patrimônio de 92× seu custo mensal.',
+      target: independenceTarget > 0 ? independenceTarget : null,
+      current: patrimonio,
+    },
+    {
+      id: 'independencia',
+      goal: 'Seu patrimônio sustenta seu custo de vida. Foco em preservar e diversificar.',
+      target: null,
+      current: 0,
+    },
+  ];
+
+  return defs.map(def => {
+    const s = STAGES[def.id];
+    const status: StageStep['status'] =
+      s.level < stage.level ? 'done' : s.level === stage.level ? 'current' : 'locked';
+
+    return {
+      stage: s,
+      status,
+      goal: def.goal,
+      target: def.target,
+      remaining: def.target !== null ? Math.max(0, def.target - def.current) : null,
+    };
+  });
+}
+
+/**
+ * Ponto de entrada único: recebe o perfil declarado + as transações e devolve
+ * tudo que a UI precisa. Dashboard, modais e o prompt da IA leem daqui.
+ */
+export function getProfileInsights(params: {
+  profile: FinancialProfile | null;
+  allTransactions: Tx[];
+  monthIncome: number;
+  monthExpense: number;
+  monthGargalo: number;
+  reserveAmount: number;
+}): ProfileInsights {
+  const { profile, allTransactions, monthIncome, monthExpense, monthGargalo, reserveAmount } = params;
+
+  const referenceIncome = getReferenceIncome(profile, allTransactions);
+  const monthlyCost = getMonthlyCost(allTransactions, referenceIncome);
+
+  const { warn, critical } = getGargaloThresholds(profile);
+  const { minimum, ideal } = getReserveTargets(profile, monthlyCost);
+
+  // O gargalo é medido contra a renda DO MÊS quando ela existe; se o mês ainda
+  // está vazio, usa a renda de referência para não exibir 0% enganoso.
+  const incomeBase = monthIncome > 0 ? monthIncome : referenceIncome;
+  const gargaloPercent = incomeBase > 0 ? (monthGargalo / incomeBase) * 100 : 0;
+
+  // Patrimônio investido LÍQUIDO: aportes menos resgates. Antes contava só
+  // aportes, então uma venda de ativo não reduzia o patrimônio — e ainda por
+  // cima inflava a renda. O mesmo lançamento contava duas vezes, das duas
+  // formas erradas.
+  const investedTotal = allTransactions
+    .filter(t => t.category === INVESTMENT_CATEGORY)
+    .reduce((acc, t) => acc + (t.type === 'expense' ? (t.amount ?? 0) : -(t.amount ?? 0)), 0);
+
+  const stage = computeStage({
+    profile, referenceIncome, monthlyCost, monthIncome, monthExpense,
+    gargaloPercent, reserveAmount, investedTotal, reserveIdeal: ideal,
+  });
+
+  const strategyId = profile?.strategy ?? DEFAULT_STRATEGY;
+  const suggestedSavingsRate = (STRATEGIES[strategyId] ?? STRATEGIES[DEFAULT_STRATEGY]).save;
+
+  // Em Modo Emergência o app NÃO sugere aporte: guardar a 1% ao mês enquanto
+  // se paga 15% de rotativo destrói patrimônio. Primeiro quita, depois guarda.
+  const shouldSuggestContribution = stage.id !== 'emergencia';
+
+  return {
+    stage,
+    referenceIncome,
+    monthlyCost,
+    gargaloWarn: warn,
+    gargaloCritical: critical,
+    reserveMinimum: minimum,
+    reserveIdeal: ideal,
+    reserveMonths: monthlyCost > 0 ? reserveAmount / monthlyCost : 0,
+    reserveAmount,
+    investedTotal,
+    suggestedSavingsRate,
+    suggestedContribution: Math.max(0, Math.round(referenceIncome * suggestedSavingsRate)),
+    shouldSuggestContribution,
+    needsOnboarding: !profile?.onboarded_at,
+  };
+}
