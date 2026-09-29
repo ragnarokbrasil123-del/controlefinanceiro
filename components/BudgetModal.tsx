@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Target, Sparkles, Loader2, Save } from "lucide-react";
+import { AI_ENABLED } from "../lib/features";
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
 
@@ -138,15 +139,17 @@ export function BudgetModal({ isOpen, onClose, transactions, currentIncome, acti
 
             <div className="flex-1 overflow-y-auto pr-2 pb-4 flex flex-col gap-5">
               
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-5 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-all"></div>
-                <h3 className="text-white font-bold mb-2 flex items-center gap-2 relative z-10"><Sparkles className="w-4 h-4 text-purple-400" /> Auto-Orçamento IA</h3>
-                <p className="text-sm text-neutral-400 mb-4 relative z-10">Deixe o Gemini analisar sua renda de <strong className="text-white">{formatMoney(currentIncome)}</strong> e sugerir tetos saudáveis usando a regra 50/30/20.</p>
-                <button onClick={handleAiSuggest} disabled={isAiLoading} className="w-full relative z-10 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 border border-purple-500/30 font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
-                  {isAiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  {isAiLoading ? "Pensando..." : "Sugerir com IA"}
-                </button>
-              </div>
+              {AI_ENABLED && (
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-5 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-all"></div>
+                  <h3 className="text-white font-bold mb-2 flex items-center gap-2 relative z-10"><Sparkles className="w-4 h-4 text-purple-400" /> Auto-Orçamento IA</h3>
+                  <p className="text-sm text-neutral-400 mb-4 relative z-10">Deixe o Gemini analisar sua renda de <strong className="text-white">{formatMoney(currentIncome)}</strong> e sugerir tetos saudáveis usando a regra 50/30/20.</p>
+                  <button onClick={handleAiSuggest} disabled={isAiLoading} className="w-full relative z-10 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 border border-purple-500/30 font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                    {isAiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    {isAiLoading ? "Pensando..." : "Sugerir com IA"}
+                  </button>
+                </div>
+              )}
 
               <div className="space-y-4">
                 {CATEGORIES.map(cat => {

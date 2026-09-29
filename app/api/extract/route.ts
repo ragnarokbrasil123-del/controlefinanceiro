@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      return NextResponse.json({ error: "Chave do Gemini não configurada." }, { status: 500 });
+      return NextResponse.json({ error: "Recursos de IA estão desativados nesta instalação." }, { status: 503 });
     }
 
     const bytes = await file.arrayBuffer();

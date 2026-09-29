@@ -34,6 +34,7 @@ import { StageRoadmapModal } from "../components/StageRoadmapModal";
 import { supabase } from "../lib/supabase";
 import { toast } from "../components/Toast";
 import { getProfileInsights, type FinancialProfile } from "../lib/profile";
+import { AI_ENABLED } from "../lib/features";
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -75,7 +76,7 @@ export default function Dashboard() {
       if (name === 'relatorios') setIsReportsOpen(true);
       if (name === 'config') setIsProfileOpen(true);
       if (name === 'manual') setIsModalOpen(true);
-      if (name === 'camera') setIsAiModalOpen(true);
+      if (name === 'camera' && AI_ENABLED) setIsAiModalOpen(true);
       if (name === 'poupar') setIsPayYourselfOpen(true);
       if (name === 'cartoes') setIsCardsOpen(true);
     };
@@ -446,9 +447,11 @@ export default function Dashboard() {
               <PiggyBank className="w-4 h-4 shrink-0" /> <span className="text-sm">Poupar</span>
             </motion.button>
 
-            <motion.button onClick={() => setIsAiModalOpen(true)} className="flex-1 xl:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-4 sm:px-5 py-2.5 rounded-full font-medium transition-all shadow-lg shadow-purple-500/25 active:scale-95 cursor-pointer border border-white/10 whitespace-nowrap">
-              <Sparkles className="w-4 h-4 shrink-0" /> <span className="text-sm">Ler Foto</span>
-            </motion.button>
+            {AI_ENABLED && (
+              <motion.button onClick={() => setIsAiModalOpen(true)} className="flex-1 xl:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-4 sm:px-5 py-2.5 rounded-full font-medium transition-all shadow-lg shadow-purple-500/25 active:scale-95 cursor-pointer border border-white/10 whitespace-nowrap">
+                <Sparkles className="w-4 h-4 shrink-0" /> <span className="text-sm">Ler Foto</span>
+              </motion.button>
+            )}
 
             <motion.button onClick={handleOpenModal} className="flex-1 xl:flex-none flex items-center justify-center gap-2 bg-white text-black px-4 sm:px-5 py-2.5 rounded-full font-bold transition-all hover:bg-neutral-200 active:scale-95 cursor-pointer whitespace-nowrap">
               <Plus className="w-4 h-4 shrink-0" /> <span className="text-sm">Lançar</span>
@@ -481,7 +484,7 @@ export default function Dashboard() {
                         { label: 'Metas',       icon: <Target className="w-4 h-4" />,        color: 'text-yellow-400',  action: () => setIsGoalsOpen(true) },
                         { label: 'Calendário',  icon: <Calendar className="w-4 h-4" />,      color: 'text-blue-400',    action: () => setIsCalendarOpen(true) },
                         { label: 'Assinaturas', icon: <Clock className="w-4 h-4" />,         color: 'text-teal-400',    action: () => setIsTrackerOpen(true) },
-                        { label: 'Conselheiro IA', icon: <Bot className="w-4 h-4" />,        color: 'text-purple-400',  action: () => setIsPlannerOpen(true) },
+                        ...(AI_ENABLED ? [{ label: 'Conselheiro IA', icon: <Bot className="w-4 h-4" />, color: 'text-purple-400', action: () => setIsPlannerOpen(true) }] : []),
                         { label: 'Casal',       icon: <Heart className="w-4 h-4" />,         color: 'text-pink-400',    action: () => setIsCoupleOpen(true) },
                       ].map(item => (
                         <button

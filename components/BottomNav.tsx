@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Home, CreditCard, BarChart3, Settings, Plus, Camera, PenTool } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { AI_ENABLED } from "../lib/features";
 
 export function BottomNav() {
   const [isFabOpen, setIsFabOpen] = useState(false);
@@ -37,8 +38,10 @@ export function BottomNav() {
           </div>
 
           <div className="absolute left-1/2 -top-6 -translate-x-1/2">
-            <button 
-              onClick={() => setIsFabOpen(!isFabOpen)}
+            {/* Com a IA desligada sobraria uma opção só no leque — então o
+                botão lança direto, sem abrir menu de um item. */}
+            <button
+              onClick={() => AI_ENABLED ? setIsFabOpen(!isFabOpen) : openModal('manual')}
               className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-xl transition-all duration-300 ${isFabOpen ? 'bg-neutral-800 border border-white/10 rotate-45' : 'bg-gradient-to-r from-indigo-500 to-purple-600 shadow-indigo-500/30 hover:scale-105 active:scale-95'}`}
             >
               <Plus className="w-7 h-7" />
@@ -59,7 +62,7 @@ export function BottomNav() {
       </div>
 
       <AnimatePresence>
-        {isFabOpen && (
+        {isFabOpen && AI_ENABLED && (
           <>
             <motion.div 
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
