@@ -120,7 +120,8 @@ export default function Dashboard() {
   const handleOpenModal = () => setIsModalOpen(true);
 
   useEffect(() => {
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(console.error);
+    // O service worker é registrado pelo InstallPrompt, que vive no layout e
+    // portanto roda em todas as páginas.
 
     async function checkUserAndFetch() {
       const { data: { session } } = await supabase.auth.getSession();
