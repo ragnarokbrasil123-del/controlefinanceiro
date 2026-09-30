@@ -34,11 +34,13 @@ export function StageRoadmapModal({
   onClose,
   insights,
   showValues = true,
+  onEditProfile,
 }: {
   isOpen: boolean;
   onClose: () => void;
   insights: ProfileInsights;
   showValues?: boolean;
+  onEditProfile?: () => void;
 }) {
   const ladder = getStageLadder(insights);
 
@@ -157,6 +159,20 @@ export function StageRoadmapModal({
                 <p className="text-[11px] text-neutral-600 leading-relaxed mt-5 text-center">
                   Lance algumas despesas para o Nexa calcular seu custo de vida — é ele que define os valores de cada degrau.
                 </p>
+              )}
+
+              {/* O estágio sai das respostas do perfil. Se ele parecer errado,
+                  o caminho para corrigir precisa estar aqui, não no SQL. */}
+              {onEditProfile && (
+                <div className="mt-6 pt-4 border-t border-white/5 text-center">
+                  <p className="text-[11px] text-neutral-500 mb-2">Esse não é o seu caso?</p>
+                  <button
+                    onClick={onEditProfile}
+                    className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold underline underline-offset-2 cursor-pointer"
+                  >
+                    Ajustar meu perfil financeiro
+                  </button>
+                </div>
               )}
             </div>
           </motion.div>

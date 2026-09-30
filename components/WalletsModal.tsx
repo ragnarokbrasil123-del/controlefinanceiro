@@ -37,7 +37,9 @@ export function WalletsModal({ isOpen, onClose, userId }: { isOpen: boolean, onC
       name: newWalletName,
       type: newWalletType,
       user_id: userId,
-      balance: 0
+      // `balance` existe na tabela mas nunca é lido nem atualizado: o saldo da
+      // carteira é sempre calculado somando as transações. Gravar 0 aqui dava
+      // a impressão de um campo mantido, que induziria alguém a confiar nele.
     }]).select();
 
     if (!error && data) {

@@ -7,7 +7,7 @@ import {
   Bell, User, Plus, Home as HomeIcon, Coffee, CreditCard, 
   ChevronLeft, ChevronRight, Sparkles, LineChart, Target,
   PieChart as PieChartIcon, Search, Trash2, Heart, CheckCircle2, Clock, Edit2, Calendar, FileText, Eye, EyeOff,
-  PiggyBank, AlertTriangle, ShieldCheck, Loader2, MoreHorizontal, Bot
+  PiggyBank, AlertTriangle, ShieldCheck, Loader2, MoreHorizontal, Bot, SlidersHorizontal
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 
@@ -31,6 +31,7 @@ import { CategoryManagerModal } from "../components/CategoryManagerModal";
 import { PayYourselfFirstModal } from "../components/PayYourselfFirstModal";
 import { CreditCardManagerModal } from "../components/CreditCardManagerModal";
 import { StageRoadmapModal } from "../components/StageRoadmapModal";
+import { ProfileSettingsModal } from "../components/ProfileSettingsModal";
 import { supabase } from "../lib/supabase";
 import { toast } from "../components/Toast";
 import { getProfileInsights, type FinancialProfile } from "../lib/profile";
@@ -59,6 +60,7 @@ export default function Dashboard() {
   const [isCardsOpen, setIsCardsOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isRoadmapOpen, setIsRoadmapOpen] = useState(false);
+  const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
   const [wallets, setWallets] = useState<any[]>([]);
   const [activeWalletId, setActiveWalletId] = useState<string | null>(null);
   const [userId, setUserId] = useState("");
@@ -269,7 +271,9 @@ export default function Dashboard() {
   const variaveis = currentMonthTransactions.filter(t => t.category === 'Variáveis');
   const cartoes = currentMonthTransactions.filter(t => (t.category === 'Cartões' || t.category === 'Cartões de Crédito'));
   const investimentos = currentMonthTransactions.filter(t => t.category === 'Investimentos');
-  const receitasList = currentMonthTransactions.filter(t => t.type === 'income');
+  // Espelha a Renda Líquida: resgate de investimento não é receita do mês.
+  // Ele já aparece no card de Investimentos, abatendo o patrimônio.
+  const receitasList = currentMonthTransactions.filter(t => t.type === 'income' && t.category !== 'Investimentos');
 
   // Saída soma, entrada abate — vale para todas as categorias.
   // Investimentos tinha uma exceção que somava tudo, inclusive receitas: um
@@ -486,6 +490,7 @@ export default function Dashboard() {
                         { label: 'Assinaturas', icon: <Clock className="w-4 h-4" />,         color: 'text-teal-400',    action: () => setIsTrackerOpen(true) },
                         ...(AI_ENABLED ? [{ label: 'Conselheiro IA', icon: <Bot className="w-4 h-4" />, color: 'text-purple-400', action: () => setIsPlannerOpen(true) }] : []),
                         { label: 'Casal',       icon: <Heart className="w-4 h-4" />,         color: 'text-pink-400',    action: () => setIsCoupleOpen(true) },
+                        { label: 'Perfil financeiro', icon: <SlidersHorizontal className="w-4 h-4" />, color: 'text-neutral-400', action: () => setIsProfileSettingsOpen(true) },
                       ].map(item => (
                         <button
                           key={item.label}
@@ -803,7 +808,17 @@ export default function Dashboard() {
         onClose={() => setIsRoadmapOpen(false)}
         insights={insights}
         showValues={showValues}
+        onEditProfile={() => { setIsRoadmapOpen(false); setIsProfileSettingsOpen(true); }}
       />
+      {isProfileSettingsOpen && (
+        <ProfileSettingsModal
+          isOpen={isProfileSettingsOpen}
+          onClose={() => setIsProfileSettingsOpen(false)}
+          profile={profile}
+          userId={userId}
+          onSave={refreshProfile}
+        />
+      )}
       <CreditCardManagerModal
         isOpen={isCardsOpen}
         onClose={() => setIsCardsOpen(false)}

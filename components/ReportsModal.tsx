@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "motion/react";
-import { X, PieChart as PieChartIcon, BarChart3, TrendingUp, TrendingDown, Download, FileText, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, PieChart as PieChartIcon, BarChart3, TrendingUp, TrendingDown, Download, FileText, ChevronLeft, ChevronRight, PiggyBank } from "lucide-react";
 import { 
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend 
@@ -53,13 +53,23 @@ export function ReportsModal({ isOpen, onClose, transactions, allTransactions, a
 
   if (!isOpen) return null;
 
-  // Processar dados para o Gráfico de Pizza
-  const expenses = displayedTransactions.filter((t: any) => t.type === 'expense');
+  // Aporte não é consumo: sai da conta, mas continua sendo seu dinheiro.
+  // Incluí-lo entre as despesas fazia o gráfico sugerir que o usuário "gastou"
+  // com investimento, competindo em tamanho com Cartões e Variáveis.
+  const isInvestment = (t: any) => t.category === 'Investimentos';
+
+  // Processar dados para o Gráfico de Pizza — só gasto de verdade
+  const expenses = displayedTransactions.filter((t: any) => t.type === 'expense' && !isInvestment(t));
   const categoryDataRaw = expenses.reduce((acc: any, curr: any) => {
     if (!acc[curr.category]) acc[curr.category] = 0;
     acc[curr.category] += curr.amount;
     return acc;
   }, {});
+
+  // Aportes do período, mostrados à parte como patrimônio (líquido de resgates).
+  const investedInPeriod = displayedTransactions
+    .filter(isInvestment)
+    .reduce((acc: number, t: any) => acc + (t.type === 'expense' ? t.amount : -t.amount), 0);
 
   const categoryData = Object.keys(categoryDataRaw).map(key => ({
     name: key,
@@ -73,11 +83,18 @@ export function ReportsModal({ isOpen, onClose, transactions, allTransactions, a
     const dateObj = new Date(curr.date);
     const monthYear = dateObj.toLocaleString('pt-BR', { month: 'short', timeZone: 'UTC' }).toUpperCase();
     
-    if (!acc[monthYear]) acc[monthYear] = { name: monthYear, Receitas: 0, Despesas: 0 };
-    
-    if (curr.type === 'income') acc[monthYear].Receitas += curr.amount;
-    else acc[monthYear].Despesas += curr.amount;
-    
+    if (!acc[monthYear]) acc[monthYear] = { name: monthYear, Receitas: 0, Despesas: 0, Investido: 0 };
+
+    // Investimentos formam a própria série: aporte não é despesa e resgate não
+    // é receita. Misturá-los distorcia as duas barras ao mesmo tempo.
+    if (isInvestment(curr)) {
+      acc[monthYear].Investido += curr.type === 'expense' ? curr.amount : -curr.amount;
+    } else if (curr.type === 'income') {
+      acc[monthYear].Receitas += curr.amount;
+    } else {
+      acc[monthYear].Despesas += curr.amount;
+    }
+
     return acc;
   }, {});
 
@@ -160,8 +177,9 @@ export function ReportsModal({ isOpen, onClose, transactions, allTransactions, a
       doc.text(`Gerado em: ${today}`, pageWidth - 15, 30, { align: 'right' });
 
       // Summary
-      const totalIncome = displayedTransactions.filter((t: any) => t.type === 'income').reduce((a: number, t: any) => a + t.amount, 0);
-      const totalExpense = displayedTransactions.filter((t: any) => t.type === 'expense').reduce((a: number, t: any) => a + t.amount, 0);
+      // Mesma regra do dashboard: investimento fica fora de receita e despesa.
+      const totalIncome = displayedTransactions.filter((t: any) => t.type === 'income' && !isInvestment(t)).reduce((a: number, t: any) => a + t.amount, 0);
+      const totalExpense = displayedTransactions.filter((t: any) => t.type === 'expense' && !isInvestment(t)).reduce((a: number, t: any) => a + t.amount, 0);
       const balance = totalIncome - totalExpense;
 
       doc.setTextColor(30, 30, 30);
@@ -326,12 +344,20 @@ export function ReportsModal({ isOpen, onClose, transactions, allTransactions, a
                           </PieChart>
                         </ResponsiveContainer>
                         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                          <span className="text-xs text-neutral-500 uppercase tracking-widest font-bold">Total</span>
+                          <span className="text-xs text-neutral-500 uppercase tracking-widest font-bold">Gasto</span>
                           <span className="text-xl font-extrabold text-white">
                             {formatMoney(Number(categoryData.reduce((a, b) => a + b.value, 0)))}
                           </span>
                         </div>
                       </div>
+
+                      {investedInPeriod !== 0 && (
+                        <p className="text-[11px] text-neutral-500 text-center mt-3 leading-relaxed">
+                          <PiggyBank className="w-3 h-3 text-indigo-400 inline mr-1" />
+                          Fora daqui: <strong className="text-indigo-400">{formatMoney(investedInPeriod)}</strong> em aportes.
+                          Investimento não é gasto — continua sendo seu dinheiro.
+                        </p>
+                      )}
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
                         {categoryData.map((item, index) => (
@@ -363,8 +389,9 @@ export function ReportsModal({ isOpen, onClose, transactions, allTransactions, a
                             <YAxis stroke="#666" tick={{fill: '#999', fontSize: 12}} axisLine={false} tickLine={false} tickFormatter={(val) => `R$ ${val}`} />
                             <Tooltip content={<CustomTooltip />} cursor={{fill: '#ffffff05'}} />
                             <Legend wrapperStyle={{paddingTop: '20px'}} />
-                            <Bar dataKey="Receitas" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} />
-                            <Bar dataKey="Despesas" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={20} />
+                            <Bar dataKey="Receitas" fill="#10b981" radius={[4, 4, 0, 0]} barSize={16} />
+                            <Bar dataKey="Despesas" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={16} />
+                            <Bar dataKey="Investido" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={16} />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
@@ -378,6 +405,11 @@ export function ReportsModal({ isOpen, onClose, transactions, allTransactions, a
                         <div className="text-center">
                           <p className="text-xs text-neutral-400 mb-1 flex items-center justify-center gap-1"><TrendingDown className="w-3 h-3 text-rose-400"/> Despesas Total</p>
                           <p className="font-bold text-rose-400">{formatMoney(Number(balanceData.reduce((a: number, b: any) => a + b.Despesas, 0)))}</p>
+                        </div>
+                        <div className="w-px h-10 bg-white/10"></div>
+                        <div className="text-center">
+                          <p className="text-xs text-neutral-400 mb-1 flex items-center justify-center gap-1"><PiggyBank className="w-3 h-3 text-indigo-400"/> Investido</p>
+                          <p className="font-bold text-indigo-400">{formatMoney(Number(balanceData.reduce((a: number, b: any) => a + (b.Investido || 0), 0)))}</p>
                         </div>
                       </div>
                     </>
