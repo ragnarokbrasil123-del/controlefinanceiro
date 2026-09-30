@@ -32,6 +32,7 @@ import { PayYourselfFirstModal } from "../components/PayYourselfFirstModal";
 import { CreditCardManagerModal } from "../components/CreditCardManagerModal";
 import { StageRoadmapModal } from "../components/StageRoadmapModal";
 import { ProfileSettingsModal } from "../components/ProfileSettingsModal";
+import { InvestmentsModal } from "../components/InvestmentsModal";
 import { supabase } from "../lib/supabase";
 import { toast } from "../components/Toast";
 import { getProfileInsights, type FinancialProfile } from "../lib/profile";
@@ -61,6 +62,8 @@ export default function Dashboard() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isRoadmapOpen, setIsRoadmapOpen] = useState(false);
   const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
+  const [isInvestmentsOpen, setIsInvestmentsOpen] = useState(false);
+  const [positions, setPositions] = useState<any[]>([]);
   const [wallets, setWallets] = useState<any[]>([]);
   const [activeWalletId, setActiveWalletId] = useState<string | null>(null);
   const [userId, setUserId] = useState("");
@@ -125,12 +128,14 @@ export default function Dashboard() {
       setUserEmail(session.user.email || "");
       setUserId(session.user.id);
 
-      const [profileResponse, txResponse, walletsResponse, goalsResponse] = await Promise.all([
+      const [profileResponse, txResponse, walletsResponse, goalsResponse, positionsResponse] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', session.user.id).single(),
         supabase.from('transactions').select('*').eq('user_id', session.user.id).order('date', { ascending: false }),
         supabase.from('wallets').select('*').eq('user_id', session.user.id),
-        supabase.from('goals').select('*').eq('user_id', session.user.id)
+        supabase.from('goals').select('*').eq('user_id', session.user.id),
+        supabase.from('investments').select('*').eq('user_id', session.user.id)
       ]);
+      if (positionsResponse.data) setPositions(positionsResponse.data);
       if (profileResponse.data) {
         setUserRole(profileResponse.data.role);
         setProfile(profileResponse.data as FinancialProfile);
@@ -205,6 +210,15 @@ export default function Dashboard() {
     }
     setGoals(prev => prev.map(g => g.id === reservaGoal.id ? { ...g, current_amount: novoValor } : g));
     toast(`+${formatMoney(value)} na sua reserva. 🛡️`, "success");
+  }
+
+  // Recarrega só as posições — usado quando o modal de Patrimônio salva, para
+  // o estágio e o widget recalcularem sem buscar tudo de novo.
+  async function refreshPositions() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const { data } = await supabase.from('investments').select('*').eq('user_id', session.user.id);
+    if (data) setPositions(data);
   }
 
   function handleEditTransaction(tx: any) {
@@ -327,6 +341,7 @@ export default function Dashboard() {
     monthExpense: totalExpense,
     monthGargalo: gargalo,
     reserveAmount: reservaAtual,
+    positions,
   });
 
   // Semáforo de 3 faixas, com os cortes vindos do perfil.
@@ -490,6 +505,7 @@ export default function Dashboard() {
                         { label: 'Assinaturas', icon: <Clock className="w-4 h-4" />,         color: 'text-teal-400',    action: () => setIsTrackerOpen(true) },
                         ...(AI_ENABLED ? [{ label: 'Conselheiro IA', icon: <Bot className="w-4 h-4" />, color: 'text-purple-400', action: () => setIsPlannerOpen(true) }] : []),
                         { label: 'Casal',       icon: <Heart className="w-4 h-4" />,         color: 'text-pink-400',    action: () => setIsCoupleOpen(true) },
+                        { label: 'Patrimônio',  icon: <LineChart className="w-4 h-4" />,     color: 'text-emerald-400', action: () => setIsInvestmentsOpen(true) },
                         { label: 'Perfil financeiro', icon: <SlidersHorizontal className="w-4 h-4" />, color: 'text-neutral-400', action: () => setIsProfileSettingsOpen(true) },
                       ].map(item => (
                         <button
@@ -719,7 +735,27 @@ export default function Dashboard() {
                 <ExpenseCategoryCard title="Contas Fixas" icon={<HomeIcon className="w-5 h-5 text-blue-400" />} total={showValues ? formatMoney(sumCategory(contasFixas)) : 'R$ •••••'} accentColor="bg-blue-500/10 border-blue-500/20" items={contasFixas} formatMoney={formatMoney} onAction={handleOpenModal} onEditItem={handleEditTransaction} onTogglePaid={handleTogglePaid} onDeleteItem={handleDeleteTransaction} showValues={showValues} />
                 <ExpenseCategoryCard title="Variáveis" icon={<Coffee className="w-5 h-5 text-amber-400" />} total={showValues ? formatMoney(sumCategory(variaveis)) : 'R$ •••••'} accentColor="bg-amber-500/10 border-amber-500/20" items={variaveis} formatMoney={formatMoney} onAction={handleOpenModal} onEditItem={handleEditTransaction} onTogglePaid={handleTogglePaid} onDeleteItem={handleDeleteTransaction} showValues={showValues} />
                 <ExpenseCategoryCard title="Cartões" icon={<CreditCard className="w-5 h-5 text-purple-400" />} total={showValues ? formatMoney(sumCategory(cartoes)) : 'R$ •••••'} accentColor="bg-purple-500/10 border-purple-500/20" items={cartoes} formatMoney={formatMoney} onAction={handleOpenModal} onEditItem={handleEditTransaction} onTogglePaid={handleTogglePaid} onDeleteItem={handleDeleteTransaction} showValues={showValues} />
-                <ExpenseCategoryCard title="Investimentos" icon={<LineChart className="w-5 h-5 text-emerald-400" />} total={showValues ? formatMoney(sumCategory(investimentos)) : 'R$ •••••'} accentColor="bg-emerald-500/10 border-emerald-500/20" items={investimentos} formatMoney={formatMoney} onAction={handleOpenModal} onEditItem={handleEditTransaction} onTogglePaid={handleTogglePaid} onDeleteItem={handleDeleteTransaction} showValues={showValues} />
+                <ExpenseCategoryCard title="Investimentos" icon={<LineChart className="w-5 h-5 text-emerald-400" />} total={showValues ? formatMoney(sumCategory(investimentos)) : 'R$ •••••'} accentColor="bg-emerald-500/10 border-emerald-500/20" items={investimentos} formatMoney={formatMoney} onAction={handleOpenModal} onEditItem={handleEditTransaction} onTogglePaid={handleTogglePaid} onDeleteItem={handleDeleteTransaction} showValues={showValues}
+                  footer={
+                    insights.positionsValue !== null ? (
+                      <button onClick={() => setIsInvestmentsOpen(true)} className="w-full mt-3 pt-3 border-t border-white/10 flex items-center justify-between gap-2 cursor-pointer group/pat">
+                        <span className="text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">Patrimônio hoje</span>
+                        <span className="flex items-baseline gap-1.5">
+                          <span className="text-sm font-bold text-white">{showValues ? formatMoney(insights.positionsValue) : 'R$ •••••'}</span>
+                          {insights.positionsReturn !== null && insights.positionsReturn !== 0 && (
+                            <span className={`text-[11px] font-bold ${insights.positionsReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                              {showValues ? `${insights.positionsReturn >= 0 ? '+' : ''}${formatMoney(insights.positionsReturn)}` : ''}
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    ) : (
+                      <button onClick={() => setIsInvestmentsOpen(true)} className="w-full mt-3 pt-3 border-t border-white/10 text-[11px] text-emerald-400/70 hover:text-emerald-400 transition-colors cursor-pointer text-left">
+                        + Cadastrar patrimônio e acompanhar rendimento
+                      </button>
+                    )
+                  }
+                />
               </motion.div>
             </AnimatePresence>
           </div>
@@ -809,6 +845,13 @@ export default function Dashboard() {
         insights={insights}
         showValues={showValues}
         onEditProfile={() => { setIsRoadmapOpen(false); setIsProfileSettingsOpen(true); }}
+      />
+      <InvestmentsModal
+        isOpen={isInvestmentsOpen}
+        onClose={() => setIsInvestmentsOpen(false)}
+        userId={userId}
+        showValues={showValues}
+        onSave={refreshPositions}
       />
       {isProfileSettingsOpen && (
         <ProfileSettingsModal
@@ -1090,7 +1133,7 @@ function PillarCard({ title, amount, caption, icon, accent = 'indigo', badge, hi
   );
 }
 
-function ExpenseCategoryCard({ title, icon, total, items, accentColor, onAction, onEditItem, onTogglePaid, onDeleteItem, formatMoney, showValues }: any) {
+function ExpenseCategoryCard({ title, icon, total, items, accentColor, onAction, onEditItem, onTogglePaid, onDeleteItem, formatMoney, showValues, footer }: any) {
   const paidItems = items.filter((i: any) => i.is_paid !== false);
   const pendingItems = items.filter((i: any) => i.is_paid === false);
 
@@ -1171,6 +1214,7 @@ function ExpenseCategoryCard({ title, icon, total, items, accentColor, onAction,
             </div>
           )}
         </div>
+        {footer}
       </div>
     </div>
   );

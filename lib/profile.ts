@@ -71,8 +71,15 @@ export interface ProfileInsights {
   reserveMonths: number;
   /** Quanto há hoje na reserva, em R$ */
   reserveAmount: number;
-  /** Total já aportado em Investimentos, em R$ */
+  /** Patrimônio investido considerado: valor de mercado das posições quando
+   *  existirem, senão a soma líquida dos aportes lançados. */
   investedTotal: number;
+  /** Soma líquida dos aportes lançados em transactions (aportes - resgates) */
+  contributedTotal: number;
+  /** Valor de mercado das posições cadastradas, ou null se não houver */
+  positionsValue: number | null;
+  /** Rendimento das posições: valor de mercado - total aportado nelas */
+  positionsReturn: number | null;
   /** % da renda que o usuário deveria aportar, conforme a estratégia */
   suggestedSavingsRate: number;
   /** Valor sugerido de aporte mensal, em R$ */
@@ -420,8 +427,11 @@ export function getProfileInsights(params: {
   monthExpense: number;
   monthGargalo: number;
   reserveAmount: number;
+  /** Posições cadastradas. Quando existirem, o valor de mercado delas vale
+   *  mais que a soma dos aportes para medir patrimônio. */
+  positions?: Array<{ invested_amount?: number; current_value?: number }>;
 }): ProfileInsights {
-  const { profile, allTransactions, monthIncome, monthExpense, monthGargalo, reserveAmount } = params;
+  const { profile, allTransactions, monthIncome, monthExpense, monthGargalo, reserveAmount, positions } = params;
 
   const referenceIncome = getReferenceIncome(profile, allTransactions);
   const monthlyCost = getMonthlyCost(allTransactions, referenceIncome);
@@ -438,9 +448,25 @@ export function getProfileInsights(params: {
   // aportes, então uma venda de ativo não reduzia o patrimônio — e ainda por
   // cima inflava a renda. O mesmo lançamento contava duas vezes, das duas
   // formas erradas.
-  const investedTotal = allTransactions
+  const contributedTotal = allTransactions
     .filter(t => t.category === INVESTMENT_CATEGORY)
     .reduce((acc, t) => acc + (t.type === 'expense' ? (t.amount ?? 0) : -(t.amount ?? 0)), 0);
+
+  // Valor de mercado vence soma de aportes: quem tem posição cadastrada sabe
+  // quanto ela vale hoje, e é isso que mede patrimônio. Sem posição, cai nos
+  // aportes. Nunca soma os dois — seria contar o mesmo dinheiro duas vezes.
+  const hasPositions = Array.isArray(positions) && positions.length > 0;
+  const positionsValue = hasPositions
+    ? positions.reduce((acc, p) => acc + (p.current_value ?? 0), 0)
+    : null;
+  const positionsInvested = hasPositions
+    ? positions.reduce((acc, p) => acc + (p.invested_amount ?? 0), 0)
+    : null;
+  const positionsReturn = positionsValue !== null && positionsInvested !== null
+    ? positionsValue - positionsInvested
+    : null;
+
+  const investedTotal = positionsValue !== null ? positionsValue : contributedTotal;
 
   const stage = computeStage({
     profile, referenceIncome, monthlyCost, monthIncome, monthExpense,
@@ -465,6 +491,9 @@ export function getProfileInsights(params: {
     reserveMonths: monthlyCost > 0 ? reserveAmount / monthlyCost : 0,
     reserveAmount,
     investedTotal,
+    contributedTotal,
+    positionsValue,
+    positionsReturn,
     suggestedSavingsRate,
     suggestedContribution: Math.max(0, Math.round(referenceIncome * suggestedSavingsRate)),
     shouldSuggestContribution,
