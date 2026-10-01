@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Target, Plus, TrendingUp, TrendingDown, Trash2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
+import { getUserId } from "../lib/session";
 
 export function GoalsModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
   const [goals, setGoals] = useState<any[]>([]);
@@ -26,10 +27,8 @@ export function GoalsModal({ isOpen, onClose }: { isOpen: boolean, onClose: () =
 
   async function fetchGoals() {
     setIsLoading(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-    
-    const { data } = await supabase.from('goals').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false });
+    const userId = await getUserId();
+    if (!userId) return;const { data } = await supabase.from('goals').select('*').eq('user_id', userId).order('created_at', { ascending: false });
     if (data) setGoals(data);
     setIsLoading(false);
   }
@@ -41,9 +40,9 @@ export function GoalsModal({ isOpen, onClose }: { isOpen: boolean, onClose: () =
       return;
     }
     
-    const { data: { session } } = await supabase.auth.getSession();
+    const userId = await getUserId();
     const { data, error } = await supabase.from('goals').insert([{
-      user_id: session?.user.id,
+      user_id: userId,
       title,
       target_amount: parseFloat(targetAmount.replace(',', '.')),
       current_amount: 0

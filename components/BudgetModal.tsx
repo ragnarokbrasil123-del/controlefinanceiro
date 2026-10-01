@@ -6,6 +6,8 @@ import { X, Target, Sparkles, Loader2, Save } from "lucide-react";
 import { AI_ENABLED } from "../lib/features";
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
+import { formatMoney } from "../lib/format";
+import { getUserId, getAccessToken } from "../lib/session";
 
 const CATEGORIES = ["Contas Fixas", "Variáveis", "Investimentos"];
 
@@ -25,9 +27,9 @@ export function BudgetModal({ isOpen, onClose, transactions, currentIncome, acti
   }, [isOpen]);
 
   const fetchBudgets = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const userId = await getUserId();
     let query = supabase.from('budgets').select('*');
-    if (session) query = query.eq('user_id', session.user.id);
+    if (userId) query = query.eq('user_id', userId);
 
     const { data, error } = await query;
     if (data && data.length > 0) {
@@ -42,8 +44,7 @@ export function BudgetModal({ isOpen, onClose, transactions, currentIncome, acti
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const userId = session?.user?.id || null;
+      const userId = await getUserId();
 
       // Delete existing budgets for this user (or just generic ones if no user)
       if (userId) {
@@ -76,8 +77,7 @@ export function BudgetModal({ isOpen, onClose, transactions, currentIncome, acti
     }
     setIsAiLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token || '';
+      const token = await getAccessToken() ?? '';
 
       const res = await fetch("/api/auto-budget", {
         method: "POST",
@@ -118,7 +118,6 @@ export function BudgetModal({ isOpen, onClose, transactions, currentIncome, acti
     }).reduce((acc, t) => acc + t.amount, 0);
   };
 
-  const formatMoney = (v: number) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
   return (
     <AnimatePresence>

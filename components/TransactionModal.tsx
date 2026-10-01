@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, TrendingUp, TrendingDown, Calendar, Wallet, ChevronDown, AlertTriangle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
+import { getUserId } from "../lib/session";
 
 export function TransactionModal({ isOpen, onClose, onSave }: { isOpen: boolean, onClose: () => void, onSave?: () => void }) {
   const [type, setType] = useState<'expense' | 'income'>('expense');
@@ -35,12 +36,10 @@ export function TransactionModal({ isOpen, onClose, onSave }: { isOpen: boolean,
   }, [isOpen]);
 
   async function fetchData() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-    
-    const [catRes, walRes] = await Promise.all([
-      supabase.from('categories').select('*').eq('user_id', session.user.id).order('name'),
-      supabase.from('wallets').select('*').eq('user_id', session.user.id).order('name')
+    const userId = await getUserId();
+    if (!userId) return;const [catRes, walRes] = await Promise.all([
+      supabase.from('categories').select('*').eq('user_id', userId).order('name'),
+      supabase.from('wallets').select('*').eq('user_id', userId).order('name')
     ]);
     
     if (catRes.data) setCustomCategories(catRes.data);
@@ -71,18 +70,23 @@ export function TransactionModal({ isOpen, onClose, onSave }: { isOpen: boolean,
     setIsLoading(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const userId = session?.user?.id || null;
+      const userId = await getUserId();
       const baseAmount = parseFloat(amount.replace(',', '.'));
       
-      let receiptUrl = null;
+      // Guarda o CAMINHO do arquivo, não uma URL pública.
+      // Antes isto gravava o resultado de getPublicUrl(): um link permanente e
+      // sem autenticação para um comprovante financeiro. URL vaza por
+      // histórico, log e compartilhamento — e uma vez vazada, vale para sempre.
+      // Agora a URL é assinada na hora de abrir, com validade curta.
+      let receiptPath = null;
       if (receiptFile && userId) {
         const fileExt = receiptFile.name.split('.').pop();
         const fileName = `${userId}/${Date.now()}.${fileExt}`;
         const { error: uploadError, data } = await supabase.storage.from('receipts').upload(fileName, receiptFile);
         if (!uploadError && data) {
-          const { data: publicUrlData } = supabase.storage.from('receipts').getPublicUrl(data.path);
-          receiptUrl = publicUrlData.publicUrl;
+          receiptPath = data.path;
+        } else if (uploadError) {
+          toast("Não consegui anexar o comprovante, mas o lançamento foi salvo.", "warning");
         }
       }
 
@@ -117,7 +121,7 @@ export function TransactionModal({ isOpen, onClose, onSave }: { isOpen: boolean,
           is_paid: i === 0 ? isPaid : false,
           user_id: userId,
           wallet_id: walletId || null,
-          receipt_url: receiptUrl
+          receipt_url: receiptPath
         });
       }
 

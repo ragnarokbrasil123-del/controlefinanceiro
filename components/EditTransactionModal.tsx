@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, TrendingUp, TrendingDown, Calendar, Save, Loader2, ChevronDown, AlertTriangle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
+import { getUserId } from "../lib/session";
 
 interface Transaction {
   id: string;
@@ -48,9 +49,8 @@ export function EditTransactionModal({
   }, [isOpen, transaction]);
 
   async function fetchCategories() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-    const { data } = await supabase.from('categories').select('*').eq('user_id', session.user.id).order('name');
+    const userId = await getUserId();
+    if (!userId) return;const { data } = await supabase.from('categories').select('*').eq('user_id', userId).order('name');
     if (data) setCustomCategories(data);
   }
 

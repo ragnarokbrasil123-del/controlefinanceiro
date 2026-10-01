@@ -10,6 +10,7 @@ import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 import { toast } from "../../components/Toast";
 import { ToastContainer } from "../../components/Toast";
+import { formatMoney } from "../../lib/format";
 
 interface UserStat {
   id: string;
@@ -121,7 +122,6 @@ export default function AdminPage() {
     }
   }
 
-  const formatMoney = (val: number) => `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
   const filteredUsers = users.filter(u =>
     u.id.toLowerCase().includes(searchQuery.toLowerCase()) ||

@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, ChevronLeft, ChevronRight, Calendar as CalendarIcon, TrendingUp, TrendingDown } from "lucide-react";
+import { formatMoney } from "../lib/format";
 
 export function FinancialCalendarModal({ isOpen, onClose, transactions }: { isOpen: boolean, onClose: () => void, transactions: any[] }) {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -49,7 +50,6 @@ export function FinancialCalendarModal({ isOpen, onClose, transactions }: { isOp
 
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
-  const formatMoney = (val: number) => `R$ ${val.toFixed(2).replace('.', ',')}`;
 
   const renderDays = () => {
     const days = [];

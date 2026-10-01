@@ -7,6 +7,7 @@ import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 import { CoupleGoalModal } from "../../components/CoupleGoalModal";
 import { CoupleWealthModal } from "../../components/CoupleWealthModal";
+import { formatMoney } from "../../lib/format";
 
 export default function CasaisDashboard() {
   const [settings, setSettings] = useState<any>(null);
@@ -36,7 +37,6 @@ export default function CasaisDashboard() {
     fetchData();
   }, []);
 
-  const formatMoney = (val: number) => `R$ ${Number(val).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 
   const openNewGoal = () => {
     setSelectedGoal(null);

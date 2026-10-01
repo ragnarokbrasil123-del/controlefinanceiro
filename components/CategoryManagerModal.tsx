@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Plus, Trash2, Tag, TrendingUp, TrendingDown } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
+import { getUserId } from "../lib/session";
 
 export function CategoryManagerModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
   const [categories, setCategories] = useState<any[]>([]);
@@ -22,10 +23,8 @@ export function CategoryManagerModal({ isOpen, onClose }: { isOpen: boolean, onC
 
   async function fetchCategories() {
     setIsLoading(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-    
-    const { data } = await supabase.from('categories').select('*').eq('user_id', session.user.id).order('name', { ascending: true });
+    const userId = await getUserId();
+    if (!userId) return;const { data } = await supabase.from('categories').select('*').eq('user_id', userId).order('name', { ascending: true });
     if (data) setCategories(data);
     setIsLoading(false);
   }
@@ -37,9 +36,9 @@ export function CategoryManagerModal({ isOpen, onClose }: { isOpen: boolean, onC
       return;
     }
     
-    const { data: { session } } = await supabase.auth.getSession();
+    const userId = await getUserId();
     const { data, error } = await supabase.from('categories').insert([{
-      user_id: session?.user.id,
+      user_id: userId,
       name,
       type
     }]).select();

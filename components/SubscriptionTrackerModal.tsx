@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from "motion/react";
 import { X, Search, AlertTriangle, ShieldAlert, CreditCard, Sparkles, TrendingDown } from "lucide-react";
+import { formatMoney } from "../lib/format";
 
 export function SubscriptionTrackerModal({ isOpen, onClose, transactions }: { isOpen: boolean, onClose: () => void, transactions: any[] }) {
   if (!isOpen) return null;
@@ -27,7 +28,6 @@ export function SubscriptionTrackerModal({ isOpen, onClose, transactions }: { is
   const totalMonthly = uniqueSubscriptions.reduce((acc, t) => acc + t.amount, 0);
   const totalYearly = totalMonthly * 12;
 
-  const formatMoney = (val: number) => `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <AnimatePresence>

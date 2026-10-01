@@ -37,6 +37,8 @@ import { supabase } from "../lib/supabase";
 import { toast } from "../components/Toast";
 import { getProfileInsights, type FinancialProfile } from "../lib/profile";
 import { AI_ENABLED } from "../lib/features";
+import { formatMoney } from "../lib/format";
+import { getReceiptUrl } from "../lib/receipts";
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -298,7 +300,6 @@ export default function Dashboard() {
   const sumCategory = (list: any[]) => list.reduce((acc, t) => {
     return acc + (t.type === 'expense' ? t.amount : -t.amount);
   }, 0);
-  const formatMoney = (val: number) => `R$ ${val.toFixed(2).replace('.', ',')}`;
 
   // --- Pilares do mês: visão de construção de patrimônio ---
   // Somas estritas por tipo/categoria (amount é sempre positivo no banco).
@@ -1221,6 +1222,38 @@ function ExpenseCategoryCard({ title, icon, total, items, accentColor, onAction,
   );
 }
 
+/**
+ * Abre o comprovante por URL assinada, gerada só no clique.
+ * Não dá para usar <a href> direto: o banco guarda o caminho do arquivo, e a
+ * assinatura é assíncrona e tem validade curta — de propósito.
+ */
+function ReceiptButton({ stored }: { stored: string }) {
+  const [isOpening, setIsOpening] = useState(false);
+
+  const open = async () => {
+    setIsOpening(true);
+    const url = await getReceiptUrl(stored);
+    setIsOpening(false);
+    if (!url) {
+      toast("Não consegui abrir este comprovante.", "error");
+      return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  return (
+    <button
+      onClick={open}
+      disabled={isOpening}
+      aria-label="Abrir comprovante"
+      title="Abrir comprovante"
+      className="p-2 text-indigo-500/50 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-xl transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+    >
+      {isOpening ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+    </button>
+  );
+}
+
 function TransactionRow({ title, category, date, amount, type, isPaid, onTogglePaid, onDelete, onEdit, receiptUrl }: any) {
   const isIncome = type === 'income';
   return (
@@ -1257,9 +1290,7 @@ function TransactionRow({ title, category, date, amount, type, isPaid, onToggleP
             {isPaid ? <CheckCircle2 className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
           </button>
         )}
-        {receiptUrl && (
-          <a href={receiptUrl} target="_blank" rel="noreferrer" className="p-2 text-indigo-500/50 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-xl transition-colors cursor-pointer shrink-0"><FileText className="w-4 h-4" /></a>
-        )}
+        {receiptUrl && <ReceiptButton stored={receiptUrl} />}
         <button onClick={onEdit} className="p-2 text-indigo-500/50 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-xl transition-colors cursor-pointer shrink-0"><Edit2 className="w-4 h-4" /></button>
         <button onClick={onDelete} className="p-2 text-rose-500/50 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors cursor-pointer shrink-0"><Trash2 className="w-4 h-4" /></button>
       </div>

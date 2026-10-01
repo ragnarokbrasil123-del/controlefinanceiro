@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Building, PiggyBank, Home, Save } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
+import { getUserId } from "../lib/session";
 
 export function CoupleWealthModal({ isOpen, onClose, currentData, onSave }: any) {
   const [wealth, setWealth] = useState("");
@@ -24,11 +25,9 @@ export function CoupleWealthModal({ isOpen, onClose, currentData, onSave }: any)
 
   const handleSave = async () => {
     setLoading(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-
-    const payload = {
-      user_id: session.user.id,
+    const userId = await getUserId();
+    if (!userId) return;const payload = {
+      user_id: userId,
       joint_wealth: parseFloat(wealth) || 0,
       emergency_fund: parseFloat(emergency) || 0,
       house_expenses: parseFloat(house) || 0

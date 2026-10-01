@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { X, CreditCard, CalendarClock, AlertTriangle, CheckCircle2, Clock, Trash2, Layers, TrendingDown } from "lucide-react";
 import type { ProfileInsights } from "../lib/profile";
+import { formatMoney as fmtMoney } from "../lib/format";
 
 /**
  * Gestão de Cartões — separa o que já venceu do que ainda vai vencer.
@@ -63,8 +64,7 @@ export function CreditCardManagerModal({
   onTogglePaid?: (id: string, current: boolean) => void;
   onDelete?: (id: string) => void;
 }) {
-  const formatMoney = (val: number) =>
-    showValues ? `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'R$ •••••';
+  const formatMoney = (val: number) => fmtMoney(val, showValues);
 
   const monthKey = `${activeYear}-${String(activeMonth + 1).padStart(2, '0')}`;
 

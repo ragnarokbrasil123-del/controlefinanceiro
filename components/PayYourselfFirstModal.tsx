@@ -6,6 +6,8 @@ import { X, PiggyBank, ShieldCheck, Zap, Loader2, AlertTriangle, TrendingUp } fr
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
 import type { ProfileInsights } from "../lib/profile";
+import { formatMoney } from "../lib/format";
+import { getUserId } from "../lib/session";
 
 /**
  * "Pague-se Primeiro" — registra o aporte ANTES do dinheiro virar consumo.
@@ -39,7 +41,6 @@ export function PayYourselfFirstModal({
     if (isOpen) setAmount("");
   }, [isOpen]);
 
-  const formatMoney = (val: number) => `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,14 +53,14 @@ export function PayYourselfFirstModal({
 
     setIsLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      const userId = await getUserId();
+      if (!userId) {
         toast("Sessão expirada. Faça login novamente.", "error");
         return;
       }
 
       const { error } = await supabase.from('transactions').insert([{
-        user_id: session.user.id,
+        user_id: userId,
         title: 'Aporte - Reserva de Emergência',
         amount: value,
         type: 'expense',
@@ -75,7 +76,7 @@ export function PayYourselfFirstModal({
       const { data: goal } = await supabase
         .from('goals')
         .select('id, current_amount')
-        .eq('user_id', session.user.id)
+        .eq('user_id', userId)
         .eq('title', 'Reserva de Emergência')
         .maybeSingle();
 

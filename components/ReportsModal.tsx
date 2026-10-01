@@ -8,6 +8,7 @@ import {
 } from "recharts";
 import { useState } from "react";
 import { toast } from "./Toast";
+import { formatMoney } from "../lib/format";
 
 const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#6366f1'];
 
@@ -101,7 +102,6 @@ export function ReportsModal({ isOpen, onClose, transactions, allTransactions, a
   // AQUI: Forçamos o tipo para evitar o pânico do TypeScript
   const balanceData: any[] = Object.values(monthlyDataRaw).slice(0, 6).reverse();
 
-  const formatMoney = (value: number) => `R$ ${value.toFixed(2).replace('.', ',')}`;
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {

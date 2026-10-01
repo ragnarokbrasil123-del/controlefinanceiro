@@ -6,6 +6,7 @@ import { X, Bot, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
 import { supabase } from "../lib/supabase";
 import { STRATEGIES, DEFAULT_STRATEGY, type ProfileInsights, type StrategyId } from "../lib/profile";
+import { getUserId, getAccessToken } from "../lib/session";
 
 /**
  * Conselheiro IA.
@@ -61,8 +62,7 @@ export function AdvisorModal({
     inFlight.current = true;
     setIsFetching(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token || '';
+      const token = await getAccessToken() ?? '';
 
       const res = await fetch("/api/advisor", {
         method: "POST",

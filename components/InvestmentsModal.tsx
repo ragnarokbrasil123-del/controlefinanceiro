@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, LineChart, Plus, Trash2, Pencil, Loader2, TrendingUp, TrendingDown, Check } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
+import { formatMoney as fmtMoney } from "../lib/format";
 
 /**
  * Patrimônio — o que você tem e quanto vale hoje.
@@ -48,6 +49,7 @@ export function InvestmentsModal({
   showValues?: boolean;
   onSave?: () => void;
 }) {
+  const formatMoney = (val: number) => fmtMoney(val, showValues);
   const [positions, setPositions] = useState<Position[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -75,8 +77,6 @@ export function InvestmentsModal({
     setIsLoading(false);
   }
 
-  const formatMoney = (val: number) =>
-    showValues ? `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'R$ •••••';
 
   const resetForm = () => {
     setName(""); setKind("acoes"); setInvested(""); setCurrent("");

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, UploadCloud, Camera, Sparkles, Loader2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
+import { getUserId, getAccessToken } from "../lib/session";
 
 export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [isUploading, setIsUploading] = useState(false);
@@ -40,11 +41,11 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
       }
 
       const data = await response.json();
-      const { data: { session } } = await supabase.auth.getSession();
+      const userId = await getUserId();
       
-      if (session && Array.isArray(data) && data.length > 0) {
+      if (userId && Array.isArray(data) && data.length > 0) {
         const transactionsToInsert = data.map((item: any) => ({
-          user_id: session.user.id,
+          user_id: userId,
           title: item.description || "Despesa lida por IA",
           amount: parseFloat(item.amount || 0),
           category: item.category || "Variáveis",

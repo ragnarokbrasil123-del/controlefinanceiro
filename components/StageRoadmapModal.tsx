@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from "motion/react";
 import { X, Check, Lock, Route } from "lucide-react";
 import { getStageLadder, type ProfileInsights } from "../lib/profile";
+import { formatMoney as fmtMoney } from "../lib/format";
 
 /**
  * Mapa dos 5 estágios financeiros.
@@ -42,10 +43,9 @@ export function StageRoadmapModal({
   showValues?: boolean;
   onEditProfile?: () => void;
 }) {
+  const formatMoney = (val: number) => fmtMoney(val, showValues);
   const ladder = getStageLadder(insights);
 
-  const formatMoney = (val: number) =>
-    showValues ? `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'R$ •••••';
 
   return (
     <AnimatePresence>

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Plus, Target } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
+import { getUserId } from "../lib/session";
 
 export function CoupleGoalModal({ isOpen, onClose, selectedGoal, onSave }: any) {
   const [title, setTitle] = useState("");
@@ -16,17 +17,15 @@ export function CoupleGoalModal({ isOpen, onClose, selectedGoal, onSave }: any) 
 
   const handleSave = async () => {
     setLoading(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-
-    let error;
+    const userId = await getUserId();
+    if (!userId) return;let error;
     if (selectedGoal) {
       const newTotal = Number(selectedGoal.current_amount) + Number(addAmount);
       const res = await supabase.from('couple_goals').update({ current_amount: newTotal }).eq('id', selectedGoal.id);
       error = res.error;
     } else {
       const res = await supabase.from('couple_goals').insert([{
-        user_id: session.user.id,
+        user_id: userId,
         title,
         target_amount: Number(targetAmount),
         current_amount: 0,

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Plus, Trash2, Wallet, CreditCard, Building2, Loader2, Edit2, Check } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
+import { getUserId } from "../lib/session";
 
 interface Wallet {
   id: string;
@@ -30,13 +31,12 @@ export function AccountManagerModal({ isOpen, onClose }: { isOpen: boolean, onCl
 
   const loadWallets = async () => {
     setLoading(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-    setUserId(session.user.id);
+    const userId = await getUserId();
+    if (!userId) return;setUserId(userId);
     const { data, error } = await supabase
       .from('wallets')
       .select('*')
-      .eq('user_id', session.user.id)
+      .eq('user_id', userId)
       .order('created_at', { ascending: true });
     if (!error && data) setWallets(data);
     setLoading(false);
