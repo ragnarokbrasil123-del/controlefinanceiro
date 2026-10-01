@@ -7,7 +7,7 @@ import {
   Bell, User, Plus, Home as HomeIcon, Coffee, CreditCard, 
   ChevronLeft, ChevronRight, Sparkles, LineChart, Target,
   PieChart as PieChartIcon, Search, Trash2, Heart, CheckCircle2, Clock, Edit2, Calendar, FileText, Eye, EyeOff,
-  PiggyBank, AlertTriangle, ShieldCheck, Loader2, MoreHorizontal, Bot, SlidersHorizontal
+  PiggyBank, AlertTriangle, ShieldCheck, Loader2, MoreHorizontal, Bot, SlidersHorizontal, CalendarClock
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 
@@ -33,6 +33,7 @@ import { CreditCardManagerModal } from "../components/CreditCardManagerModal";
 import { StageRoadmapModal } from "../components/StageRoadmapModal";
 import { DebtsModal } from "../components/DebtsModal";
 import { SpendingInsightsModal } from "../components/SpendingInsightsModal";
+import { ForecastModal } from "../components/ForecastModal";
 import { ProfileSettingsModal } from "../components/ProfileSettingsModal";
 import { InvestmentsModal } from "../components/InvestmentsModal";
 import { supabase } from "../lib/supabase";
@@ -71,6 +72,7 @@ export default function Dashboard() {
   const [isInvestmentsOpen, setIsInvestmentsOpen] = useState(false);
   const [isDebtsOpen, setIsDebtsOpen] = useState(false);
   const [isSpendingOpen, setIsSpendingOpen] = useState(false);
+  const [isForecastOpen, setIsForecastOpen] = useState(false);
   const [debts, setDebts] = useState<any[]>([]);
   const [positions, setPositions] = useState<any[]>([]);
   const [wallets, setWallets] = useState<any[]>([]);
@@ -528,6 +530,7 @@ export default function Dashboard() {
                         { label: 'Assinaturas', icon: <Clock className="w-4 h-4" />,         color: 'text-teal-400',    action: () => setIsTrackerOpen(true) },
                         ...(AI_ENABLED ? [{ label: 'Conselheiro IA', icon: <Bot className="w-4 h-4" />, color: 'text-purple-400', action: () => setIsPlannerOpen(true) }] : []),
                         { label: 'Casal',       icon: <Heart className="w-4 h-4" />,         color: 'text-pink-400',    action: () => setIsCoupleOpen(true) },
+                        { label: 'Previsão',    icon: <CalendarClock className="w-4 h-4" />,  color: 'text-blue-400',    action: () => setIsForecastOpen(true) },
                         { label: 'Raio-x dos gastos', icon: <PieChartIcon className="w-4 h-4" />, color: 'text-amber-400', action: () => setIsSpendingOpen(true) },
                         { label: 'Dívidas',     icon: <TrendingDown className="w-4 h-4" />,    color: 'text-rose-400',    action: () => setIsDebtsOpen(true) },
                         { label: 'Patrimônio',  icon: <LineChart className="w-4 h-4" />,     color: 'text-emerald-400', action: () => setIsInvestmentsOpen(true) },
@@ -882,6 +885,15 @@ export default function Dashboard() {
         insights={insights}
         showValues={showValues}
         onEditProfile={() => { setIsRoadmapOpen(false); setIsProfileSettingsOpen(true); }}
+      />
+      <ForecastModal
+        isOpen={isForecastOpen}
+        onClose={() => setIsForecastOpen(false)}
+        allTransactions={allTransactions}
+        insights={insights}
+        activeMonth={activeMonth}
+        activeYear={activeYear}
+        showValues={showValues}
       />
       <SpendingInsightsModal
         isOpen={isSpendingOpen}
