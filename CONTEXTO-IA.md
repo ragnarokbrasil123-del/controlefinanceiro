@@ -76,6 +76,12 @@ public/                 Ícones, manifest.json, sw.js
 
 ## 4. Schema do banco (Supabase / Postgres)
 
+> **Aviso sobre este schema:** ele foi reconstruído a partir do que o CÓDIGO
+> usa. Colunas que existem no banco mas nenhum arquivo lê ou grava podem estar
+> faltando aqui — foi o caso de `budgets.month`, que existia como integer sem
+> uso e só apareceu quando uma migração falhou. Ao alterar schema, confira a
+> tabela real antes.
+
 Todas as tabelas têm `id` (uuid) e `user_id` (uuid, dono da linha).
 **Todas são protegidas por RLS: cada usuário só enxerga as próprias linhas.**
 
@@ -105,8 +111,11 @@ Categorias personalizadas do usuário: `name`, `type`.
 `id` (= id do usuário no Auth), `role` (`'client'` ou `'admin'`), `created_at`.
 
 ### `budgets`
-`category`, `amount`. ⚠️ **Não tem coluna de mês/período** — o orçamento é global, não
-mensal. Ao salvar, o app apaga todos os budgets do usuário e reinsere.
+`category`, `amount`, `month` (text, formato `YYYY-MM`).
+
+⚠️ A coluna `month` existia como **integer** sem uso desde uma versão anterior;
+foi convertida para text em `2026-10-01-fase-4-budgets-mensal.sql`. Um orçamento
+por categoria por mês, garantido por índice único.
 
 ### `goals`
 `title`, `target_amount`, `current_amount`, `created_at`.

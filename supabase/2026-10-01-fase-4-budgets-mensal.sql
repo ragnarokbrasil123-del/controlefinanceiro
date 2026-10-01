@@ -12,26 +12,48 @@
 --       insert into budgets (...)                   -- grava os novos
 --
 --   Ou seja: a destruição estava no CÓDIGO, não no schema. Se a coluna `month`
---   tivesse sido criada antes da correção do componente, salvar o orçamento de
---   um mês apagaria o histórico de todos os outros — exatamente o problema que
---   a migração pretendia resolver.
+--   tivesse passado a ser usada antes da correção do componente, salvar o
+--   orçamento de um mês apagaria o histórico de todos os outros — exatamente o
+--   problema que a migração pretendia resolver.
 --
 --   Por isso este SQL só saiu junto com o commit que escopa aquele delete ao
 --   mês que está sendo editado.
 --
--- O QUE ACONTECE COM OS DADOS EXISTENTES
---   As linhas atuais não têm mês. Elas são atribuídas ao mês corrente, que é a
---   leitura mais fiel: foi o último orçamento que o usuário definiu e é o que
---   ele enxerga hoje na tela.
+-- A COLUNA `month` JÁ EXISTIA, COMO INTEGER
+--   Descoberto ao rodar a primeira versão deste arquivo, que falhou com
+--   "column month is of type integer but expression is of type text".
+--
+--   Ela nunca foi lida nem gravada pelo app — o BudgetModal até recebe
+--   `activeMonth` como prop, mas não a usava ao salvar. Era uma coluna morta,
+--   provavelmente de uma versão anterior do produto.
+--
+--   Número de mês sem ano é ambíguo de qualquer forma (março de qual ano?),
+--   então o formato correto é texto 'YYYY-MM' — o mesmo usado em
+--   advice_history e nos filtros do app, que fatiam a data com slice(0,7).
+--   Texto em vez de date porque não existe "dia" num orçamento mensal, e date
+--   forçaria um dia fictício.
 -- =============================================================================
 
 
 -- -----------------------------------------------------------------------------
--- 1) Coluna de competência
---    Formato 'YYYY-MM' (texto), igual ao usado em advice_history e nos filtros
---    do app, que fatiam a data com slice(0,7). Texto em vez de date porque não
---    existe "dia" num orçamento mensal, e date forçaria um dia fictício.
+-- 1) Converte a coluna existente de integer para text
+--    Condicional para o arquivo continuar idempotente e para não falhar em
+--    ambientes onde a coluna já esteja no tipo certo.
 -- -----------------------------------------------------------------------------
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'budgets'
+      and column_name = 'month' and data_type = 'integer'
+  ) then
+    alter table public.budgets
+      alter column month type text using month::text;
+    raise notice 'Coluna month convertida de integer para text.';
+  end if;
+end $$;
+
+-- Em ambiente onde a coluna não exista, cria já no tipo certo.
 alter table public.budgets
   add column if not exists month text;
 
@@ -39,7 +61,10 @@ comment on column public.budgets.month is 'Competência do orçamento, no format
 
 
 -- -----------------------------------------------------------------------------
--- 2) Backfill — linhas antigas viram o orçamento do mês corrente
+-- 2) Backfill — linhas sem competência viram o mês corrente
+--    No ambiente de produção a tabela estava vazia, então isto é no-op lá.
+--    Fica para quem rodar este arquivo com dados já existentes: atribuir ao
+--    mês corrente é a leitura mais fiel, por ser o último orçamento definido.
 -- -----------------------------------------------------------------------------
 update public.budgets
 set month = to_char(current_date, 'YYYY-MM')
@@ -48,8 +73,8 @@ where month is null;
 
 -- -----------------------------------------------------------------------------
 -- 3) Validação de formato
---    Impede que entre 'outubro', '10/2026' ou qualquer outra coisa que o app
---    não saiba comparar com os filtros de período.
+--    Impede que entre 'outubro', '10/2026' ou qualquer coisa que o app não
+--    saiba comparar com os filtros de período.
 -- -----------------------------------------------------------------------------
 do $$
 begin
@@ -64,7 +89,7 @@ end $$;
 -- -----------------------------------------------------------------------------
 -- 4) Uma linha por categoria, por mês, por usuário
 --    Sem isto, salvar duas vezes criaria orçamentos duplicados para a mesma
---    categoria e o consumo seria calculado contra um teto errado.
+--    categoria e o consumo seria medido contra um teto errado.
 --
 --    Cria o índice apenas se não houver duplicata pendente — se houver, avisa
 --    em vez de falhar no meio da migração.
@@ -98,11 +123,12 @@ create index if not exists budgets_user_month_idx
 -- =============================================================================
 -- CHECKLIST DEPOIS DE RODAR
 --
---   a) A coluna existe e nenhuma linha ficou sem mês (deve retornar 0):
---        select count(*) from public.budgets where month is null;
+--   a) A coluna está como text:
+--        select data_type from information_schema.columns
+--        where table_schema='public' and table_name='budgets' and column_name='month';
 --
---   b) Veja seus orçamentos com a competência atribuída:
---        select category, amount, month from public.budgets where user_id = auth.uid();
+--   b) Nenhuma linha ficou sem mês (deve retornar 0):
+--        select count(*) from public.budgets where month is null;
 --
 --   c) O formato é validado — isto deve FALHAR:
 --        update public.budgets set month = 'outubro' where user_id = auth.uid();
