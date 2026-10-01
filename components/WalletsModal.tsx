@@ -5,8 +5,10 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Wallet, Trash2, Plus, CreditCard, Building2, Loader2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
+import { useModalA11y } from "../hooks/use-modal-a11y";
 
 export function WalletsModal({ isOpen, onClose, userId }: { isOpen: boolean, onClose: () => void, userId: string }) {
+  const a11yRef = useModalA11y(isOpen, onClose);
   const [wallets, setWallets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [newWalletName, setNewWalletName] = useState("");
@@ -71,12 +73,12 @@ export function WalletsModal({ isOpen, onClose, userId }: { isOpen: boolean, onC
       <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
         
-        <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="relative w-full max-w-md bg-neutral-900 border border-white/10 shadow-2xl rounded-3xl p-6 overflow-hidden">
+        <motion.div ref={a11yRef} role="dialog" aria-modal="true" initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="relative w-full max-w-md bg-neutral-900 border border-white/10 shadow-2xl rounded-3xl p-6 overflow-hidden">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
               <Wallet className="w-5 h-5 text-indigo-400" /> Minhas Carteiras
             </h2>
-            <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white bg-white/5 rounded-full"><X className="w-4 h-4" /></button>
+            <button onClick={onClose} aria-label="Fechar" className="p-2 text-neutral-400 hover:text-white bg-white/5 rounded-full"><X className="w-4 h-4" /></button>
           </div>
 
           <form onSubmit={handleCreateWallet} className="flex gap-2 mb-6">

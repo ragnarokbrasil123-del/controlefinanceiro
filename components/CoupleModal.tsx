@@ -2,8 +2,10 @@
 
 import { motion, AnimatePresence } from "motion/react";
 import { X, Heart, Users, Sparkles, ArrowRight } from "lucide-react";
+import { useModalA11y } from "../hooks/use-modal-a11y";
 
 export function CoupleModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
+  const a11yRef = useModalA11y(isOpen, onClose);
   if (!isOpen) return null;
 
   return (
@@ -11,7 +13,7 @@ export function CoupleModal({ isOpen, onClose }: { isOpen: boolean, onClose: () 
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
         
-        <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="relative w-full max-w-md bg-neutral-900 border border-pink-500/30 shadow-2xl shadow-pink-500/20 rounded-3xl p-6 overflow-hidden">
+        <motion.div ref={a11yRef} role="dialog" aria-modal="true" initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="relative w-full max-w-md bg-neutral-900 border border-pink-500/30 shadow-2xl shadow-pink-500/20 rounded-3xl p-6 overflow-hidden">
           
           <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-pink-500/20 to-transparent"></div>
           
@@ -19,7 +21,7 @@ export function CoupleModal({ isOpen, onClose }: { isOpen: boolean, onClose: () 
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
               <Heart className="w-5 h-5 text-pink-500 fill-pink-500" /> Nexa Casais
             </h2>
-            <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white bg-white/5 rounded-full transition-colors"><X className="w-4 h-4" /></button>
+            <button onClick={onClose} aria-label="Fechar" className="p-2 text-neutral-400 hover:text-white bg-white/5 rounded-full transition-colors"><X className="w-4 h-4" /></button>
           </div>
 
           <div className="flex flex-col items-center justify-center text-center relative z-10 py-8">

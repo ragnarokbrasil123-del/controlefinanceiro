@@ -6,6 +6,7 @@ import { X, SlidersHorizontal, Loader2, Check, TrendingUp, Briefcase, CreditCard
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
 import { STRATEGIES, DEFAULT_STRATEGY, type FinancialProfile, type IncomeType, type MainGoal, type StrategyId } from "../lib/profile";
+import { useModalA11y } from "../hooks/use-modal-a11y";
 
 /**
  * Edição do perfil financeiro depois do onboarding.
@@ -32,6 +33,7 @@ export function ProfileSettingsModal({
   userId: string;
   onSave?: () => void;
 }) {
+  const a11yRef = useModalA11y(isOpen, onClose);
   const [income, setIncome] = useState("");
   const [incomeType, setIncomeType] = useState<IncomeType | null>(null);
   const [hasDebt, setHasDebt] = useState<boolean | null>(null);
@@ -82,7 +84,7 @@ export function ProfileSettingsModal({
       <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
-        <motion.div
+        <motion.div ref={a11yRef} role="dialog" aria-modal="true"
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -100,7 +102,7 @@ export function ProfileSettingsModal({
                 <p className="text-[11px] text-neutral-500">Define os limites e metas do seu painel</p>
               </div>
             </div>
-            <button onClick={onClose} className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-neutral-400 hover:text-white cursor-pointer">
+            <button onClick={onClose} aria-label="Fechar" className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-neutral-400 hover:text-white cursor-pointer">
               <X className="w-4 h-4" />
             </button>
           </div>

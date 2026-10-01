@@ -6,8 +6,10 @@ import { X, TrendingUp, TrendingDown, Calendar, Wallet, ChevronDown, AlertTriang
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
 import { getUserId } from "../lib/session";
+import { useModalA11y } from "../hooks/use-modal-a11y";
 
 export function TransactionModal({ isOpen, onClose, onSave }: { isOpen: boolean, onClose: () => void, onSave?: () => void }) {
+  const a11yRef = useModalA11y(isOpen, onClose);
   const [type, setType] = useState<'expense' | 'income'>('expense');
   
   const [amount, setAmount] = useState("");
@@ -158,10 +160,10 @@ export function TransactionModal({ isOpen, onClose, onSave }: { isOpen: boolean,
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
-          <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative w-full max-w-lg bg-neutral-900 border border-white/10 rounded-3xl p-6 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+          <motion.div ref={a11yRef} role="dialog" aria-modal="true" initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative w-full max-w-lg bg-neutral-900 border border-white/10 rounded-3xl p-6 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
             <div className="flex justify-between items-center mb-6 shrink-0">
               <h2 className="text-xl font-bold text-white">Novo Lançamento</h2>
-              <button onClick={onClose} className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-neutral-400 hover:text-white">
+              <button onClick={onClose} aria-label="Fechar" className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-neutral-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>

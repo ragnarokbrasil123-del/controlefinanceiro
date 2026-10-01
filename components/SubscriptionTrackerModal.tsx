@@ -4,8 +4,10 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Search, AlertTriangle, ShieldAlert, CreditCard, Sparkles, TrendingDown } from "lucide-react";
 import { formatMoney } from "../lib/format";
 import { detectRecurring } from "../lib/insights-gastos";
+import { useModalA11y } from "../hooks/use-modal-a11y";
 
 export function SubscriptionTrackerModal({ isOpen, onClose, transactions }: { isOpen: boolean, onClose: () => void, transactions: any[] }) {
+  const a11yRef = useModalA11y(isOpen, onClose);
   if (!isOpen) return null;
 
   // Detecção por PADRÃO, não por dicionário de marcas.
@@ -44,7 +46,7 @@ export function SubscriptionTrackerModal({ isOpen, onClose, transactions }: { is
           onClick={onClose}
         />
         
-        <motion.div 
+        <motion.div ref={a11yRef} role="dialog" aria-modal="true" 
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -62,7 +64,7 @@ export function SubscriptionTrackerModal({ isOpen, onClose, transactions }: { is
                 <Search className="w-5 h-5 text-rose-400" />
                 Caçador de Assinaturas
               </h2>
-              <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition-colors">
+              <button onClick={onClose} aria-label="Fechar" className="p-2 text-neutral-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>

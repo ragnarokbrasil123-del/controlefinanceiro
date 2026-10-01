@@ -2,8 +2,10 @@
 
 import { motion, AnimatePresence } from "motion/react";
 import { X, TrendingUp, Edit2, Trash2, CheckCircle2, Clock } from "lucide-react";
+import { useModalA11y } from "../hooks/use-modal-a11y";
 
 export function IncomeListModal({ isOpen, onClose, incomes, onEdit, onDelete, onTogglePaid, formatMoney }: any) {
+  const a11yRef = useModalA11y(isOpen, onClose);
   if (!isOpen) return null;
 
   return (
@@ -13,7 +15,7 @@ export function IncomeListModal({ isOpen, onClose, incomes, onEdit, onDelete, on
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           onClick={onClose} className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         />
-        <motion.div 
+        <motion.div ref={a11yRef} role="dialog" aria-modal="true" 
           initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}
           className="relative w-full max-w-md bg-neutral-900 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] border border-white/10"
         >
@@ -24,7 +26,7 @@ export function IncomeListModal({ isOpen, onClose, incomes, onEdit, onDelete, on
               </div>
               <h2 className="text-xl font-bold text-white tracking-tight">Suas Receitas</h2>
             </div>
-            <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white hover:bg-white/10 rounded-full transition-colors">
+            <button onClick={onClose} aria-label="Fechar" className="p-2 text-neutral-400 hover:text-white hover:bg-white/10 rounded-full transition-colors">
               <X className="w-5 h-5" />
             </button>
           </div>

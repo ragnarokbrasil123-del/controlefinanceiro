@@ -9,6 +9,7 @@ import { STRATEGIES, DEFAULT_STRATEGY, type ProfileInsights, type StrategyId } f
 import { buildAdvisorContext } from "../lib/advisor-context";
 import type { Debt } from "../lib/debt";
 import { getUserId, getAccessToken } from "../lib/session";
+import { useModalA11y } from "../hooks/use-modal-a11y";
 
 /**
  * Conselheiro IA.
@@ -57,6 +58,7 @@ export function AdvisorModal({
   /** Muda quando o usuário troca de mês — invalida o conselho em cache. */
   periodKey: string;
 }) {
+  const a11yRef = useModalA11y(isOpen, onClose);
   const [advice, setAdvice] = useState("");
   const [isFetching, setIsFetching] = useState(false);
   const [fetchedFor, setFetchedFor] = useState<string | null>(null);
@@ -134,7 +136,7 @@ export function AdvisorModal({
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
-          <motion.div
+          <motion.div ref={a11yRef} role="dialog" aria-modal="true"
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -161,7 +163,7 @@ export function AdvisorModal({
                 >
                   <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
                 </button>
-                <button onClick={onClose} className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-neutral-400 hover:text-white cursor-pointer">
+                <button onClick={onClose} aria-label="Fechar" className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-neutral-400 hover:text-white cursor-pointer">
                   <X className="w-4 h-4" />
                 </button>
               </div>

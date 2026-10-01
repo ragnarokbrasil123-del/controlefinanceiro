@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { X, CreditCard, CalendarClock, AlertTriangle, CheckCircle2, Clock, Trash2, Layers, TrendingDown } from "lucide-react";
 import type { ProfileInsights } from "../lib/profile";
 import { formatMoney as fmtMoney } from "../lib/format";
+import { useModalA11y } from "../hooks/use-modal-a11y";
 
 /**
  * Gestão de Cartões — separa o que já venceu do que ainda vai vencer.
@@ -64,6 +65,7 @@ export function CreditCardManagerModal({
   onTogglePaid?: (id: string, current: boolean) => void;
   onDelete?: (id: string) => void;
 }) {
+  const a11yRef = useModalA11y(isOpen, onClose);
   const formatMoney = (val: number) => fmtMoney(val, showValues);
 
   const monthKey = `${activeYear}-${String(activeMonth + 1).padStart(2, '0')}`;
@@ -122,7 +124,7 @@ export function CreditCardManagerModal({
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
-          <motion.div
+          <motion.div ref={a11yRef} role="dialog" aria-modal="true"
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -141,7 +143,7 @@ export function CreditCardManagerModal({
                   <p className="text-[11px] text-neutral-500">Quanto da sua renda já tem dono</p>
                 </div>
               </div>
-              <button onClick={onClose} className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-neutral-400 hover:text-white cursor-pointer">
+              <button onClick={onClose} aria-label="Fechar" className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-neutral-400 hover:text-white cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>

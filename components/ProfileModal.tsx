@@ -7,8 +7,10 @@ import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
 import { AccountManagerModal } from "./AccountManagerModal";
 import { CategoryManagerModal } from "./CategoryManagerModal";
+import { useModalA11y } from "../hooks/use-modal-a11y";
 
 export function ProfileModal({ isOpen, onClose, userEmail, userRole }: { isOpen: boolean, onClose: () => void, userEmail: string, userRole: string }) {
+  const a11yRef = useModalA11y(isOpen, onClose);
   const [newPassword, setNewPassword] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
@@ -55,10 +57,10 @@ export function ProfileModal({ isOpen, onClose, userEmail, userRole }: { isOpen:
         <div className="fixed inset-0 z-[100] flex justify-end">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
           
-          <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: "spring", bounce: 0, duration: 0.4 }} className="relative w-full max-w-sm h-full bg-neutral-900 border-l border-white/10 shadow-2xl p-6 flex flex-col overflow-y-auto">
+          <motion.div ref={a11yRef} role="dialog" aria-modal="true" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: "spring", bounce: 0, duration: 0.4 }} className="relative w-full max-w-sm h-full bg-neutral-900 border-l border-white/10 shadow-2xl p-6 flex flex-col overflow-y-auto">
             <div className="flex justify-between items-center mb-8">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">Meu Perfil</h2>
-              <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white bg-white/5 rounded-full"><X className="w-4 h-4" /></button>
+              <button onClick={onClose} aria-label="Fechar" className="p-2 text-neutral-400 hover:text-white bg-white/5 rounded-full"><X className="w-4 h-4" /></button>
             </div>
 
             {/* Avatar / Info */}

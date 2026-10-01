@@ -6,8 +6,10 @@ import { X, Building, PiggyBank, Home, Save } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
 import { getUserId } from "../lib/session";
+import { useModalA11y } from "../hooks/use-modal-a11y";
 
 export function CoupleWealthModal({ isOpen, onClose, currentData, onSave }: any) {
+  const a11yRef = useModalA11y(isOpen, onClose);
   const [wealth, setWealth] = useState("");
   const [emergency, setEmergency] = useState("");
   const [house, setHouse] = useState("");
@@ -56,10 +58,10 @@ export function CoupleWealthModal({ isOpen, onClose, currentData, onSave }: any)
     <AnimatePresence>
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative w-full max-w-md bg-neutral-900 border border-pink-500/30 rounded-3xl p-6">
+        <motion.div ref={a11yRef} role="dialog" aria-modal="true" initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative w-full max-w-md bg-neutral-900 border border-pink-500/30 rounded-3xl p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-white">Editar Valores do Casal</h2>
-            <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white bg-white/5 rounded-full"><X className="w-4 h-4" /></button>
+            <button onClick={onClose} aria-label="Fechar" className="p-2 text-neutral-400 hover:text-white bg-white/5 rounded-full"><X className="w-4 h-4" /></button>
           </div>
           
           <div className="space-y-4 mb-6">

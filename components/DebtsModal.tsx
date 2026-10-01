@@ -16,6 +16,7 @@ import {
   simulatePayoff, compareStrategies, summarizeDebts,
   type Debt, type DebtKind,
 } from "../lib/debt";
+import { useModalA11y } from "../hooks/use-modal-a11y";
 
 /**
  * Módulo de Dívidas.
@@ -46,6 +47,7 @@ export function DebtsModal({
   monthlyBudgetHint?: number;
   onSave?: () => void;
 }) {
+  const a11yRef = useModalA11y(isOpen, onClose);
   const [debts, setDebts] = useState<Debt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -189,7 +191,7 @@ export function DebtsModal({
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
-          <motion.div
+          <motion.div ref={a11yRef} role="dialog" aria-modal="true"
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}

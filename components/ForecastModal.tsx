@@ -10,6 +10,7 @@ import {
   type Tx,
 } from "../lib/forecast";
 import type { ProfileInsights } from "../lib/profile";
+import { useModalA11y } from "../hooks/use-modal-a11y";
 
 /**
  * Previsão e simulação.
@@ -38,6 +39,7 @@ export function ForecastModal({
   activeYear: number;
   showValues?: boolean;
 }) {
+  const a11yRef = useModalA11y(isOpen, onClose);
   const [cut, setCut] = useState("");
   const [drop, setDrop] = useState("20");
 
@@ -88,7 +90,7 @@ export function ForecastModal({
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
-          <motion.div
+          <motion.div ref={a11yRef} role="dialog" aria-modal="true"
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}

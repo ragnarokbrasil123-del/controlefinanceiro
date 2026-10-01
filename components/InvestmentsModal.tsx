@@ -6,6 +6,7 @@ import { X, LineChart, Plus, Trash2, Pencil, Loader2, TrendingUp, TrendingDown, 
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
 import { formatMoney as fmtMoney } from "../lib/format";
+import { useModalA11y } from "../hooks/use-modal-a11y";
 
 /**
  * Patrimônio — o que você tem e quanto vale hoje.
@@ -49,6 +50,7 @@ export function InvestmentsModal({
   showValues?: boolean;
   onSave?: () => void;
 }) {
+  const a11yRef = useModalA11y(isOpen, onClose);
   const formatMoney = (val: number) => fmtMoney(val, showValues);
   const [positions, setPositions] = useState<Position[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -148,7 +150,7 @@ export function InvestmentsModal({
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
-          <motion.div
+          <motion.div ref={a11yRef} role="dialog" aria-modal="true"
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -166,7 +168,7 @@ export function InvestmentsModal({
                   <p className="text-[11px] text-neutral-500">O que você tem e quanto vale hoje</p>
                 </div>
               </div>
-              <button onClick={onClose} className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-neutral-400 hover:text-white cursor-pointer">
+              <button onClick={onClose} aria-label="Fechar" className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-neutral-400 hover:text-white cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>

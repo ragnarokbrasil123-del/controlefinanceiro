@@ -19,13 +19,13 @@ export const metadata: Metadata = {
   },
 };
 
-// TRUQUE DE MESTRE: Impedir a tela de dar "Zoom" acidental com os dedos
+// Zoom liberado: bloquear o zoom e barreira de acessibilidade real para quem
+// tem baixa visao, e um app financeiro e lido com atencao e com a vista
+// cansada. O ganho de impedir zoom acidental nao paga esse custo.
 export const viewport: Viewport = {
   themeColor: "#0a0a0a",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 };
 
 export default function RootLayout({

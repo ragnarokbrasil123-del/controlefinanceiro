@@ -4,8 +4,10 @@ import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, ChevronLeft, ChevronRight, Calendar as CalendarIcon, TrendingUp, TrendingDown } from "lucide-react";
 import { formatMoney } from "../lib/format";
+import { useModalA11y } from "../hooks/use-modal-a11y";
 
 export function FinancialCalendarModal({ isOpen, onClose, transactions }: { isOpen: boolean, onClose: () => void, transactions: any[] }) {
+  const a11yRef = useModalA11y(isOpen, onClose);
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
@@ -106,7 +108,7 @@ export function FinancialCalendarModal({ isOpen, onClose, transactions }: { isOp
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
-          <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative w-full max-w-5xl h-[95vh] sm:h-[90vh] bg-neutral-900 border border-white/10 rounded-3xl p-4 sm:p-6 shadow-2xl flex flex-col overflow-hidden">
+          <motion.div ref={a11yRef} role="dialog" aria-modal="true" initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative w-full max-w-5xl h-[95vh] sm:h-[90vh] bg-neutral-900 border border-white/10 rounded-3xl p-4 sm:p-6 shadow-2xl flex flex-col overflow-hidden">
             
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
               <div className="flex items-center gap-3">
@@ -127,7 +129,7 @@ export function FinancialCalendarModal({ isOpen, onClose, transactions }: { isOp
                   </div>
                   <button onClick={nextMonth} className="p-2 rounded-full text-neutral-400 hover:text-white transition-colors cursor-pointer"><ChevronRight className="w-4 h-4" /></button>
                 </div>
-                <button onClick={onClose} className="p-2.5 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-neutral-400 hover:text-white">
+                <button onClick={onClose} aria-label="Fechar" className="p-2.5 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-neutral-400 hover:text-white">
                   <X className="w-5 h-5" />
                 </button>
               </div>

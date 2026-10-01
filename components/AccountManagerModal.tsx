@@ -6,6 +6,7 @@ import { X, Plus, Trash2, Wallet, CreditCard, Building2, Loader2, Edit2, Check }
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
 import { getUserId } from "../lib/session";
+import { useModalA11y } from "../hooks/use-modal-a11y";
 
 interface Wallet {
   id: string;
@@ -16,6 +17,7 @@ interface Wallet {
 }
 
 export function AccountManagerModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
+  const a11yRef = useModalA11y(isOpen, onClose);
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [loading, setLoading] = useState(true);
   const [newWalletName, setNewWalletName] = useState("");
@@ -89,7 +91,7 @@ export function AccountManagerModal({ isOpen, onClose }: { isOpen: boolean, onCl
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
-          <motion.div
+          <motion.div ref={a11yRef} role="dialog" aria-modal="true"
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -99,7 +101,7 @@ export function AccountManagerModal({ isOpen, onClose }: { isOpen: boolean, onCl
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
                 <Wallet className="w-5 h-5 text-indigo-400" /> Minhas Contas
               </h2>
-              <button onClick={onClose} className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-neutral-400 hover:text-white">
+              <button onClick={onClose} aria-label="Fechar" className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors text-neutral-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>

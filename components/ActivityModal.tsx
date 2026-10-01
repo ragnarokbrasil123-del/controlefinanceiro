@@ -2,8 +2,10 @@
 
 import { motion, AnimatePresence } from "motion/react";
 import { X, Bell, TrendingUp, TrendingDown, AlertTriangle, Clock } from "lucide-react";
+import { useModalA11y } from "../hooks/use-modal-a11y";
 
 export function ActivityModal({ isOpen, onClose, transactions, dueBills = [] }: { isOpen: boolean, onClose: () => void, transactions: any[], dueBills?: any[] }) {
+  const a11yRef = useModalA11y(isOpen, onClose);
   if (!isOpen) return null;
 
   const recentActivities = transactions.slice(0, 15);
@@ -18,7 +20,7 @@ export function ActivityModal({ isOpen, onClose, transactions, dueBills = [] }: 
           onClick={onClose}
         />
         
-        <motion.div 
+        <motion.div ref={a11yRef} role="dialog" aria-modal="true" 
           initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
           transition={{ type: "spring", bounce: 0, duration: 0.4 }}
           className="relative w-full max-w-sm h-full bg-neutral-900 border-l border-white/10 shadow-2xl p-6 flex flex-col"
@@ -28,7 +30,7 @@ export function ActivityModal({ isOpen, onClose, transactions, dueBills = [] }: 
               <Bell className="w-5 h-5 text-rose-400" />
               Notificações
             </h2>
-            <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white bg-white/5 rounded-full">
+            <button onClick={onClose} aria-label="Fechar" className="p-2 text-neutral-400 hover:text-white bg-white/5 rounded-full">
               <X className="w-4 h-4" />
             </button>
           </div>

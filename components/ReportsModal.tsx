@@ -9,12 +9,14 @@ import {
 import { useState } from "react";
 import { toast } from "./Toast";
 import { formatMoney } from "../lib/format";
+import { useModalA11y } from "../hooks/use-modal-a11y";
 
 const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#6366f1'];
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 export function ReportsModal({ isOpen, onClose, transactions, allTransactions, activeMonth, activeYear, onPrevMonth, onNextMonth }: any) {
+  const a11yRef = useModalA11y(isOpen, onClose);
   const [activeTab, setActiveTab] = useState<'categorias' | 'balanco'>('categorias');
   const [periodFilter, setPeriodFilter] = useState<'month' | 'quarter' | 'semester' | 'year' | 'all'>('month');
 
@@ -257,7 +259,7 @@ export function ReportsModal({ isOpen, onClose, transactions, allTransactions, a
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={onClose} className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           />
-          <motion.div 
+          <motion.div ref={a11yRef} role="dialog" aria-modal="true" 
             initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
             className="relative w-full max-w-2xl bg-neutral-900 sm:rounded-3xl rounded-t-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-white/10"
@@ -300,7 +302,7 @@ export function ReportsModal({ isOpen, onClose, transactions, allTransactions, a
                 <button onClick={handleExportPDF} className="flex items-center gap-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-rose-500/20">
                   <FileText className="w-4 h-4" /> PDF
                 </button>
-                <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white hover:bg-white/10 rounded-full transition-colors">
+                <button onClick={onClose} aria-label="Fechar" className="p-2 text-neutral-400 hover:text-white hover:bg-white/10 rounded-full transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>

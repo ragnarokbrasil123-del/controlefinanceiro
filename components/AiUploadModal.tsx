@@ -6,8 +6,10 @@ import { X, UploadCloud, Camera, Sparkles, Loader2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
 import { getUserId, getAccessToken } from "../lib/session";
+import { useModalA11y } from "../hooks/use-modal-a11y";
 
 export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const a11yRef = useModalA11y(isOpen, onClose);
   const [isUploading, setIsUploading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -82,7 +84,7 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={!isUploading ? onClose : undefined} />
         
-        <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="relative w-full max-w-md bg-neutral-900 border border-indigo-500/30 shadow-2xl shadow-indigo-500/20 rounded-3xl p-6 overflow-hidden">
+        <motion.div ref={a11yRef} role="dialog" aria-modal="true" initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="relative w-full max-w-md bg-neutral-900 border border-indigo-500/30 shadow-2xl shadow-indigo-500/20 rounded-3xl p-6 overflow-hidden">
           
           <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none"></div>
 
@@ -91,7 +93,7 @@ export function AiUploadModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
               <Sparkles className="w-5 h-5 text-indigo-400" /> Leitura por IA
             </h2>
             {!isUploading && (
-              <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white bg-white/5 rounded-full transition-colors cursor-pointer"><X className="w-4 h-4" /></button>
+              <button onClick={onClose} aria-label="Fechar" className="p-2 text-neutral-400 hover:text-white bg-white/5 rounded-full transition-colors cursor-pointer"><X className="w-4 h-4" /></button>
             )}
           </div>
           
