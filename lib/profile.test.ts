@@ -233,6 +233,60 @@ describe('getProfileInsights', () => {
   });
 });
 
+describe('transição has_debt -> tabela debts', () => {
+  const comDivida = { ...perfilBase, has_debt: true };
+  const semDivida = { ...perfilBase, has_debt: false };
+
+  const chamar = (profile: FinancialProfile, debts?: any[]) =>
+    getProfileInsights({
+      profile,
+      allTransactions: meses(3, { type: 'expense', category: 'Contas Fixas', amount: 3000 }),
+      monthIncome: 5000,
+      monthExpense: 3000,
+      monthGargalo: 500,
+      reserveAmount: 20000,
+      debts,
+    });
+
+  it('sem dívida cadastrada, o booleano do onboarding ainda manda', () => {
+    // Senão quem respondeu "sim" e nunca cadastrou sairia da emergência sozinho.
+    expect(chamar(comDivida).stage.id).toBe('emergencia');
+    expect(chamar(comDivida, []).stage.id).toBe('emergencia');
+  });
+
+  it('com dívida cara cadastrada, o saldo manda', () => {
+    const i = chamar(semDivida, [
+      { current_balance: 5000, monthly_rate: 0.14, status: 'ativa' },
+    ]);
+    // Respondeu "não tenho" no onboarding, mas cadastrou rotativo: emergência.
+    expect(i.stage.id).toBe('emergencia');
+  });
+
+  it('dívida barata cadastrada não prende no Estágio 1', () => {
+    // Consignado a 1,8% a.m. não compete com investimento: não bloqueia.
+    const i = chamar(comDivida, [
+      { current_balance: 20000, monthly_rate: 0.018, status: 'ativa' },
+    ]);
+    expect(i.stage.id).not.toBe('emergencia');
+  });
+
+  it('dívida quitada não conta', () => {
+    const i = chamar(comDivida, [
+      { current_balance: 5000, monthly_rate: 0.14, status: 'quitada' },
+    ]);
+    // Só há dívida quitada: cai de volta no booleano, que ainda diz "sim".
+    expect(i.stage.id).toBe('emergencia');
+  });
+
+  it('zerar a dívida cara cadastrada libera o estágio', () => {
+    const i = chamar(comDivida, [
+      { current_balance: 0, monthly_rate: 0.14, status: 'ativa' },
+    ]);
+    expect(i.stage.id).not.toBe('emergencia');
+    expect(i.shouldSuggestContribution).toBe(true);
+  });
+});
+
 describe('getStageLadder', () => {
   it('marca anteriores como concluídos, atual e bloqueados', () => {
     const insights = getProfileInsights({

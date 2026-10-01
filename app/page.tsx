@@ -31,6 +31,7 @@ import { CategoryManagerModal } from "../components/CategoryManagerModal";
 import { PayYourselfFirstModal } from "../components/PayYourselfFirstModal";
 import { CreditCardManagerModal } from "../components/CreditCardManagerModal";
 import { StageRoadmapModal } from "../components/StageRoadmapModal";
+import { DebtsModal } from "../components/DebtsModal";
 import { ProfileSettingsModal } from "../components/ProfileSettingsModal";
 import { InvestmentsModal } from "../components/InvestmentsModal";
 import { supabase } from "../lib/supabase";
@@ -39,6 +40,8 @@ import { getProfileInsights, type FinancialProfile } from "../lib/profile";
 import { AI_ENABLED } from "../lib/features";
 import { formatMoney } from "../lib/format";
 import { getReceiptUrl } from "../lib/receipts";
+import { getUserId } from "../lib/session";
+import { summarizeDebts } from "../lib/debt";
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -65,6 +68,8 @@ export default function Dashboard() {
   const [isRoadmapOpen, setIsRoadmapOpen] = useState(false);
   const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
   const [isInvestmentsOpen, setIsInvestmentsOpen] = useState(false);
+  const [isDebtsOpen, setIsDebtsOpen] = useState(false);
+  const [debts, setDebts] = useState<any[]>([]);
   const [positions, setPositions] = useState<any[]>([]);
   const [wallets, setWallets] = useState<any[]>([]);
   const [activeWalletId, setActiveWalletId] = useState<string | null>(null);
@@ -131,14 +136,16 @@ export default function Dashboard() {
       setUserEmail(session.user.email || "");
       setUserId(session.user.id);
 
-      const [profileResponse, txResponse, walletsResponse, goalsResponse, positionsResponse] = await Promise.all([
+      const [profileResponse, txResponse, walletsResponse, goalsResponse, positionsResponse, debtsResponse] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', session.user.id).single(),
         supabase.from('transactions').select('*').eq('user_id', session.user.id).order('date', { ascending: false }),
         supabase.from('wallets').select('*').eq('user_id', session.user.id),
         supabase.from('goals').select('*').eq('user_id', session.user.id),
-        supabase.from('investments').select('*').eq('user_id', session.user.id)
+        supabase.from('investments').select('*').eq('user_id', session.user.id),
+        supabase.from('debts').select('*').eq('user_id', session.user.id)
       ]);
       if (positionsResponse.data) setPositions(positionsResponse.data);
+      if (debtsResponse.data) setDebts(debtsResponse.data);
       if (profileResponse.data) {
         setUserRole(profileResponse.data.role);
         setProfile(profileResponse.data as FinancialProfile);
@@ -217,6 +224,14 @@ export default function Dashboard() {
 
   // Recarrega só as posições — usado quando o modal de Patrimônio salva, para
   // o estágio e o widget recalcularem sem buscar tudo de novo.
+  async function refreshDebts() {
+    const uid = await getUserId();
+    if (!uid) return;
+    const { data } = await supabase.from('debts').select('*').eq('user_id', uid);
+    if (data) setDebts(data);
+    await refreshProfile();
+  }
+
   async function refreshPositions() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
@@ -344,7 +359,11 @@ export default function Dashboard() {
     monthGargalo: gargalo,
     reserveAmount: reservaAtual,
     positions,
+    debts,
   });
+
+  const debtSummary = summarizeDebts(debts as any);
+  const hasRegisteredDebts = debts.some(d => (d.status ?? 'ativa') === 'ativa');
 
   // Semáforo de 3 faixas, com os cortes vindos do perfil.
   const gargaloTier = comprometimentoRaw > insights.gargaloCritical
@@ -507,6 +526,7 @@ export default function Dashboard() {
                         { label: 'Assinaturas', icon: <Clock className="w-4 h-4" />,         color: 'text-teal-400',    action: () => setIsTrackerOpen(true) },
                         ...(AI_ENABLED ? [{ label: 'Conselheiro IA', icon: <Bot className="w-4 h-4" />, color: 'text-purple-400', action: () => setIsPlannerOpen(true) }] : []),
                         { label: 'Casal',       icon: <Heart className="w-4 h-4" />,         color: 'text-pink-400',    action: () => setIsCoupleOpen(true) },
+                        { label: 'Dívidas',     icon: <TrendingDown className="w-4 h-4" />,    color: 'text-rose-400',    action: () => setIsDebtsOpen(true) },
                         { label: 'Patrimônio',  icon: <LineChart className="w-4 h-4" />,     color: 'text-emerald-400', action: () => setIsInvestmentsOpen(true) },
                         { label: 'Perfil financeiro', icon: <SlidersHorizontal className="w-4 h-4" />, color: 'text-neutral-400', action: () => setIsProfileSettingsOpen(true) },
                       ].map(item => (
@@ -546,7 +566,14 @@ export default function Dashboard() {
             <p className="text-xs text-neutral-400 leading-relaxed sm:border-l sm:border-white/10 sm:pl-4 flex-1">
               {insights.needsOnboarding
                 ? 'Responda 4 perguntas rápidas no seu perfil para o Nexa calibrar os limites ao seu caso.'
-                : insights.stage.priority}
+                : insights.stage.id === 'emergencia' && debtSummary.expensiveTotal > 0
+                  // No Estágio 1 a prioridade vira número: dívida cara restante
+                  // e o que ela cobra por mês. "Quite a dívida" sem valor é
+                  // conselho; com valor é meta.
+                  ? <>Dívida cara restante: <strong className="text-rose-300">{showValues ? formatMoney(debtSummary.expensiveTotal) : 'R$ •••••'}</strong>, custando <strong className="text-rose-300">{showValues ? formatMoney(debtSummary.expensiveMonthlyInterest) : 'R$ •••••'}</strong> por mês só de juros.</>
+                  : insights.stage.id === 'emergencia' && !hasRegisteredDebts && profile?.has_debt
+                    ? 'Você indicou ter dívida. Cadastre-a para o Nexa calcular quanto custa e quando acaba.'
+                    : insights.stage.priority}
             </p>
             <span className="hidden sm:flex items-center gap-1 text-[10px] text-neutral-500 font-semibold uppercase tracking-wider shrink-0">
               Ver jornada <ChevronRight className="w-3.5 h-3.5" />
@@ -847,6 +874,14 @@ export default function Dashboard() {
         insights={insights}
         showValues={showValues}
         onEditProfile={() => { setIsRoadmapOpen(false); setIsProfileSettingsOpen(true); }}
+      />
+      <DebtsModal
+        isOpen={isDebtsOpen}
+        onClose={() => setIsDebtsOpen(false)}
+        userId={userId}
+        showValues={showValues}
+        monthlyBudgetHint={Math.max(0, capacidadePoupanca)}
+        onSave={refreshDebts}
       />
       <InvestmentsModal
         isOpen={isInvestmentsOpen}

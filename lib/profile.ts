@@ -18,6 +18,8 @@
  * testável e para não criar mais uma chamada de getSession().
  */
 
+import { EXPENSIVE_DEBT_RATE } from "./debt";
+
 // ---------------------------------------------------------------------------
 // Tipos
 // ---------------------------------------------------------------------------
@@ -309,13 +311,25 @@ export function computeStage(params: {
   reserveAmount: number;
   investedTotal: number;
   reserveIdeal: number;
+  /** true quando o usuário já cadastrou ao menos uma dívida na tabela `debts` */
+  hasRegisteredDebts?: boolean;
+  /** Soma dos saldos de dívidas CARAS (taxa >= 3% a.m.) */
+  expensiveDebtTotal?: number;
 }): Stage {
   const {
     profile, monthlyCost, monthIncome, monthExpense,
     gargaloPercent, reserveAmount, investedTotal, reserveIdeal,
   } = params;
 
-  const hasDebt = profile?.has_debt === true;
+  // Dívida cara: a tabela `debts` manda quando existir pelo menos uma dívida
+  // cadastrada. O booleano `has_debt` continua valendo apenas enquanto o
+  // usuário ainda não cadastrou nada — senão quem respondeu "sim" no
+  // onboarding e nunca cadastrou ficaria preso no Estágio 1 para sempre,
+  // e quem respondeu "não" sairia mesmo com dívida registrada.
+  const hasDebt = params.hasRegisteredDebts
+    ? (params.expensiveDebtTotal ?? 0) > 0
+    : profile?.has_debt === true;
+
   const spendingMoreThanEarning = monthIncome > 0 && monthExpense >= monthIncome;
   const patrimonio = reserveAmount + investedTotal;
 
@@ -430,8 +444,10 @@ export function getProfileInsights(params: {
   /** Posições cadastradas. Quando existirem, o valor de mercado delas vale
    *  mais que a soma dos aportes para medir patrimônio. */
   positions?: Array<{ invested_amount?: number; current_value?: number }>;
+  /** Dívidas ativas. Quando houver, substituem o booleano has_debt. */
+  debts?: Array<{ current_balance?: number; monthly_rate?: number; status?: string }>;
 }): ProfileInsights {
-  const { profile, allTransactions, monthIncome, monthExpense, monthGargalo, reserveAmount, positions } = params;
+  const { profile, allTransactions, monthIncome, monthExpense, monthGargalo, reserveAmount, positions, debts } = params;
 
   const referenceIncome = getReferenceIncome(profile, allTransactions);
   const monthlyCost = getMonthlyCost(allTransactions, referenceIncome);
@@ -468,9 +484,16 @@ export function getProfileInsights(params: {
 
   const investedTotal = positionsValue !== null ? positionsValue : contributedTotal;
 
+  const activeDebts = (debts ?? []).filter(d => (d.status ?? 'ativa') === 'ativa');
+  const hasRegisteredDebts = activeDebts.length > 0;
+  const expensiveDebtTotal = activeDebts
+    .filter(d => (d.monthly_rate ?? 0) >= EXPENSIVE_DEBT_RATE)
+    .reduce((acc, d) => acc + (d.current_balance ?? 0), 0);
+
   const stage = computeStage({
     profile, referenceIncome, monthlyCost, monthIncome, monthExpense,
     gargaloPercent, reserveAmount, investedTotal, reserveIdeal: ideal,
+    hasRegisteredDebts, expensiveDebtTotal,
   });
 
   const strategyId = profile?.strategy ?? DEFAULT_STRATEGY;
