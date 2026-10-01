@@ -7,6 +7,7 @@ import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
 import { getUserId } from "../lib/session";
 import { useModalA11y } from "../hooks/use-modal-a11y";
+import { confirmDialog } from "./ConfirmDialog";
 
 export function GoalsModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
   const a11yRef = useModalA11y(isOpen, onClose);
@@ -81,7 +82,7 @@ export function GoalsModal({ isOpen, onClose }: { isOpen: boolean, onClose: () =
   };
 
   const handleDelete = async (id: string) => {
-    if(!window.confirm("Deseja apagar essa meta?")) return;
+    if (!(await confirmDialog({ title: "Apagar esta meta?", message: "O progresso registrado nela será perdido.", confirmLabel: "Apagar", danger: true }))) return;
     const { error } = await supabase.from('goals').delete().eq('id', id);
     if (!error) setGoals(goals.filter(g => g.id !== id));
   };

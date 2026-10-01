@@ -7,6 +7,7 @@ import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
 import { getUserId } from "../lib/session";
 import { useModalA11y } from "../hooks/use-modal-a11y";
+import { confirmDialog } from "./ConfirmDialog";
 
 export function CategoryManagerModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
   const a11yRef = useModalA11y(isOpen, onClose);
@@ -56,7 +57,7 @@ export function CategoryManagerModal({ isOpen, onClose }: { isOpen: boolean, onC
   };
 
   const handleDelete = async (id: string) => {
-    if(!window.confirm("Deseja apagar essa categoria? Ela desaparecerá das opções.")) return;
+    if (!(await confirmDialog({ title: "Apagar esta categoria?", message: "Ela desaparecerá das opções de lançamento. Os lançamentos já feitos continuam como estão.", confirmLabel: "Apagar", danger: true }))) return;
     const { error } = await supabase.from('categories').delete().eq('id', id);
     if (!error) setCategories(categories.filter(c => c.id !== id));
   };

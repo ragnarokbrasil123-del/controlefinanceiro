@@ -7,6 +7,7 @@ import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
 import { formatMoney as fmtMoney } from "../lib/format";
 import { useModalA11y } from "../hooks/use-modal-a11y";
+import { confirmDialog } from "./ConfirmDialog";
 
 /**
  * Patrimônio — o que você tem e quanto vale hoje.
@@ -128,7 +129,13 @@ export function InvestmentsModal({
   };
 
   const handleDelete = async (p: Position) => {
-    if (!window.confirm(`Remover "${p.name}" do seu patrimônio?\n\nIsto não apaga nenhum lançamento — só a posição.`)) return;
+    const ok = await confirmDialog({
+      title: `Remover "${p.name}" do patrimônio?`,
+      message: 'Isto não apaga nenhum lançamento — só a posição.',
+      confirmLabel: 'Remover',
+      danger: true,
+    });
+    if (!ok) return;
     const { error } = await supabase.from('investments').delete().eq('id', p.id);
     if (error) { toast("Erro ao remover.", "error"); return; }
     setPositions(prev => prev.filter(x => x.id !== p.id));

@@ -37,7 +37,8 @@ import { ForecastModal } from "../components/ForecastModal";
 import { ProfileSettingsModal } from "../components/ProfileSettingsModal";
 import { InvestmentsModal } from "../components/InvestmentsModal";
 import { supabase } from "../lib/supabase";
-import { toast } from "../components/Toast";
+import { toast, toastWithUndo } from "../components/Toast";
+import { confirmDialog } from "../components/ConfirmDialog";
 import { getProfileInsights, type FinancialProfile } from "../lib/profile";
 import { AI_ENABLED } from "../lib/features";
 import { formatMoney } from "../lib/format";
@@ -253,30 +254,47 @@ export default function Dashboard() {
     if (!tx) return;
 
     if (tx.installment_group) {
-      const confirmBulk = window.confirm("Este lançamento se repete. Deseja excluir TODAS as parcelas a partir desta data?\n\n[OK] = Excluir esta e as futuras\n[Cancelar] = Excluir apenas esta");
-      
-      if (confirmBulk) {
+      const apagarSerie = await confirmDialog({
+        title: 'Este lançamento se repete',
+        message: 'Quer apagar esta parcela e todas as futuras, ou apenas esta?',
+        confirmLabel: 'Esta e as futuras',
+        cancelLabel: 'Apenas esta',
+        danger: true,
+      });
+
+      if (apagarSerie) {
+        // Guarda as linhas antes de apagar, para poder restaurar no desfazer.
+        const removidas = allTransactions.filter(
+          t => t.installment_group === tx.installment_group && t.date >= tx.date,
+        );
+
         const { error } = await supabase.from('transactions').delete()
           .eq('installment_group', tx.installment_group)
           .gte('date', tx.date);
-          
-        if (!error) {
-          setAllTransactions(prev => prev.filter(t => !(t.installment_group === tx.installment_group && t.date >= tx.date)));
-          toast("Série de parcelas excluída.", "success");
-        } else {
-          toast("Erro ao excluir série.", "error");
-        }
+
+        if (error) { toast("Erro ao excluir série.", "error"); return; }
+
+        setAllTransactions(prev => prev.filter(t => !(t.installment_group === tx.installment_group && t.date >= tx.date)));
+        toastWithUndo(`${removidas.length} parcelas excluídas.`, async () => {
+          const { error: undoError } = await supabase.from('transactions').insert(removidas);
+          if (undoError) { toast("Não consegui desfazer.", "error"); return; }
+          setAllTransactions(prev => [...prev, ...removidas].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '')));
+          toast("Parcelas restauradas.", "success");
+        });
         return;
       }
     }
 
     const { error } = await supabase.from('transactions').delete().eq('id', id);
-    if (!error) {
-      setAllTransactions(prev => prev.filter(t => t.id !== id));
-      toast("Lançamento excluído.", "success");
-    } else {
-      toast("Erro ao excluir.", "error");
-    }
+    if (error) { toast("Erro ao excluir.", "error"); return; }
+
+    setAllTransactions(prev => prev.filter(t => t.id !== id));
+    toastWithUndo("Lançamento excluído.", async () => {
+      const { error: undoError } = await supabase.from('transactions').insert([tx]);
+      if (undoError) { toast("Não consegui desfazer.", "error"); return; }
+      setAllTransactions(prev => [...prev, tx].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '')));
+      toast("Lançamento restaurado.", "success");
+    });
   }
 
   async function handleTogglePaid(id: string, currentStatus: boolean) {
@@ -475,13 +493,25 @@ export default function Dashboard() {
               <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-2">Visão Geral</h1>
               <p className="text-neutral-400 text-sm md:text-base">Acompanhe e gerencie seu patrimônio</p>
             </div>
-            <button 
+            <button
               onClick={() => setShowValues(!showValues)}
               className="p-2.5 rounded-full bg-white/5 border border-white/10 text-neutral-400 hover:text-white hover:bg-white/10 transition-colors"
+              aria-label={showValues ? "Ocultar valores" : "Mostrar valores"}
               title={showValues ? "Ocultar valores" : "Mostrar valores"}
             >
               {showValues ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
             </button>
+
+            {/* Seletor de mês global.
+                Antes vivia dentro do cabeçalho da seção "Organização", no meio
+                da página — o usuário trocava os quatro cards do topo sem
+                perceber de onde vinha a mudança. Aqui ele fica junto do título,
+                deixando claro que escopa tudo. */}
+            <div className="flex items-center gap-1 bg-white/5 p-1 rounded-full border border-white/10 w-fit">
+              <button onClick={handlePrevMonth} aria-label="Mês anterior" className="p-1.5 rounded-full text-neutral-400 hover:text-white transition-colors cursor-pointer"><ChevronLeft className="w-4 h-4" /></button>
+              <div className="w-32 text-center font-medium text-xs text-white tracking-wider uppercase">{MONTHS[activeMonth]} <span className="text-neutral-500">{activeYear}</span></div>
+              <button onClick={handleNextMonth} aria-label="Próximo mês" className="p-1.5 rounded-full text-neutral-400 hover:text-white transition-colors cursor-pointer"><ChevronRight className="w-4 h-4" /></button>
+            </div>
           </div>
           
           {/* Atalhos: 3 ações primárias + menu. Antes eram 11 chips coloridos
@@ -757,11 +787,6 @@ export default function Dashboard() {
                 <button onClick={() => setIsCategoryOpen(true)} className="text-xs bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 px-2.5 py-1 rounded-full font-medium transition-colors border border-indigo-500/20">
                   + Categorias
                 </button>
-              </div>
-              <div className="flex items-center gap-1 bg-white/5 p-1 rounded-full border border-white/10 w-fit">
-                <button onClick={handlePrevMonth} className="p-1.5 rounded-full text-neutral-400 hover:text-white transition-colors cursor-pointer"><ChevronLeft className="w-4 h-4" /></button>
-                <div className="w-32 text-center font-medium text-xs text-white tracking-wider uppercase">{MONTHS[activeMonth]} <span className="text-neutral-500">{activeYear}</span></div>
-                <button onClick={handleNextMonth} className="p-1.5 rounded-full text-neutral-400 hover:text-white transition-colors cursor-pointer"><ChevronRight className="w-4 h-4" /></button>
               </div>
             </motion.div>
 

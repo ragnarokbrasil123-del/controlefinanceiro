@@ -4,6 +4,7 @@ import "./globals.css";
 import { BottomNav } from "../components/BottomNav";
 import { InstallPrompt } from "../components/InstallPrompt";
 import { ToastContainer } from "../components/Toast";
+import { ConfirmDialogContainer } from "../components/ConfirmDialog";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -40,6 +41,7 @@ export default function RootLayout({
         <BottomNav />
         <InstallPrompt />
         <ToastContainer />
+        <ConfirmDialogContainer />
       </body>
     </html>
   );

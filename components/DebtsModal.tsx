@@ -17,6 +17,7 @@ import {
   type Debt, type DebtKind,
 } from "../lib/debt";
 import { useModalA11y } from "../hooks/use-modal-a11y";
+import { confirmDialog } from "./ConfirmDialog";
 
 /**
  * Módulo de Dívidas.
@@ -162,7 +163,13 @@ export function DebtsModal({
   };
 
   const handleDelete = async (d: Debt) => {
-    if (!window.confirm(`Remover "${d.name}"?\n\nIsto apaga o registro e o histórico de pagamentos dela.`)) return;
+    const ok = await confirmDialog({
+      title: `Remover "${d.name}"?`,
+      message: 'Isto apaga o registro e o histórico de pagamentos dela.',
+      confirmLabel: 'Remover',
+      danger: true,
+    });
+    if (!ok) return;
     const { error } = await supabase.from('debts').delete().eq('id', d.id);
     if (error) { toast("Erro ao remover.", "error"); return; }
     setDebts(prev => prev.filter(x => x.id !== d.id));

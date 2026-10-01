@@ -10,6 +10,11 @@ interface ToastItem {
   id: string;
   message: string;
   type: ToastType;
+  /** Rotulo do botao de acao (ex.: "Desfazer") */
+  actionLabel?: string;
+  /** Id usado para despachar a acao de volta a quem criou o toast */
+  actionId?: string;
+  durationMs?: number;
 }
 
 // Função global para disparar toasts de qualquer lugar
@@ -17,6 +22,26 @@ export function toast(message: string, type: ToastType = "success") {
   window.dispatchEvent(
     new CustomEvent("nexa:toast", { detail: { message, type } })
   );
+}
+
+/**
+ * Toast com desfazer.
+ *
+ * O app nao tinha undo em lugar nenhum: a confirmacao era a unica rede de
+ * seguranca, e num app de dinheiro excluir uma serie de parcelas sem volta e
+ * arriscado. Aqui a acao ja aconteceu na tela, e  reverte se o usuario
+ * clicar dentro da janela.
+ */
+export function toastWithUndo(message: string, onUndo: () => void, durationMs = 7000) {
+  const actionId = crypto.randomUUID();
+  const handler = () => { onUndo(); window.removeEventListener("nexa:toast-action:" + actionId, handler); };
+  window.addEventListener("nexa:toast-action:" + actionId, handler);
+  // Se o usuario nao desfizer, o listener morre junto com a janela do toast.
+  setTimeout(() => window.removeEventListener("nexa:toast-action:" + actionId, handler), durationMs + 500);
+
+  window.dispatchEvent(new CustomEvent("nexa:toast", {
+    detail: { message, type: "info" as ToastType, actionLabel: "Desfazer", actionId, durationMs },
+  }));
 }
 
 const ICONS = {
@@ -42,10 +67,10 @@ export function ToastContainer() {
 
   useEffect(() => {
     const handler = (e: Event) => {
-      const { message, type } = (e as CustomEvent).detail;
+      const { message, type, actionLabel, actionId, durationMs } = (e as CustomEvent).detail;
       const id = crypto.randomUUID();
-      setToasts((prev) => [...prev, { id, message, type }]);
-      setTimeout(() => removeToast(id), 4000);
+      setToasts((prev) => [...prev, { id, message, type, actionLabel, actionId }]);
+      setTimeout(() => removeToast(id), durationMs ?? 4000);
     };
 
     window.addEventListener("nexa:toast", handler);
@@ -65,9 +90,23 @@ export function ToastContainer() {
             className={`pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-2xl border backdrop-blur-xl shadow-2xl max-w-[320px] ${STYLES[t.type]}`}
           >
             {ICONS[t.type]}
-            <p className="text-sm text-white leading-snug flex-1">{t.message}</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-white leading-snug">{t.message}</p>
+              {t.actionLabel && t.actionId && (
+                <button
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent("nexa:toast-action:" + t.actionId));
+                    removeToast(t.id);
+                  }}
+                  className="mt-1.5 text-xs font-bold text-indigo-300 hover:text-indigo-200 underline underline-offset-2 cursor-pointer"
+                >
+                  {t.actionLabel}
+                </button>
+              )}
+            </div>
             <button
               onClick={() => removeToast(t.id)}
+              aria-label="Fechar aviso"
               className="text-neutral-400 hover:text-white transition-colors shrink-0 mt-0.5"
             >
               <X className="w-4 h-4" />
