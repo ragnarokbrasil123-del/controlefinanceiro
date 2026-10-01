@@ -1,5 +1,6 @@
-import { useMemo } from "react";
 "use client";
+
+import { useMemo } from "react";
 
 import { motion, AnimatePresence } from "motion/react";
 import { X, PieChart, AlertTriangle, Repeat, Coins, TrendingUp, TrendingDown } from "lucide-react";
