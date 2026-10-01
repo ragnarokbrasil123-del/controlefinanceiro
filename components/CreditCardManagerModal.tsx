@@ -70,7 +70,9 @@ export function CreditCardManagerModal({
 
   const monthKey = `${activeYear}-${String(activeMonth + 1).padStart(2, '0')}`;
 
-  const cardTxs = transactions.filter(t => CARD_CATEGORIES.includes(t.category ?? ''));
+  // Só agrupa com o modal aberto: o {isOpen && ...} esconde a renderização,
+  // não a execução, e isto rodava a cada render do dashboard.
+  const cardTxs = !isOpen ? [] : transactions.filter(t => CARD_CATEGORIES.includes(t.category ?? ''));
 
   // Fatura do mês ativo
   const fatura = cardTxs

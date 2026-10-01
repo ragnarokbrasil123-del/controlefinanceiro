@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 "use client";
 
 import { motion, AnimatePresence } from "motion/react";
@@ -39,14 +40,40 @@ export function SpendingInsightsModal({
   const formatMoney = (v: number) => fmtMoney(v, showValues);
   const currentMonth = `${activeYear}-${String(activeMonth + 1).padStart(2, '0')}`;
 
-  const breakdown = breakdownByCategory({ monthTransactions, allTransactions, currentMonth, income });
-  const anomalies = detectAnomalies(breakdown);
-  const recurring = detectRecurring(allTransactions);
-  const invisible = detectInvisibleSpending(monthTransactions);
+  /**
+   * Só calcula com o modal aberto.
+   *
+   * Sem este useMemo, as quatro análises rodavam no corpo do componente a
+   * CADA render do dashboard — incluindo a cada tecla digitada na busca —
+   * mesmo com o modal fechado, porque o `{isOpen && ...}` esconde a
+   * renderização, não a execução. `detectRecurring` percorre o histórico
+   * inteiro e agrupa por título: é a mais cara de todas.
+   *
+   * Durante a animação de saída o AnimatePresence reaproveita o resultado
+   * anterior, então devolver null com o modal fechado é seguro.
+   */
+  const data = useMemo(() => {
+    if (!isOpen) return null;
+    const breakdown = breakdownByCategory({ monthTransactions, allTransactions, currentMonth, income });
+    const recurring = detectRecurring(allTransactions);
+    return {
+      breakdown,
+      anomalies: detectAnomalies(breakdown),
+      recurring,
+      invisible: detectInvisibleSpending(monthTransactions),
+      recurringMonthly: recurring.reduce((a, r) => a + r.monthlyAmount, 0),
+      totalGasto: breakdown.reduce((a, b) => a + b.amount, 0),
+      semHistorico: breakdown.every(b => b.variationPercent === null),
+    };
+  }, [isOpen, monthTransactions, allTransactions, currentMonth, income]);
 
-  const recurringMonthly = recurring.reduce((a, r) => a + r.monthlyAmount, 0);
-  const totalGasto = breakdown.reduce((a, b) => a + b.amount, 0);
-  const semHistorico = breakdown.every(b => b.variationPercent === null);
+  const breakdown = data?.breakdown ?? [];
+  const anomalies = data?.anomalies ?? [];
+  const recurring = data?.recurring ?? [];
+  const invisible = data?.invisible ?? { count: 0, total: 0, averageTicket: 0, topCategory: null };
+  const recurringMonthly = data?.recurringMonthly ?? 0;
+  const totalGasto = data?.totalGasto ?? 0;
+  const semHistorico = data?.semHistorico ?? true;
 
   return (
     <AnimatePresence>

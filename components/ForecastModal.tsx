@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, CalendarClock, AlertTriangle, TrendingDown, Sparkles, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { formatMoney as fmtMoney } from "../lib/format";
@@ -46,16 +46,24 @@ export function ForecastModal({
   const formatMoney = (v: number) => fmtMoney(v, showValues);
   const fromPeriod = `${activeYear}-${String(activeMonth + 1).padStart(2, '0')}`;
 
-  const forecast = forecastMonths({
-    allTransactions,
-    fromPeriod,
-    monthlyCost: insights.monthlyCost,
-    medianIncome: insights.referenceIncome,
-    months: 3,
-  });
+  // Só projeta com o modal aberto: `{isOpen && ...}` esconde a renderização,
+  // não a execução, e isto rodava a cada render do dashboard.
+  const data = useMemo(() => {
+    if (!isOpen) return null;
+    const forecast = forecastMonths({
+      allTransactions,
+      fromPeriod,
+      monthlyCost: insights.monthlyCost,
+      medianIncome: insights.referenceIncome,
+      months: 3,
+    });
+    const bills = upcomingBills(allTransactions);
+    return { forecast, bills, apertadas: tightWeeks(bills, insights.referenceIncome * 0.25) };
+  }, [isOpen, allTransactions, fromPeriod, insights.monthlyCost, insights.referenceIncome]);
 
-  const bills = upcomingBills(allTransactions);
-  const apertadas = tightWeeks(bills, insights.referenceIncome * 0.25);
+  const forecast = data?.forecast ?? [];
+  const bills = data?.bills ?? [];
+  const apertadas = data?.apertadas ?? [];
 
   const semDados = insights.monthlyCost <= 0 && insights.referenceIncome <= 0;
 
