@@ -11,7 +11,9 @@ import { getUserId, getAccessToken } from "../lib/session";
 
 const CATEGORIES = ["Contas Fixas", "Variáveis", "Investimentos"];
 
-export function BudgetModal({ isOpen, onClose, transactions, currentIncome, activeMonth }: { isOpen: boolean, onClose: () => void, transactions: any[], currentIncome: number, activeMonth: number }) {
+export function BudgetModal({ isOpen, onClose, transactions, currentIncome, activeMonth, activeYear }: { isOpen: boolean, onClose: () => void, transactions: any[], currentIncome: number, activeMonth: number, activeYear: number }) {
+  // Competencia do orcamento, no mesmo formato YYYY-MM usado no banco.
+  const budgetMonth = activeYear + "-" + String(activeMonth + 1).padStart(2, "0");
   const [budgets, setBudgets] = useState<Record<string, number>>({
     "Contas Fixas": 0,
     "Variáveis": 0,
@@ -24,44 +26,57 @@ export function BudgetModal({ isOpen, onClose, transactions, currentIncome, acti
     if (isOpen) {
       fetchBudgets();
     }
-  }, [isOpen]);
+    // budgetMonth entra nas dependências: trocar de mês no dashboard e reabrir
+    // precisa recarregar o orçamento daquela competência, não repetir a anterior.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, budgetMonth]);
 
   const fetchBudgets = async () => {
     const userId = await getUserId();
-    let query = supabase.from('budgets').select('*');
-    if (userId) query = query.eq('user_id', userId);
+    if (!userId) return;
 
-    const { data, error } = await query;
-    if (data && data.length > 0) {
-      const bMap: Record<string, number> = {};
-      data.forEach(b => {
-        bMap[b.category] = b.amount;
-      });
-      setBudgets(prev => ({ ...prev, ...bMap }));
-    }
+    // Orçamento é por mês. Buscar sem filtrar competência traria o teto de
+    // outro período e o consumo seria medido contra o número errado.
+    const { data } = await supabase
+      .from('budgets')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('month', budgetMonth);
+
+    const bMap: Record<string, number> = { "Contas Fixas": 0, "Variáveis": 0, "Investimentos": 0 };
+    if (data) data.forEach(b => { bMap[b.category] = b.amount; });
+    setBudgets(bMap);
   };
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
       const userId = await getUserId();
-
-      // Delete existing budgets for this user (or just generic ones if no user)
-      if (userId) {
-        await supabase.from('budgets').delete().eq('user_id', userId);
-      } else {
-        await supabase.from('budgets').delete().is('user_id', null);
+      if (!userId) {
+        toast("Sessão expirada. Faça login novamente.", "error");
+        return;
       }
+
+      // ATENÇÃO: este delete precisa ser escopado ao mês.
+      // Antes era `.eq('user_id', userId)` apenas — apagava TODOS os
+      // orçamentos do usuário a cada salvamento. Com a coluna `month`, isso
+      // destruiria o histórico inteiro ao editar um único mês.
+      await supabase
+        .from('budgets')
+        .delete()
+        .eq('user_id', userId)
+        .eq('month', budgetMonth);
 
       const inserts = Object.keys(budgets).map(cat => ({
         user_id: userId,
         category: cat,
         amount: budgets[cat] || 0,
+        month: budgetMonth,
       }));
 
       const { error } = await supabase.from('budgets').insert(inserts);
       if (error) throw error;
-      toast("🌟 Orçamentos salvos com sucesso!", "success");
+      toast("🌟 Orçamento do mês salvo!", "success");
       onClose();
     } catch (err: any) {
       toast("Erro ao salvar orçamentos: " + err.message, "error");

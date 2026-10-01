@@ -32,6 +32,7 @@ import { PayYourselfFirstModal } from "../components/PayYourselfFirstModal";
 import { CreditCardManagerModal } from "../components/CreditCardManagerModal";
 import { StageRoadmapModal } from "../components/StageRoadmapModal";
 import { DebtsModal } from "../components/DebtsModal";
+import { SpendingInsightsModal } from "../components/SpendingInsightsModal";
 import { ProfileSettingsModal } from "../components/ProfileSettingsModal";
 import { InvestmentsModal } from "../components/InvestmentsModal";
 import { supabase } from "../lib/supabase";
@@ -69,6 +70,7 @@ export default function Dashboard() {
   const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
   const [isInvestmentsOpen, setIsInvestmentsOpen] = useState(false);
   const [isDebtsOpen, setIsDebtsOpen] = useState(false);
+  const [isSpendingOpen, setIsSpendingOpen] = useState(false);
   const [debts, setDebts] = useState<any[]>([]);
   const [positions, setPositions] = useState<any[]>([]);
   const [wallets, setWallets] = useState<any[]>([]);
@@ -526,6 +528,7 @@ export default function Dashboard() {
                         { label: 'Assinaturas', icon: <Clock className="w-4 h-4" />,         color: 'text-teal-400',    action: () => setIsTrackerOpen(true) },
                         ...(AI_ENABLED ? [{ label: 'Conselheiro IA', icon: <Bot className="w-4 h-4" />, color: 'text-purple-400', action: () => setIsPlannerOpen(true) }] : []),
                         { label: 'Casal',       icon: <Heart className="w-4 h-4" />,         color: 'text-pink-400',    action: () => setIsCoupleOpen(true) },
+                        { label: 'Raio-x dos gastos', icon: <PieChartIcon className="w-4 h-4" />, color: 'text-amber-400', action: () => setIsSpendingOpen(true) },
                         { label: 'Dívidas',     icon: <TrendingDown className="w-4 h-4" />,    color: 'text-rose-400',    action: () => setIsDebtsOpen(true) },
                         { label: 'Patrimônio',  icon: <LineChart className="w-4 h-4" />,     color: 'text-emerald-400', action: () => setIsInvestmentsOpen(true) },
                         { label: 'Perfil financeiro', icon: <SlidersHorizontal className="w-4 h-4" />, color: 'text-neutral-400', action: () => setIsProfileSettingsOpen(true) },
@@ -872,13 +875,23 @@ export default function Dashboard() {
       <WalletsModal isOpen={isWalletsOpen} onClose={() => setIsWalletsOpen(false)} userId={userId} />
       <FinancialCalendarModal isOpen={isCalendarOpen} onClose={() => setIsCalendarOpen(false)} transactions={allTransactions} />
 
-      <BudgetModal isOpen={isBudgetOpen} onClose={() => setIsBudgetOpen(false)} transactions={allTransactions} currentIncome={rendaLiquida} activeMonth={activeMonth} />
+      <BudgetModal isOpen={isBudgetOpen} onClose={() => setIsBudgetOpen(false)} transactions={allTransactions} currentIncome={rendaLiquida} activeMonth={activeMonth} activeYear={activeYear} />
       <StageRoadmapModal
         isOpen={isRoadmapOpen}
         onClose={() => setIsRoadmapOpen(false)}
         insights={insights}
         showValues={showValues}
         onEditProfile={() => { setIsRoadmapOpen(false); setIsProfileSettingsOpen(true); }}
+      />
+      <SpendingInsightsModal
+        isOpen={isSpendingOpen}
+        onClose={() => setIsSpendingOpen(false)}
+        monthTransactions={currentMonthTransactions}
+        allTransactions={allTransactions}
+        activeMonth={activeMonth}
+        activeYear={activeYear}
+        income={rendaLiquida}
+        showValues={showValues}
       />
       <DebtsModal
         isOpen={isDebtsOpen}

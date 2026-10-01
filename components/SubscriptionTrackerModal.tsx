@@ -3,27 +3,31 @@
 import { motion, AnimatePresence } from "motion/react";
 import { X, Search, AlertTriangle, ShieldAlert, CreditCard, Sparkles, TrendingDown } from "lucide-react";
 import { formatMoney } from "../lib/format";
+import { detectRecurring } from "../lib/insights-gastos";
 
 export function SubscriptionTrackerModal({ isOpen, onClose, transactions }: { isOpen: boolean, onClose: () => void, transactions: any[] }) {
   if (!isOpen) return null;
 
-  // O algoritmo que vasculha nomes
-  const keywords = ['netflix', 'spotify', 'amazon', 'prime', 'academia', 'gympass', 'smartfit', 'internet', 'claro', 'vivo', 'tim', 'youtube', 'hbo', 'disney', 'apple', 'icloud', 'xbox', 'playstation', 'oi', 'banda larga', 'wifi'];
-  const essentialKeywords = ['agua', 'água', 'luz', 'energia', 'iptu', 'ipva', 'aluguel', 'condominio', 'condomínio', 'gás', 'gas', 'cref', 'imposto', 'escola', 'faculdade'];
-  
-  // Pegamos as transações que são despesas
-  const recentTx = transactions.filter(t => t.type === 'expense');
+  // Detecção por PADRÃO, não por dicionário de marcas.
+  //
+  // Antes isto era uma lista de 21 palavras ('netflix', 'spotify'...) que não
+  // detectava recorrência: detectava marcas que alguém digitou um dia. Perdia
+  // Alura, seguro do carro, mensalidade do contador e qualquer serviço
+  // regional ou novo — e marcava TODA despesa de "Contas Fixas" como
+  // assinatura.
+  //
+  // Agora: mesmo título normalizado, valor estável, em meses distintos.
+  const detected = detectRecurring(transactions);
 
-  // Filtramos aquelas que parecem assinaturas (excluindo as essenciais)
-  const subscriptions = recentTx.filter(t => {
-    const titleLower = t.title.toLowerCase();
-    if (essentialKeywords.some(k => titleLower.includes(k))) return false;
-    
-    return keywords.some(k => titleLower.includes(k)) || t.category === 'Contas Fixas';
-  });
-
-  // Para não duplicar se você pagou dois meses seguidos, vamos agrupar pelo nome
-  const uniqueSubscriptions = Array.from(new Map(subscriptions.map(item => [item.title.toLowerCase(), item])).values());
+  const uniqueSubscriptions = detected.map(r => ({
+    id: r.pattern,
+    title: r.displayName,
+    amount: r.monthlyAmount,
+    category: r.category,
+    occurrences: r.occurrences,
+    monthsSpan: r.monthsSpan,
+    confidence: r.confidence,
+  }));
 
   const totalMonthly = uniqueSubscriptions.reduce((acc, t) => acc + t.amount, 0);
   const totalYearly = totalMonthly * 12;
