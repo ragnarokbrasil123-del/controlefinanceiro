@@ -855,6 +855,11 @@ export default function Dashboard() {
         transactions={currentMonthTransactions}
         insights={insights}
         strategyId={profile?.strategy}
+        allTransactions={allTransactions}
+        debts={debts as any}
+        activeMonth={activeMonth}
+        activeYear={activeYear}
+        incomeType={profile?.income_type}
         periodKey={`${activeYear}-${activeMonth}`}
       />
       <SubscriptionTrackerModal isOpen={isTrackerOpen} onClose={() => setIsTrackerOpen(false)} transactions={allTransactions} />

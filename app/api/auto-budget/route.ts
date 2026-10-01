@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import { requireUser } from '../../../lib/api-auth';
+import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit';
 
 export async function POST(req: Request) {
   try {
     const auth = await requireUser(req);
     if (auth.response) return auth.response;
+
+    const limit = await checkRateLimit(auth.db, auth.user.id, 'auto-budget');
+    if (!limit.allowed) return rateLimitResponse(limit);
 
     const body = await req.json();
     const { income } = body;

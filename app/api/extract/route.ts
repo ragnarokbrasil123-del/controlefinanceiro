@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import { requireUser } from '../../../lib/api-auth';
+import { checkRateLimit, rateLimitResponse } from '../../../lib/rate-limit';
 
 export async function POST(request: Request) {
   try {
     const auth = await requireUser(request);
     if (auth.response) return auth.response;
+
+    const limit = await checkRateLimit(auth.db, auth.user.id, 'extract');
+    if (!limit.allowed) return rateLimitResponse(limit);
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
@@ -17,6 +21,19 @@ export async function POST(request: Request) {
     if (!apiKey) {
       return NextResponse.json({ error: "Recursos de IA estão desativados nesta instalação." }, { status: 503 });
     }
+
+    // Correções que o usuário já fez: a IA passa a acertar o que ela errou
+    // antes, em vez de repetir o mesmo engano a cada foto do mesmo lugar.
+    const { data: corrections } = await auth.db
+      .from('category_corrections')
+      .select('title_pattern, to_category, hits')
+      .eq('user_id', auth.user.id)
+      .order('hits', { ascending: false })
+      .limit(15);
+
+    const learnedBlock = corrections && corrections.length > 0
+      ? `\nAPRENDIZADO DESTE USUÁRIO (prevalece sobre o seu palpite):\nQuando a descrição contiver estes termos, use a categoria indicada:\n${corrections.map((c: any) => `- "${c.title_pattern}" -> ${c.to_category}`).join('\n')}`
+      : '';
 
     const bytes = await file.arrayBuffer();
     const base64Data = Buffer.from(bytes).toString("base64");
@@ -49,6 +66,7 @@ O JSON deve ter esta estrutura exata de lista:
 ]
 Se houver apenas um gasto ou for um comprovante PIX único, retorne uma lista com 1 objeto. O "amount" deve ser sempre um número float. 
 REGRA CRUCIAL DE CATEGORIA: Para despesas ("expense"), o campo "category" DEVE OBRIGATORIAMENTE ser um destes quatro: "Contas Fixas", "Variáveis", "Cartões" ou "Investimentos". Para receitas ("income"), use "Salário" ou "Renda Extra". É terminantemente proibido usar outras categorias.
+${learnedBlock}
 `;
 
     const requestBody = {

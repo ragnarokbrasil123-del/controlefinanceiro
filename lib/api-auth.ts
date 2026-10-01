@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { User } from '@supabase/supabase-js';
+import type { User, SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Valida o JWT do Supabase enviado pelo cliente nas rotas de IA.
@@ -14,7 +14,10 @@ import type { User } from '@supabase/supabase-js';
  */
 export async function requireUser(
   req: Request,
-): Promise<{ user: User; response?: never } | { user?: never; response: Response }> {
+): Promise<
+  | { user: User; db: SupabaseClient; response?: never }
+  | { user?: never; db?: never; response: Response }
+> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -34,8 +37,16 @@ export async function requireUser(
   }
 
   const token = authHeader.replace('Bearer ', '');
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
-  const { data: { user }, error } = await supabase.auth.getUser(token);
+
+  // Cliente com o token do usuário no header: assim a RLS enxerga auth.uid()
+  // e a rota consegue ler e gravar como ele (rate limit, histórico de
+  // conselhos) sem precisar de service role.
+  const db = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const { data: { user }, error } = await db.auth.getUser(token);
 
   if (error || !user) {
     return {
@@ -43,5 +54,5 @@ export async function requireUser(
     };
   }
 
-  return { user };
+  return { user, db };
 }

@@ -6,6 +6,7 @@ import { X, TrendingUp, TrendingDown, Calendar, Save, Loader2, ChevronDown, Aler
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
 import { getUserId } from "../lib/session";
+import { recordCorrection } from "../lib/corrections-db";
 
 interface Transaction {
   id: string;
@@ -85,6 +86,14 @@ export function EditTransactionModal({
       }).eq('id', transaction.id);
 
       if (error) throw error;
+
+      // Se o usuário trocou a categoria, o app aprende: a próxima sugestão
+      // para um título parecido já vem corrigida. Falha aqui não atrapalha o
+      // salvamento — aprender é bônus.
+      if (transaction.category && transaction.category !== category) {
+        const uid = await getUserId();
+        if (uid) await recordCorrection(uid, title, transaction.category, category);
+      }
 
       toast("🎉 Lançamento atualizado com sucesso!", "success");
       onClose();

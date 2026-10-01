@@ -6,6 +6,8 @@ import { X, Bot, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
 import { supabase } from "../lib/supabase";
 import { STRATEGIES, DEFAULT_STRATEGY, type ProfileInsights, type StrategyId } from "../lib/profile";
+import { buildAdvisorContext } from "../lib/advisor-context";
+import type { Debt } from "../lib/debt";
 import { getUserId, getAccessToken } from "../lib/session";
 
 /**
@@ -32,6 +34,11 @@ export function AdvisorModal({
   transactions,
   insights,
   strategyId,
+  allTransactions,
+  debts,
+  activeMonth,
+  activeYear,
+  incomeType,
   periodKey,
 }: {
   isOpen: boolean;
@@ -42,6 +49,11 @@ export function AdvisorModal({
   transactions: any[];
   insights: ProfileInsights;
   strategyId?: StrategyId | null;
+  allTransactions: any[];
+  debts: Debt[];
+  activeMonth: number;
+  activeYear: number;
+  incomeType?: string | null;
   /** Muda quando o usuário troca de mês — invalida o conselho em cache. */
   periodKey: string;
 }) {
@@ -64,17 +76,39 @@ export function AdvisorModal({
     try {
       const token = await getAccessToken() ?? '';
 
+      // Conselho do mês anterior: é o que permite ao advisor cobrar o que foi
+      // combinado em vez de começar do zero toda vez.
+      const uid = await getUserId();
+      let previousAdvice: { period: string; advice: string } | null = null;
+      if (uid) {
+        const { data } = await supabase
+          .from('advice_history')
+          .select('period, advice')
+          .eq('user_id', uid)
+          .lt('period', periodKeyToPeriod(periodKey))
+          .order('period', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (data) previousAdvice = data as { period: string; advice: string };
+      }
+
+      const context = buildAdvisorContext({
+        insights,
+        allTransactions,
+        monthTransactions: transactions,
+        debts,
+        reserveAmount: insights.reserveAmount,
+        activeMonth,
+        activeYear,
+        strategyId,
+        incomeType,
+        previousAdvice,
+      });
+
       const res = await fetch("/api/advisor", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({
-          income: currentIncome,
-          expense: currentExpense,
-          balance,
-          transactions,
-          strategy: strategy.name,
-          stage: insights.stage.label,
-        }),
+        body: JSON.stringify({ context }),
       });
 
       const data = await res.json();
@@ -156,4 +190,14 @@ export function AdvisorModal({
       )}
     </AnimatePresence>
   );
+}
+
+/**
+ * periodKey chega como "2026-9" (mês base zero, vindo do dashboard).
+ * O banco grava a competência como "2026-10". Esta conversão evita comparar
+ * strings de formatos diferentes ao buscar o conselho do mês anterior.
+ */
+function periodKeyToPeriod(key: string): string {
+  const [year, monthIndex] = key.split('-').map(Number);
+  return `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
 }
