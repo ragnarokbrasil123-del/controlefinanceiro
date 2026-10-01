@@ -19,7 +19,25 @@ export function SubscriptionTrackerModal({ isOpen, onClose, transactions }: { is
   // assinatura.
   //
   // Agora: mesmo título normalizado, valor estável, em meses distintos.
-  const detected = detectRecurring(transactions);
+  const detected = detectRecurring(transactions)
+    // Defesa extra: aporte nunca é "vazamento". A detecção já exclui, mas
+    // custa uma linha garantir que nenhuma mudança futura lá reintroduza isso.
+    .filter(r => r.category !== 'Investimentos');
+
+  /**
+   * Recorrente não é sinônimo de ruim.
+   *
+   * Antes toda despesa repetida era pintada de vermelho e ganhava
+   * "Sugestão: Cancelar?" se passasse de R$ 40 e não estivesse numa lista
+   * fixa de palavras ('agua', 'luz', 'iptu'...). Ou seja: o mesmo erro do
+   * dicionário que a detecção já tinha abandonado, só que na apresentação —
+   * e plano de saúde, mensalidade ou aporte apareciam como vilões.
+   *
+   * Agora a classificação usa a CATEGORIA, que o app já conhece.
+   */
+  const classify = (category: string): 'essencial' | 'revisar' => (
+    category === 'Contas Fixas' ? 'essencial' : 'revisar'
+  );
 
   const uniqueSubscriptions = detected.map(r => ({
     id: r.pattern,
@@ -29,10 +47,14 @@ export function SubscriptionTrackerModal({ isOpen, onClose, transactions }: { is
     occurrences: r.occurrences,
     monthsSpan: r.monthsSpan,
     confidence: r.confidence,
+    kind: classify(r.category),
   }));
 
   const totalMonthly = uniqueSubscriptions.reduce((acc, t) => acc + t.amount, 0);
   const totalYearly = totalMonthly * 12;
+
+  const revisaveis = uniqueSubscriptions.filter(s => s.kind === 'revisar');
+  const totalRevisavel = revisaveis.reduce((a, s) => a + s.amount, 0);
 
 
   return (
@@ -70,22 +92,29 @@ export function SubscriptionTrackerModal({ isOpen, onClose, transactions }: { is
             </div>
 
             <p className="text-sm text-neutral-400 mb-6">
-              Nossa IA vasculhou seus gastos e encontrou estes &quot;vazamentos&quot; de dinheiro silenciosos. Veja o impacto:
+              Gastos que se repetem todo mês. Nem todos são ruins — contas fixas aparecem aqui porque são recorrentes, não porque você deveria cancelá-las.
             </p>
 
-            <div className="mb-6 bg-black/30 rounded-2xl p-4 border border-rose-500/20 relative z-10 overflow-hidden">
-              <div className="absolute right-0 top-0 w-32 h-32 bg-rose-500/5 rounded-full blur-2xl"></div>
-              
+            <div className="mb-6 bg-black/30 rounded-2xl p-4 border border-white/10 relative z-10 overflow-hidden">
+              <div className="absolute right-0 top-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl"></div>
+
               <div className="flex justify-between items-center mb-2">
-                <span className="text-neutral-400 font-medium text-sm">Gasto Mensal Fixo</span>
+                <span className="text-neutral-400 font-medium text-sm">Compromisso mensal</span>
                 <span className="text-white font-bold">{formatMoney(totalMonthly)}</span>
               </div>
               <div className="flex justify-between items-center pt-2 border-t border-white/5">
-                <span className="text-rose-400 font-medium flex items-center gap-1">
-                  <AlertTriangle className="w-4 h-4" /> Impacto Anual (12x)
-                </span>
-                <span className="text-rose-400 font-bold text-xl">{formatMoney(totalYearly)}</span>
+                <span className="text-neutral-400 font-medium text-sm">Ao longo de um ano</span>
+                <span className="text-white font-bold text-xl">{formatMoney(totalYearly)}</span>
               </div>
+
+              {totalRevisavel > 0 && (
+                <div className="flex justify-between items-center pt-2 mt-2 border-t border-white/5">
+                  <span className="text-amber-400 font-medium flex items-center gap-1 text-sm">
+                    <AlertTriangle className="w-4 h-4" /> Vale revisar
+                  </span>
+                  <span className="text-amber-400 font-bold">{formatMoney(totalRevisavel)}<span className="text-neutral-600 text-xs font-normal">/mês</span></span>
+                </div>
+              )}
             </div>
 
             <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2">
@@ -97,36 +126,38 @@ export function SubscriptionTrackerModal({ isOpen, onClose, transactions }: { is
               ) : (
                 uniqueSubscriptions.map((sub, idx) => {
                   const yearly = sub.amount * 12;
-                  const titleLower = sub.title.toLowerCase();
-                  const isEssential = ['agua', 'água', 'luz', 'energia', 'iptu', 'ipva', 'aluguel', 'condominio', 'condomínio', 'gás', 'gas', 'cref', 'imposto', 'escola', 'faculdade'].some(k => titleLower.includes(k));
-                  const isTelecom = ['tim', 'vivo', 'claro', 'oi', 'internet', 'wifi', 'banda larga'].some(k => titleLower.includes(k));
-
-                  // Mostrar sugestão apenas se não for essencial e for maior que 40
-                  const showSuggestion = sub.amount > 40 && !isEssential;
-                  const suggestionText = isTelecom ? "Sugestão: Renegociar Plano?" : "Sugestão: Cancelar?";
+                  const essencial = sub.kind === 'essencial';
 
                   return (
                     <div key={idx} className="flex flex-col p-3 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
                       <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-rose-500/10 flex items-center justify-center">
-                            <CreditCard className="w-4 h-4 text-rose-400" />
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${essencial ? 'bg-blue-500/10' : 'bg-amber-500/10'}`}>
+                            <CreditCard className={`w-4 h-4 ${essencial ? 'text-blue-400' : 'text-amber-400'}`} />
                           </div>
-                          <span className="text-white font-medium">{sub.title}</span>
+                          <div className="min-w-0">
+                            <span className="text-white font-medium block truncate">{sub.title}</span>
+                            <span className="text-[11px] text-neutral-500">
+                              {sub.category} · {sub.occurrences}x em {sub.monthsSpan} {sub.monthsSpan === 1 ? 'mês' : 'meses'}
+                              {sub.confidence < 0.7 && ' · possível'}
+                            </span>
+                          </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right shrink-0">
                           <div className="text-white font-bold text-sm">{formatMoney(sub.amount)}<span className="text-neutral-500 text-xs font-normal">/mês</span></div>
                         </div>
                       </div>
-                      
-                      <div className="flex items-center justify-between pl-11">
-                        <span className="text-rose-400/80 text-xs font-medium bg-rose-500/10 px-2 py-0.5 rounded-md">
-                          Custa {formatMoney(yearly)} ao ano
+
+                      <div className="flex items-center justify-between pl-11 gap-2 flex-wrap">
+                        <span className="text-neutral-400 text-xs font-medium bg-white/5 px-2 py-0.5 rounded-md">
+                          {formatMoney(yearly)} ao ano
                         </span>
-                        
-                        {showSuggestion && (
-                          <span className="text-xs text-orange-400 flex items-center gap-1 cursor-pointer hover:underline">
-                            <TrendingDown className="w-3 h-3" /> {suggestionText}
+
+                        {/* Sugestão só para o que é de fato discricionário.
+                            Conta fixa é compromisso, não desperdício. */}
+                        {!essencial && sub.amount > 40 && (
+                          <span className="text-xs text-amber-400 flex items-center gap-1">
+                            <TrendingDown className="w-3 h-3" /> Ainda usa?
                           </span>
                         )}
                       </div>

@@ -180,6 +180,22 @@ describe('detectRecurring', () => {
     expect(r).toHaveLength(0);
   });
 
+  it('ignora aporte mesmo quando é o gasto mais estável do usuário', () => {
+    // Aporte mensal é o padrão MAIS regular que existe — exatamente o que a
+    // detecção procura. Sem a exclusão, ele lideraria a lista de "vazamentos"
+    // e o app pediria para o usuário cancelar o que ele faz de melhor.
+    const r = detectRecurring([
+      tx({ title: 'Aporte - Reserva de Emergência', category: 'Investimentos', amount: 1000, date: '2026-07-05' }),
+      tx({ title: 'Aporte - Reserva de Emergência', category: 'Investimentos', amount: 1000, date: '2026-08-05' }),
+      tx({ title: 'Aporte - Reserva de Emergência', category: 'Investimentos', amount: 1000, date: '2026-09-05' }),
+      tx({ title: 'Aporte - Reserva de Emergência', category: 'Investimentos', amount: 1000, date: '2026-10-05' }),
+      tx({ title: 'Netflix', category: 'Variáveis', amount: 55, date: '2026-09-10' }),
+      tx({ title: 'Netflix', category: 'Variáveis', amount: 55, date: '2026-10-10' }),
+    ]);
+    expect(r).toHaveLength(1);
+    expect(r[0].displayName).toBe('Netflix');
+  });
+
   it('ordena do mais caro para o mais barato', () => {
     const r = detectRecurring([
       tx({ title: 'Barato', amount: 20, date: '2026-09-01' }),
