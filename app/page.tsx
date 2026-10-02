@@ -505,7 +505,7 @@ export default function Dashboard() {
 
   return (
     <BetaGate>
-    <div className="min-h-screen bg-neutral-950 text-neutral-50 font-sans selection:bg-indigo-500/30">
+    <div className="min-h-[100dvh] bg-neutral-950 text-neutral-50 font-sans selection:bg-indigo-500/30">
       
       <nav className="hidden md:flex border-b border-white/10 bg-black/20 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between w-full">
@@ -542,7 +542,7 @@ export default function Dashboard() {
         </div>
       </nav>
 
-      <main className="max-w-md md:max-w-7xl mx-auto px-6 py-8 pb-32 md:pb-12 md:py-12">
+      <main className="max-w-md md:max-w-7xl mx-auto px-6 pt-safe py-8 md:py-12">
         
         <header className="flex md:hidden justify-between items-center mb-8">
           <div className="flex items-center gap-4">

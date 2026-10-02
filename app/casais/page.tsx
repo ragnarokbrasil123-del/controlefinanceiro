@@ -49,7 +49,7 @@ export default function CasaisDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-50 font-sans selection:bg-pink-500/30">
+    <div className="min-h-[100dvh] bg-neutral-950 text-neutral-50 font-sans selection:bg-pink-500/30">
       <nav className="border-b border-pink-500/10 bg-black/20 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-4">

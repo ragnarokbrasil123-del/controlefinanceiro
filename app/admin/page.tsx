@@ -129,7 +129,7 @@ export default function AdminPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
       </div>
     );
@@ -138,7 +138,7 @@ export default function AdminPage() {
   if (!isAuthorized) return null;
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-50 font-sans">
+    <div className="min-h-[100dvh] bg-neutral-950 text-neutral-50 font-sans">
       <ToastContainer />
 
       {/* Navbar */}

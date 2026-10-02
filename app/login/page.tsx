@@ -55,7 +55,7 @@ export default function Login() {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      <div className="min-h-[100dvh] bg-neutral-950 flex flex-col items-center justify-center p-4 relative overflow-hidden">
         {/* Glow Effects */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-500/20 rounded-full blur-[100px] pointer-events-none"></div>
         
@@ -77,7 +77,7 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center p-4 selection:bg-indigo-500/30">
+    <div className="min-h-[100dvh] bg-neutral-950 flex flex-col items-center justify-center p-4 selection:bg-indigo-500/30">
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 mb-6 overflow-hidden bg-black/20 border border-white/10">

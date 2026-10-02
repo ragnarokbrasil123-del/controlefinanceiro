@@ -22,7 +22,7 @@ export function BottomNav() {
 
   return (
     <div className="md:hidden block"> {/* <--- A CAPA DE INVISIBILIDADE NO PC ESTÁ AQUI */}
-      <div className="fixed bottom-0 left-0 w-full z-40 pb-safe">
+      <div className="fixed bottom-0 left-0 w-full z-40 pb-safe px-safe">
         <div className="absolute inset-0 bg-neutral-950/80 backdrop-blur-xl border-t border-white/5"></div>
         
         <div className="relative px-6 h-20 flex items-center justify-between">
@@ -69,7 +69,7 @@ export function BottomNav() {
               className="fixed inset-0 bg-black/60 backdrop-blur-md z-30"
               onClick={() => setIsFabOpen(false)}
             />
-            <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-30 flex gap-6">
+            <div className="fixed bottom-above-nav left-1/2 -translate-x-1/2 z-30 flex gap-6">
               <motion.button 
                 initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0, transition: { duration: 0.1 } }}
                 onClick={() => { setIsFabOpen(false); openModal('manual'); }}

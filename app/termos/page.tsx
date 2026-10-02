@@ -18,7 +18,7 @@ export const metadata = {
  */
 export default function TermosPage() {
   return (
-    <main className="min-h-screen bg-neutral-950 text-neutral-200">
+    <main className="min-h-[100dvh] bg-neutral-950 text-neutral-200">
       <div className="max-w-2xl mx-auto px-6 py-12">
         <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-white transition-colors mb-8">
           <ChevronLeft className="w-4 h-4" /> Voltar

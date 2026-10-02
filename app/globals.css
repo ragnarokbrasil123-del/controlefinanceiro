@@ -1,1 +1,90 @@
 @import "tailwindcss";
+
+/* ===========================================================================
+   Comportamento de app nativo no celular.
+
+   Antes este arquivo tinha só o @import. O resultado era o conteúdo passando
+   por baixo da barra do navegador, a barra inferior do app colidindo com a do
+   sistema, e o "rubber band" do iOS revelando o fundo branco ao arrastar.
+
+   A classe `pb-safe`, usada no BottomNav e no ReportsModal, simplesmente NÃO
+   EXISTIA — o Tailwind não a traz e não havia plugin. Era uma classe escrita
+   na esperança de que funcionasse. Agora é definida de verdade aqui.
+   =========================================================================== */
+
+:root {
+  /* Evita que o navegador pinte controles de formulário no tema claro. */
+  color-scheme: dark;
+}
+
+html {
+  /* 100dvh acompanha a barra do navegador aparecendo e sumindo; 100vh não,
+     e por isso o rodapé ficava escondido atrás dela. */
+  min-height: 100dvh;
+  background-color: #0a0a0a;
+}
+
+body {
+  min-height: 100dvh;
+
+  /* Mata o "arrastar além do fim" que revela a barra do navegador e o fundo
+     do sistema. É o que mais entrega que não é app nativo. */
+  overscroll-behavior-y: none;
+
+  /* Sem o flash cinza ao tocar em botões no Android. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Seleção de texto é gesto de documento, não de app. Liberada só onde faz
+   sentido: campos de entrada e blocos de texto longo. */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+input, textarea, select, [contenteditable], .prose, .selectable {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* ---------------------------------------------------------------------------
+   Safe areas — as faixas que o sistema reserva para o notch, a barra de
+   gestos do iPhone e a barra de navegação do Android.
+
+   Só têm valor diferente de zero com `viewport-fit=cover` no layout.
+   --------------------------------------------------------------------------- */
+
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@utility px-safe {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Espaço que o conteúdo precisa reservar para não ficar atrás da barra
+   inferior do app. Antes era `pb-24` fixo, que ignorava a safe area e deixava
+   o último item colado na barra de gestos. */
+@utility pb-bottom-nav {
+  padding-bottom: calc(7rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* Scrollbar discreta, no tom do app. */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Flutuantes que precisam ficar acima da barra inferior sem colidir com a
+   barra de gestos do sistema. Antes usavam `bottom-28` fixo, que no iPhone
+   caía em cima da faixa de gestos. */
+@utility bottom-above-nav {
+  bottom: calc(7rem + env(safe-area-inset-bottom, 0px));
+}

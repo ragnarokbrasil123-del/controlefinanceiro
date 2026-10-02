@@ -29,6 +29,9 @@ export const viewport: Viewport = {
   themeColor: "#0a0a0a",
   width: "device-width",
   initialScale: 1,
+  // Sem viewportFit "cover", env(safe-area-inset-*) devolve 0 e o app nao
+  // consegue se desviar do notch nem da barra de gestos.
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -38,7 +41,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body className={`${inter.className} bg-neutral-950 text-white antialiased selection:bg-indigo-500/30 pb-24 md:pb-0`}>
+      <body className={`${inter.className} bg-neutral-950 text-white antialiased selection:bg-indigo-500/30 pb-bottom-nav md:pb-0 px-safe`}>
         <ErrorBoundary>{children}</ErrorBoundary>
         <BottomNav />
         <InstallPrompt />

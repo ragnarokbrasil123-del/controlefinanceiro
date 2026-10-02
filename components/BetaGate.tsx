@@ -114,7 +114,7 @@ export function BetaGate({ children }: { children: React.ReactNode }) {
 
   if (estado === 'verificando') {
     return (
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center">
         <Loader2 className="w-6 h-6 text-neutral-600 animate-spin" />
       </div>
     );
@@ -123,7 +123,7 @@ export function BetaGate({ children }: { children: React.ReactNode }) {
   if (estado === 'liberado') return <>{children}</>;
 
   return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
+    <div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md bg-neutral-900 border border-white/10 rounded-3xl p-7 shadow-2xl relative overflow-hidden"
