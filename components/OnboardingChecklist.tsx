@@ -18,11 +18,13 @@ export function OnboardingChecklist({
   hasDebtsRegistered,
   declaredNoDebt,
   onAction,
+  onSecondaryAction,
 }: {
   transactions: Array<{ type?: string; category?: string }>;
   hasDebtsRegistered: boolean;
   declaredNoDebt: boolean;
   onAction: (step: StepId) => void;
+  onSecondaryAction: (step: StepId) => void;
 }) {
   const state = getOnboardingState({ transactions, hasDebtsRegistered, declaredNoDebt });
 
@@ -103,12 +105,23 @@ export function OnboardingChecklist({
                     {atual && (
                       <>
                         <p className="text-xs text-neutral-400 mt-1 leading-relaxed">{step.description}</p>
-                        <button
-                          onClick={() => onAction(step.id)}
-                          className="mt-3 inline-flex items-center gap-1.5 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-colors cursor-pointer"
-                        >
-                          {step.actionLabel} <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex flex-wrap items-center gap-2 mt-3">
+                          <button
+                            onClick={() => onAction(step.id)}
+                            className="inline-flex items-center gap-1.5 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-colors cursor-pointer"
+                          >
+                            {step.actionLabel} <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+
+                          {step.secondaryLabel && (
+                            <button
+                              onClick={() => onSecondaryAction(step.id)}
+                              className="text-xs font-semibold text-neutral-400 hover:text-white px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+                            >
+                              {step.secondaryLabel}
+                            </button>
+                          )}
+                        </div>
                       </>
                     )}
                   </div>

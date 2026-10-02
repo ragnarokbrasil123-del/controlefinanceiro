@@ -282,6 +282,26 @@ export default function Dashboard() {
     if (step === 'diagnostico') setIsRoadmapOpen(true);
   }
 
+  /**
+   * "Não tenho dívidas" grava no perfil, não só marca a lista.
+   *
+   * O mesmo `has_debt` que destrava este passo é o que prende o usuário no
+   * Estágio 1 (Modo Emergência) e bloqueia a sugestão de aporte. Resolver só
+   * na tela deixaria o app dizendo duas coisas diferentes sobre o mesmo fato.
+   */
+  async function handleOnboardingSkip(step: StepId) {
+    if (step !== 'dividas') return;
+
+    const uid = await getUserId();
+    if (!uid) return;
+
+    const { error } = await supabase.from('profiles').update({ has_debt: false }).eq('id', uid);
+    if (error) { toast("Não consegui salvar: " + error.message, "error"); return; }
+
+    await refreshProfile();
+    toast("Anotado — sem dívidas. 👍", "success");
+  }
+
   function handleEditTransaction(tx: any) {
     setEditingTransaction(tx);
     setIsEditModalOpen(true);
@@ -629,6 +649,7 @@ export default function Dashboard() {
             hasDebtsRegistered={hasRegisteredDebts}
             declaredNoDebt={profile?.has_debt === false}
             onAction={handleOnboardingAction}
+            onSecondaryAction={handleOnboardingSkip}
           />
         )}
 

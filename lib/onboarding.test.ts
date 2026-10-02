@@ -71,6 +71,22 @@ describe('getOnboardingState', () => {
     expect(semDados.currentStep?.id).toBe('receita');
   });
 
+  it('o passo de dívida oferece saída para quem não tem', () => {
+    // Sem isto, quem respondeu "tenho dívida" no onboarding e depois não quer
+    // cadastrar fica num beco sem saída: o único botão pede um dado que a
+    // pessoa não tem.
+    const dividas = estado().steps.find(s => s.id === 'dividas')!;
+    expect(dividas.secondaryLabel).toBeTruthy();
+  });
+
+  it('os demais passos não oferecem pular', () => {
+    // Renda e contas fixas são a base de todo cálculo; pular ali deixaria o
+    // app sem o que comparar.
+    for (const id of ['receita', 'fixas', 'diagnostico'] as const) {
+      expect(estado().steps.find(s => s.id === id)!.secondaryLabel).toBeUndefined();
+    }
+  });
+
   it('todo passo tem título, descrição e rótulo de ação', () => {
     for (const step of estado().steps) {
       expect(step.title.length).toBeGreaterThan(0);

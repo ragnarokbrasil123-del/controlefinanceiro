@@ -19,6 +19,14 @@ export interface OnboardingStep {
   done: boolean;
   /** Rótulo do botão de ação; ausente quando o passo já está concluído */
   actionLabel: string;
+  /**
+   * Saída alternativa, para passos que nem todo mundo precisa cumprir.
+   *
+   * Sem isto, quem respondeu "tenho dívida" no onboarding e depois não quer
+   * cadastrar fica num beco sem saída: o único botão pede um dado que a
+   * pessoa não tem ou não quer dar.
+   */
+  secondaryLabel?: string;
 }
 
 type Tx = { type?: string; category?: string };
@@ -70,6 +78,7 @@ export function getOnboardingState(params: {
       description: 'Cartão no rotativo, cheque especial, empréstimo. O Nexa calcula quanto custa e quando acaba.',
       done: dividasResolvido,
       actionLabel: 'Cadastrar dívida',
+      secondaryLabel: 'Não tenho dívidas',
     },
     {
       id: 'diagnostico',
