@@ -45,6 +45,7 @@ import { formatMoney } from "../lib/format";
 import { getReceiptUrl } from "../lib/receipts";
 import { getUserId } from "../lib/session";
 import { summarizeDebts } from "../lib/debt";
+import { BetaGate } from "../components/BetaGate";
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -456,6 +457,7 @@ export default function Dashboard() {
   }, [dueBills.length]);
 
   return (
+    <BetaGate>
     <div className="min-h-screen bg-neutral-950 text-neutral-50 font-sans selection:bg-indigo-500/30">
       
       <nav className="hidden md:flex border-b border-white/10 bg-black/20 backdrop-blur-md sticky top-0 z-50">
@@ -1007,6 +1009,7 @@ export default function Dashboard() {
         onComplete={refreshProfile}
       />
     </div>
+    </BetaGate>
   );
 }
 
