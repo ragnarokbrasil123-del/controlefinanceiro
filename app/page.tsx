@@ -4,12 +4,11 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Wallet, TrendingUp, TrendingDown,
-  Bell, User, Plus, Home as HomeIcon, Coffee, CreditCard, 
+  Bell, User, Plus, Home as HomeIcon, CreditCard, 
   ChevronLeft, ChevronRight, Sparkles, LineChart, Target,
   PieChart as PieChartIcon, Search, Trash2, Heart, CheckCircle2, Clock, Edit2, Calendar, FileText, Eye, EyeOff,
-  PiggyBank, AlertTriangle, ShieldCheck, Loader2, MoreHorizontal, Bot, SlidersHorizontal, CalendarClock
+  PiggyBank, ShieldCheck, Loader2, MoreHorizontal, Bot, SlidersHorizontal, CalendarClock
 } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 
 import { TransactionModal } from "../components/TransactionModal";
 import { EditTransactionModal } from "../components/EditTransactionModal";
@@ -445,6 +444,7 @@ export default function Dashboard() {
   const debtSummary = summarizeDebts(debts as any);
   const hasRegisteredDebts = debts.some(d => (d.status ?? 'ativa') === 'ativa');
 
+
   // Semáforo de 3 faixas, com os cortes vindos do perfil.
   const gargaloTier = comprometimentoRaw > insights.gargaloCritical
     ? 'critico'
@@ -468,6 +468,25 @@ export default function Dashboard() {
   const recentTransactions = (searchQuery || filterPending) ? filteredTransactions : visibleTransactions.slice(0, 8); 
 
   const variaveisPercent = rendaLiquida > 0 ? (sumCategory(variaveis) / rendaLiquida) * 100 : 0;
+
+  /**
+   * Dica do mês — uma frase, não um card.
+   *
+   * `null` quando não há nada relevante a dizer: encher a tela com
+   * "continue acompanhando seus gastos" é ruído, não orientação.
+   */
+  const dicaDoMes: string | null = (() => {
+    if (rendaLiquida === 0) return null;
+    if (gargaloTier === 'critico') return null; // o termômetro já grita isso
+    if (variaveisPercent > insights.gargaloWarn) {
+      return `Seus gastos variáveis já consomem ${variaveisPercent.toFixed(0)}% da renda. É o ponto mais fácil de cortar este mês.`;
+    }
+    if (capacidadePoupanca > 0 && insights.shouldSuggestContribution && reservaAtual < insights.reserveMinimum) {
+      return `Sobram ${formatMoney(capacidadePoupanca)} este mês. Guardar parte agora encurta o caminho até sua reserva.`;
+    }
+    if (balance < 0) return 'Você gastou mais do que ganhou neste mês. Vale revisar os lançamentos pendentes.';
+    return null;
+  })();
 
   const todayStr = new Date().toISOString().split('T')[0];
   const threeDaysFromNow = new Date();
@@ -686,52 +705,31 @@ export default function Dashboard() {
           </motion.button>
         )}
 
+          {/* A "Dica do Nexa" vivia num card próprio, na coluna da direita.
+              Ela e a faixa de estágio respondiam a mesma pergunta — "o que
+              fazer agora" — em dois lugares distantes. Virou uma linha sob o
+              estágio, e só aparece quando tem algo concreto a dizer. */}
+          {!isLoading && !insights.needsOnboarding && dicaDoMes && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.15 }}
+              className="-mt-3 mb-6 px-5 text-xs text-neutral-500 leading-relaxed flex items-start gap-2"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-400/70 shrink-0 mt-0.5" />
+              {dicaDoMes}
+            </motion.p>
+          )}
+
         {isLoading ? (
-          <div className="flex md:grid md:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6 overflow-x-auto md:overflow-visible pb-6 md:pb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 pb-6 md:pb-8">
             {[1,2,3,4].map(i => (
               <div key={i} className="min-w-[80%] md:min-w-0 h-40 bg-white/5 border border-white/10 rounded-3xl animate-pulse"></div>
             ))}
           </div>
         ) : (
-          <div className="flex md:grid md:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6 overflow-x-auto md:overflow-visible pb-6 md:pb-8 snap-x snap-mandatory md:snap-none scrollbar-hide">
-            <div className="snap-center shrink-0 w-[85%] md:w-auto">
-              <PillarCard
-                title="Renda Líquida"
-                amount={showValues ? formatMoney(rendaLiquida) : 'R$ •••••'}
-                caption="Tudo que entrou no mês"
-                icon={<TrendingUp className="w-5 h-5 text-emerald-400" />}
-                accent="emerald"
-                delay={0.1}
-                onEditClick={() => setIsIncomeModalOpen(true)}
-              />
-            </div>
-            <div className="snap-center shrink-0 w-[80%] md:w-auto">
-              <PillarCard
-                title="Custos Fixos"
-                amount={showValues ? formatMoney(custosFixos) : 'R$ •••••'}
-                caption="O que você paga todo mês"
-                icon={<HomeIcon className="w-5 h-5 text-blue-400" />}
-                accent="blue"
-                delay={0.2}
-              />
-            </div>
-            <div className="snap-center shrink-0 w-[80%] md:w-auto">
-              <PillarCard
-                title="Cartões & Variáveis"
-                amount={showValues ? formatMoney(gargalo) : 'R$ •••••'}
-                caption={gargaloTier === 'critico' ? 'Bem acima do seu teto — corte aqui primeiro' : gargaloTier === 'atencao' ? 'Acima do seu teto de consumo' : 'Onde o dinheiro escapa'}
-                icon={<CreditCard className={`w-5 h-5 ${GARGALO_THEME.text}`} />}
-                accent={GARGALO_THEME.accent}
-                /* A badge mostra o dado, não um rótulo: "38% da renda" responde
-                   "isso está bom ou ruim?" — "Gargalo" exigia decorar o jargão.
-                   Some quando não há gasto ou quando não há renda para comparar. */
-                badge={gargalo > 0 && rendaLiquida > 0
-                  ? (showValues ? `${comprometimentoRaw.toFixed(0)}% da renda` : '••% da renda')
-                  : undefined}
-                delay={0.3}
-              />
-            </div>
-            <div className="snap-center shrink-0 w-[80%] md:w-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 pb-6 md:pb-8">
+            <div className="md:col-span-3">
               <PillarCard
                 title="Capacidade de Poupança"
                 amount={showValues ? formatMoney(capacidadePoupanca) : 'R$ •••••'}
@@ -750,88 +748,50 @@ export default function Dashboard() {
                 }}
               />
             </div>
+            <div>
+              <PillarCard
+                title="Renda Líquida"
+                amount={showValues ? formatMoney(rendaLiquida) : 'R$ •••••'}
+                caption="Tudo que entrou no mês"
+                icon={<TrendingUp className="w-5 h-5 text-emerald-400" />}
+                accent="emerald"
+                delay={0.1}
+                onEditClick={() => setIsIncomeModalOpen(true)}
+              />
+            </div>
+            <div>
+              <PillarCard
+                title="Custos Fixos"
+                amount={showValues ? formatMoney(custosFixos) : 'R$ •••••'}
+                caption="O que você paga todo mês"
+                icon={<HomeIcon className="w-5 h-5 text-blue-400" />}
+                accent="blue"
+                delay={0.2}
+              />
+            </div>
+            <div>
+              <PillarCard
+                title="Cartões & Variáveis"
+                amount={showValues ? formatMoney(gargalo) : 'R$ •••••'}
+                caption={gargaloTier === 'critico' ? 'Bem acima do seu teto — corte aqui primeiro' : gargaloTier === 'atencao' ? 'Acima do seu teto de consumo' : 'Onde o dinheiro escapa'}
+                icon={<CreditCard className={`w-5 h-5 ${GARGALO_THEME.text}`} />}
+                accent={GARGALO_THEME.accent}
+                /* A badge mostra o dado, não um rótulo: "38% da renda" responde
+                   "isso está bom ou ruim?" — "Gargalo" exigia decorar o jargão.
+                   Some quando não há gasto ou quando não há renda para comparar. */
+                badge={gargalo > 0 && rendaLiquida > 0
+                  ? (showValues ? `${comprometimentoRaw.toFixed(0)}% da renda` : '••% da renda')
+                  : undefined}
+                delay={0.3}
+              />
+            </div>
           </div>
         )}
 
-        {/* Termômetro do Gargalo: quanto da renda já foi comprometida com cartões e variáveis */}
+        {/* Termômetro removido: o anel repetia o % que o card de Cartões &
+            Variáveis já mostra no badge, ocupando uma faixa inteira. */}
         {!isLoading && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-8">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.45 }}
-            className={`h-full border rounded-3xl p-5 md:p-6 backdrop-blur-xl flex flex-col sm:flex-row items-center gap-6 relative overflow-hidden ${GARGALO_THEME.panel}`}
-          >
-            <div className={`absolute -right-10 -top-10 w-40 h-40 rounded-full blur-3xl opacity-20 ${GARGALO_THEME.glow}`}></div>
-
-            <div className="relative w-36 h-36 shrink-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={[
-                      { name: 'Comprometido', value: comprometimentoPercent },
-                      { name: 'Livre', value: 100 - comprometimentoPercent },
-                    ]}
-                    dataKey="value"
-                    innerRadius="72%"
-                    outerRadius="100%"
-                    startAngle={90}
-                    endAngle={-270}
-                    stroke="none"
-                    isAnimationActive={false}
-                  >
-                    <Cell fill={GARGALO_THEME.hex} />
-                    <Cell fill="rgba(255,255,255,0.07)" />
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className={`text-2xl font-extrabold tracking-tight ${GARGALO_THEME.text}`}>
-                  {showValues ? `${comprometimentoRaw.toFixed(0)}%` : '••%'}
-                </span>
-                <span className="text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">da renda</span>
-              </div>
-            </div>
-
-            <div className="relative z-10 text-center sm:text-left flex-1">
-              <div className="flex items-center justify-center sm:justify-start gap-2 mb-1.5">
-                {isGargaloCritico && <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />}
-                <h3 className="font-bold text-white text-lg">Renda comprometida com Cartões &amp; Variáveis</h3>
-              </div>
-
-              <p className="text-neutral-400 text-sm leading-relaxed max-w-md mb-4">
-                {rendaLiquida === 0 ? (
-                  <>Lance suas receitas do mês para o Nexa calcular o quanto do seu dinheiro já está comprometido.</>
-                ) : gargaloTier === 'critico' ? (
-                  <>Mais da metade da sua renda já foi para cartões e gastos variáveis. Esse é o gargalo que impede você de construir patrimônio — segure aqui antes de qualquer outra coisa.</>
-                ) : gargaloTier === 'atencao' ? (
-                  <>Cartões e gastos variáveis passaram de {insights.gargaloWarn.toFixed(0)}% da renda, o teto do seu perfil. Ainda dá para reverter este mês: corte aqui antes que vire fatura rolada.</>
-                ) : (
-                  <>Seu consumo está dentro do limite. Sobram {showValues ? formatMoney(Math.max(0, capacidadePoupanca)) : 'R$ •••••'} para você se pagar primeiro este mês.</>
-                )}
-              </p>
-
-              {/* Destrincha o gargalo: cartão é risco de dívida, variável é comportamento */}
-              <div className="flex flex-wrap justify-center sm:justify-start gap-x-6 gap-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-purple-400 shrink-0"></span>
-                  <span className="text-xs text-neutral-400">
-                    Cartões <strong className="text-white font-semibold ml-1">{showValues ? formatMoney(gastoCartoes) : 'R$ •••••'}</strong>
-                    <span className="text-neutral-600 ml-1.5">({percentOf(gastoCartoes).toFixed(0)}%)</span>
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0"></span>
-                  <span className="text-xs text-neutral-400">
-                    Variáveis <strong className="text-white font-semibold ml-1">{showValues ? formatMoney(gastoVariaveis) : 'R$ •••••'}</strong>
-                    <span className="text-neutral-600 ml-1.5">({percentOf(gastoVariaveis).toFixed(0)}%)</span>
-                  </span>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-
+          <div className="mb-8">
           <ReserveWidget
             goal={reservaGoal}
             current={reservaAtual}
@@ -847,68 +807,12 @@ export default function Dashboard() {
           </div>
         )}
 
-        <div className="flex flex-col lg:grid lg:grid-cols-3 gap-8">
-          
-          <div className="lg:col-span-2">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }} className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <h2 className="text-lg font-semibold tracking-tight">Organização</h2>
-                <button onClick={() => setIsCategoryOpen(true)} className="text-xs bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 px-2.5 py-1 rounded-full font-medium transition-colors border border-indigo-500/20">
-                  + Categorias
-                </button>
-              </div>
-            </motion.div>
+        {/* Organização saiu da home: os 4 cards listavam cada lançamento e
+            ocupavam meia tela repetindo o que o "Raio-x dos gastos" já faz
+            melhor, comparando cada categoria com a própria mediana. */}
+        <div className="flex flex-col gap-8">
 
-            <AnimatePresence mode="wait">
-              <motion.div key={`${activeMonth}-${activeYear}`} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <ExpenseCategoryCard title="Contas Fixas" icon={<HomeIcon className="w-5 h-5 text-blue-400" />} total={showValues ? formatMoney(sumCategory(contasFixas)) : 'R$ •••••'} accentColor="bg-blue-500/10 border-blue-500/20" items={contasFixas} formatMoney={formatMoney} onAction={handleOpenModal} onEditItem={handleEditTransaction} onTogglePaid={handleTogglePaid} onDeleteItem={handleDeleteTransaction} showValues={showValues} />
-                <ExpenseCategoryCard title="Variáveis" icon={<Coffee className="w-5 h-5 text-amber-400" />} total={showValues ? formatMoney(sumCategory(variaveis)) : 'R$ •••••'} accentColor="bg-amber-500/10 border-amber-500/20" items={variaveis} formatMoney={formatMoney} onAction={handleOpenModal} onEditItem={handleEditTransaction} onTogglePaid={handleTogglePaid} onDeleteItem={handleDeleteTransaction} showValues={showValues} />
-                <ExpenseCategoryCard title="Cartões" icon={<CreditCard className="w-5 h-5 text-purple-400" />} total={showValues ? formatMoney(sumCategory(cartoes)) : 'R$ •••••'} accentColor="bg-purple-500/10 border-purple-500/20" items={cartoes} formatMoney={formatMoney} onAction={handleOpenModal} onEditItem={handleEditTransaction} onTogglePaid={handleTogglePaid} onDeleteItem={handleDeleteTransaction} showValues={showValues} />
-                <ExpenseCategoryCard title="Investimentos" icon={<LineChart className="w-5 h-5 text-emerald-400" />} total={showValues ? formatMoney(sumCategory(investimentos)) : 'R$ •••••'} accentColor="bg-emerald-500/10 border-emerald-500/20" items={investimentos} formatMoney={formatMoney} onAction={handleOpenModal} onEditItem={handleEditTransaction} onTogglePaid={handleTogglePaid} onDeleteItem={handleDeleteTransaction} showValues={showValues}
-                  footer={
-                    insights.positionsValue !== null ? (
-                      <button onClick={() => setIsInvestmentsOpen(true)} className="w-full mt-3 pt-3 border-t border-white/10 flex items-center justify-between gap-2 cursor-pointer group/pat">
-                        <span className="text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">Patrimônio hoje</span>
-                        <span className="flex items-baseline gap-1.5">
-                          <span className="text-sm font-bold text-white">{showValues ? formatMoney(insights.positionsValue) : 'R$ •••••'}</span>
-                          {insights.positionsReturn !== null && insights.positionsReturn !== 0 && (
-                            <span className={`text-[11px] font-bold ${insights.positionsReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                              {showValues ? `${insights.positionsReturn >= 0 ? '+' : ''}${formatMoney(insights.positionsReturn)}` : ''}
-                            </span>
-                          )}
-                        </span>
-                      </button>
-                    ) : (
-                      <button onClick={() => setIsInvestmentsOpen(true)} className="w-full mt-3 pt-3 border-t border-white/10 text-[11px] text-emerald-400/70 hover:text-emerald-400 transition-colors cursor-pointer text-left">
-                        + Cadastrar patrimônio e acompanhar rendimento
-                      </button>
-                    )
-                  }
-                />
-              </motion.div>
-            </AnimatePresence>
-          </div>
-
-          <div className="lg:col-span-1">
-            {/* Dicas do Nexa (Gamificação) */}
-            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 0.5 }} className="mb-6 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-3xl p-5 relative overflow-hidden">
-              <div className="flex items-start gap-3">
-                <div className="mt-1"><Sparkles className="w-5 h-5 text-indigo-400" /></div>
-                <div>
-                  <h3 className="text-sm font-bold text-indigo-300 mb-1">Dica do Nexa</h3>
-                  {variaveisPercent > 30 ? (
-                    <p className="text-xs text-neutral-300 leading-relaxed">Cuidado! Seus gastos variáveis já consomem <strong>{variaveisPercent.toFixed(1)}%</strong> da sua renda. Tente segurar as compras por impulso.</p>
-                  ) : balance > 0 ? (
-                    <p className="text-xs text-neutral-300 leading-relaxed">Seu orçamento está saudável e deve sobrar dinheiro! Que tal destinar esse valor para uma de suas Metas?</p>
-                  ) : balance < 0 ? (
-                    <p className="text-xs text-neutral-300 leading-relaxed">Alerta! Sua previsão é fechar no vermelho. Reveja os gastos agendados e cancele assinaturas que não usa.</p>
-                  ) : (
-                    <p className="text-xs text-neutral-300 leading-relaxed">Continue acompanhando seus gastos diários para não ter surpresas no fim do mês.</p>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-
+          <div className="w-full">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.6 }} className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-sm h-full">
               <div className="flex flex-col gap-4 mb-6">
                 <div className="flex justify-between items-center">
@@ -1295,98 +1199,6 @@ function PillarCard({ title, amount, caption, icon, accent = 'indigo', badge, hi
   );
 }
 
-function ExpenseCategoryCard({ title, icon, total, items, accentColor, onAction, onEditItem, onTogglePaid, onDeleteItem, formatMoney, showValues, footer }: any) {
-  const paidItems = items.filter((i: any) => i.is_paid !== false);
-  const pendingItems = items.filter((i: any) => i.is_paid === false);
-
-  return (
-    <div className={`bg-white/5 border border-white/10 rounded-3xl p-5 backdrop-blur-sm flex flex-col h-full transition-all group`}>
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-xl border ${accentColor}`}>{icon}</div>
-          <h3 className="font-semibold text-neutral-200">{title}</h3>
-        </div>
-        <button onClick={onAction} className="text-neutral-400 bg-white/5 p-1.5 rounded-lg flex items-center hover:bg-white/10 transition-colors cursor-pointer"><Plus className="w-4 h-4" /></button>
-      </div>
-      <div className="flex-1 flex flex-col gap-2.5 mb-6">
-        {items.length === 0 ? <p className="text-neutral-600 text-sm italic py-2">Nenhum gasto neste mês.</p> : items.map((item: any) => (
-          <div key={item.id} className={`flex justify-between items-center text-sm group/item rounded-xl px-2 py-1.5 transition-colors ${ item.is_paid === false ? 'bg-amber-500/5 border border-amber-500/10' : '' }`}>
-            <div className="flex items-center gap-2 min-w-0 pr-2">
-              {/* Indicador pago/pendente */}
-              <div className={`w-2 h-2 rounded-full shrink-0 ${ item.is_paid === false ? 'bg-amber-400' : 'bg-emerald-500' }`} title={item.is_paid === false ? 'Pendente' : 'Pago'} />
-              <span className="text-neutral-300 line-clamp-2 leading-tight">{item.title}</span>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              {item.is_paid === false && (
-                <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-md mr-1">PEND.</span>
-              )}
-              <span className={`font-medium whitespace-nowrap mr-1 ${item.type === 'income' ? 'text-emerald-400' : 'text-white'}`}>
-                {showValues ? (item.type === 'income' ? '+ ' + formatMoney(item.amount) : formatMoney(item.amount)) : 'R$ •••••'}
-              </span>
-              
-              {item.is_paid !== undefined && (
-                <button 
-                  onClick={(e) => { e.stopPropagation(); onTogglePaid(item.id, item.is_paid); }} 
-                  className={`p-1.5 rounded-lg transition-colors cursor-pointer shrink-0 ${item.is_paid ? 'text-emerald-500/50 hover:text-emerald-400 hover:bg-emerald-500/10' : 'text-amber-500/80 hover:text-amber-400 hover:bg-amber-500/10'}`}
-                  title={item.is_paid ? 'Marcar como pendente' : 'Marcar como pago'}
-                >
-                  {item.is_paid ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
-                </button>
-              )}
-
-              <button 
-                onClick={(e) => { e.stopPropagation(); onEditItem(item); }} 
-                className="text-indigo-400/50 hover:text-indigo-400 p-1.5 rounded-lg hover:bg-indigo-500/10 transition-colors cursor-pointer shrink-0"
-                title="Editar gasto"
-              >
-                <Edit2 className="w-3.5 h-3.5" />
-              </button>
-
-              <button 
-                onClick={(e) => { e.stopPropagation(); onDeleteItem(item.id); }} 
-                className="text-rose-500/50 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition-colors cursor-pointer shrink-0"
-                title="Excluir gasto"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="pt-4 border-t border-white/10 mt-auto">
-        <div className="flex justify-between items-end">
-          <div>
-            <span className="block text-xs text-neutral-500 uppercase tracking-wider font-semibold mb-1">Total</span>
-            <span className={`text-xl font-bold tracking-tight ${total === 'R$ 0,00' ? 'text-neutral-500' : 'text-white'}`}>{total}</span>
-          </div>
-          {items.length > 0 && (
-            <div className="flex items-center gap-2 text-[10px] font-semibold">
-              {paidItems.length > 0 && (
-                <span className="flex items-center gap-1 text-emerald-500">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-                  {paidItems.length} pago{paidItems.length > 1 ? 's' : ''}
-                </span>
-              )}
-              {pendingItems.length > 0 && (
-                <span className="flex items-center gap-1 text-amber-400">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
-                  {pendingItems.length} pendente{pendingItems.length > 1 ? 's' : ''}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-        {footer}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Abre o comprovante por URL assinada, gerada só no clique.
- * Não dá para usar <a href> direto: o banco guarda o caminho do arquivo, e a
- * assinatura é assíncrona e tem validade curta — de propósito.
- */
 function ReceiptButton({ stored }: { stored: string }) {
   const [isOpening, setIsOpening] = useState(false);
 
