@@ -40,14 +40,35 @@ export function BetaGate({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const { data: temAcesso } = await supabase.rpc('has_beta_access');
+    const { data: temAcesso, error } = await supabase.rpc('has_beta_access');
+
+    // Função ausente = o SQL do beta ainda não foi aplicado. Isso é problema
+    // de configuração, não decisão de acesso — e tratar como "sem acesso"
+    // trancava o dono para fora do próprio app, sem caminho de volta.
+    //
+    // Falhar aberto aqui é seguro: quem protege os dados é o login do
+    // Supabase e a RLS por usuário. Este portão só decide quem participa do
+    // beta, não quem enxerga o quê.
+    if (error) {
+      console.warn('[BetaGate] portão inativo:', error.message);
+      setEstado('liberado');
+      return;
+    }
+
     if (!temAcesso) { setEstado('precisa-convite'); return; }
 
-    const { data: perfil } = await supabase
+    const { data: perfil, error: perfilError } = await supabase
       .from('profiles')
       .select('accepted_terms_at, accepted_terms_version')
       .eq('id', uid)
       .maybeSingle();
+
+    // Mesma lógica: coluna de aceite ausente não pode travar o uso.
+    if (perfilError) {
+      console.warn('[BetaGate] aceite de termos indisponível:', perfilError.message);
+      setEstado('liberado');
+      return;
+    }
 
     const aceiteValido = perfil?.accepted_terms_at && perfil?.accepted_terms_version === TERMS_VERSION;
     setEstado(aceiteValido ? 'liberado' : 'precisa-termos');
