@@ -46,6 +46,8 @@ import { getReceiptUrl } from "../lib/receipts";
 import { getUserId } from "../lib/session";
 import { summarizeDebts } from "../lib/debt";
 import { BetaGate } from "../components/BetaGate";
+import { OnboardingChecklist } from "../components/OnboardingChecklist";
+import type { StepId } from "../lib/onboarding";
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -272,6 +274,12 @@ export default function Dashboard() {
     if (!session) return;
     const { data } = await supabase.from('investments').select('*').eq('user_id', session.user.id);
     if (data) setPositions(data);
+  }
+
+  function handleOnboardingAction(step: StepId) {
+    if (step === 'receita' || step === 'fixas') setIsModalOpen(true);
+    if (step === 'dividas') setIsDebtsOpen(true);
+    if (step === 'diagnostico') setIsRoadmapOpen(true);
   }
 
   function handleEditTransaction(tx: any) {
@@ -614,6 +622,15 @@ export default function Dashboard() {
           </div>
 
         </div>
+
+        {!isLoading && (
+          <OnboardingChecklist
+            transactions={allTransactions}
+            hasDebtsRegistered={hasRegisteredDebts}
+            declaredNoDebt={profile?.has_debt === false}
+            onAction={handleOnboardingAction}
+          />
+        )}
 
         {/* Estágio financeiro: define o que o app prioriza para ESTE usuário */}
         {!isLoading && (
