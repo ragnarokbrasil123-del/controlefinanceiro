@@ -48,6 +48,35 @@ import { summarizeDebts } from "../lib/debt";
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
+/**
+ * Janela de transações carregadas.
+ *
+ * O dashboard baixava o histórico INTEIRO do usuário a cada abertura, sem
+ * limite. Com dois anos de uso isso vira milhares de linhas trafegadas e
+ * percorridas em memória a cada render.
+ *
+ * Não dá para carregar só o mês corrente: o diagnóstico compara com a mediana
+ * dos últimos meses, a recorrência precisa de meses consecutivos e a previsão
+ * depende das PARCELAS FUTURAS já lançadas. Por isso a janela abre para os
+ * dois lados.
+ *
+ *   18 meses atrás  -> cobre com folga as análises, que olham 3 a 6 meses
+ *   24 meses à frente -> cobre parcelamentos longos (24x é o teto comum)
+ *
+ * LIMITAÇÃO CONHECIDA: o Relatórios recebe esta mesma lista, então ele também
+ * passa a enxergar no máximo 18 meses para trás. Hoje isso não muda nada — o
+ * gráfico de barras mostra 6 meses —, mas quando o app precisar de histórico
+ * longo, aquela tela terá que buscar o próprio período em vez de reaproveitar
+ * o que o dashboard carregou.
+ */
+const TX_WINDOW = (() => {
+  const from = new Date();
+  from.setMonth(from.getMonth() - 18);
+  const to = new Date();
+  to.setMonth(to.getMonth() + 24);
+  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+})();
+
 export default function Dashboard() {
   const [activeMonth, setActiveMonth] = useState(new Date().getMonth());
   const [activeYear, setActiveYear] = useState(new Date().getFullYear());
@@ -143,7 +172,7 @@ export default function Dashboard() {
 
       const [profileResponse, txResponse, walletsResponse, goalsResponse, positionsResponse, debtsResponse] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', session.user.id).single(),
-        supabase.from('transactions').select('*').eq('user_id', session.user.id).order('date', { ascending: false }),
+        supabase.from('transactions').select('*').eq('user_id', session.user.id).gte('date', TX_WINDOW.from).lte('date', TX_WINDOW.to).order('date', { ascending: false }),
         supabase.from('wallets').select('*').eq('user_id', session.user.id),
         supabase.from('goals').select('*').eq('user_id', session.user.id),
         supabase.from('investments').select('*').eq('user_id', session.user.id),
@@ -168,7 +197,7 @@ export default function Dashboard() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
     const [txResponse, walletsResponse, goalsResponse] = await Promise.all([
-      supabase.from('transactions').select('*').eq('user_id', session.user.id).order('date', { ascending: false }),
+      supabase.from('transactions').select('*').eq('user_id', session.user.id).gte('date', TX_WINDOW.from).lte('date', TX_WINDOW.to).order('date', { ascending: false }),
       supabase.from('wallets').select('*').eq('user_id', session.user.id),
       supabase.from('goals').select('*').eq('user_id', session.user.id)
     ]);

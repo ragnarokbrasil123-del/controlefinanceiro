@@ -12,6 +12,7 @@ import { toast } from "../../components/Toast";
 import { ToastContainer } from "../../components/Toast";
 import { formatMoney } from "../../lib/format";
 
+/** Espelha o retorno de public.admin_user_stats() */
 interface UserStat {
   id: string;
   email: string;
@@ -20,6 +21,8 @@ interface UserStat {
   transaction_count: number;
   total_income: number;
   total_expense: number;
+  /** Data da última transação; null para quem nunca lançou nada */
+  last_activity: string | null;
 }
 
 export default function AdminPage() {
@@ -56,49 +59,44 @@ export default function AdminPage() {
   async function loadData() {
     setIsRefreshing(true);
     try {
-      // Busca todos os perfis
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, role, created_at');
+      // Agregação no banco, não no navegador.
+      //
+      // Antes esta função baixava TODAS as transações de TODOS os usuários e
+      // somava num forEach aqui. Com algumas dezenas de contas ativas isso
+      // trava o browser e trafega dados que não precisavam sair do Postgres.
+      //
+      // E o e-mail era inventado a partir do id (`user-a3f9c2d1`), com um
+      // comentário assumindo que ler o real exigiria service role. Não exige:
+      // a função SECURITY DEFINER lê auth.users e verifica ela mesma quem está
+      // chamando.
+      const [statsRes, totalsRes] = await Promise.all([
+        supabase.rpc('admin_user_stats'),
+        supabase.rpc('admin_platform_totals'),
+      ]);
 
-      // Busca todas as transações
-      const { data: transactions } = await supabase
-        .from('transactions')
-        .select('user_id, amount, type');
+      if (statsRes.error) {
+        // Mensagem específica quando o SQL ainda não foi aplicado, para não
+        // parecer falha de permissão.
+        const faltaFuncao = statsRes.error.message?.includes('admin_user_stats');
+        toast(
+          faltaFuncao
+            ? "Rode o SQL 2026-10-01-admin-stats.sql no painel do Supabase."
+            : "Erro ao carregar dados do admin: " + statsRes.error.message,
+          "error",
+        );
+        return;
+      }
 
-      if (!profiles || !transactions) return;
+      setUsers((statsRes.data as UserStat[]) ?? []);
 
-      // Busca emails via auth (necessita de service role, mas usamos o que temos)
-      const userMap: Record<string, UserStat> = {};
-
-      profiles.forEach(p => {
-        userMap[p.id] = {
-          id: p.id,
-          email: `user-${p.id.substring(0, 8)}`,
-          role: p.role || 'client',
-          created_at: p.created_at,
-          transaction_count: 0,
-          total_income: 0,
-          total_expense: 0,
-        };
-      });
-
-      let totalVolume = 0;
-      transactions.forEach(tx => {
-        if (userMap[tx.user_id]) {
-          userMap[tx.user_id].transaction_count++;
-          if (tx.type === 'income') userMap[tx.user_id].total_income += tx.amount;
-          else userMap[tx.user_id].total_expense += tx.amount;
-          totalVolume += tx.amount;
-        }
-      });
-
-      setUsers(Object.values(userMap));
-      setStats({
-        totalUsers: profiles.length,
-        totalTransactions: transactions.length,
-        totalVolume,
-      });
+      const totals = totalsRes.data?.[0];
+      if (totals) {
+        setStats({
+          totalUsers: Number(totals.total_users) || 0,
+          totalTransactions: Number(totals.total_transactions) || 0,
+          totalVolume: Number(totals.total_volume) || 0,
+        });
+      }
     } catch (err) {
       toast("Erro ao carregar dados do admin.", "error");
     } finally {
