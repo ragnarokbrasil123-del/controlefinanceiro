@@ -5,6 +5,8 @@ import { BottomNav } from "../components/BottomNav";
 import { InstallPrompt } from "../components/InstallPrompt";
 import { ToastContainer } from "../components/Toast";
 import { ConfirmDialogContainer } from "../components/ConfirmDialog";
+import { FeedbackWidget } from "../components/FeedbackWidget";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -37,11 +39,12 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={`${inter.className} bg-neutral-950 text-white antialiased selection:bg-indigo-500/30 pb-24 md:pb-0`}>
-        {children}
+        <ErrorBoundary>{children}</ErrorBoundary>
         <BottomNav />
         <InstallPrompt />
         <ToastContainer />
         <ConfirmDialogContainer />
+        <FeedbackWidget />
       </body>
     </html>
   );

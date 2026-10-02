@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, LogOut, Shield, User, Lock, Check, Settings, Tag } from "lucide-react";
+import { X, LogOut, Shield, User, Lock, Check, Settings, Tag, Download, Loader2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
+import { confirmDialog } from "./ConfirmDialog";
+import { getUserId } from "../lib/session";
+import { exportAllDataAsJson, exportTransactionsAsCsv, baixarArquivo } from "../lib/export-data";
 import { AccountManagerModal } from "./AccountManagerModal";
 import { CategoryManagerModal } from "./CategoryManagerModal";
 import { useModalA11y } from "../hooks/use-modal-a11y";
@@ -15,6 +18,7 @@ export function ProfileModal({ isOpen, onClose, userEmail, userRole }: { isOpen:
   const [isUpdating, setIsUpdating] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -40,14 +44,44 @@ export function ProfileModal({ isOpen, onClose, userEmail, userRole }: { isOpen:
   };
 
   const handleLGPDDelete = async () => {
-    if (confirm("LGPD: Tem certeza absoluta que deseja excluir sua conta e TODOS os seus dados financeiros de nossos servidores? Esta ação é IRREVERSÍVEL!")) {
-      const { error } = await supabase.rpc('delete_user');
-      if (error) {
-        toast("Erro ao excluir conta. Certifique-se de ter rodado o script SQL.", "error");
-      } else {
-        toast("Sua conta e seus dados foram excluídos com sucesso.", "success");
-        handleLogout();
-      }
+    const ok = await confirmDialog({
+      title: 'Excluir sua conta?',
+      message: 'Todos os seus lançamentos, dívidas, metas e comprovantes serão apagados dos nossos servidores.\n\nIsto é irreversível. Considere exportar seus dados antes.',
+      confirmLabel: 'Excluir tudo',
+      danger: true,
+    });
+    if (!ok) return;
+
+    const { error } = await supabase.rpc('delete_user');
+    if (error) {
+      toast("Erro ao excluir conta. Certifique-se de ter rodado o script SQL.", "error");
+    } else {
+      toast("Sua conta e seus dados foram excluídos com sucesso.", "success");
+      handleLogout();
+    }
+  };
+
+  /**
+   * Portabilidade (LGPD). A política de privacidade promete que o usuário pode
+   * levar os dados embora — promessa em política que o produto não cumpre é
+   * pior que não prometer.
+   */
+  const handleExport = async (formato: 'json' | 'csv') => {
+    setIsExporting(formato);
+    try {
+      const uid = await getUserId();
+      if (!uid) { toast("Sessão expirada.", "error"); return; }
+
+      const arquivo = formato === 'json'
+        ? await exportAllDataAsJson(uid)
+        : await exportTransactionsAsCsv(uid);
+
+      baixarArquivo(arquivo);
+      toast("Download iniciado.", "success");
+    } catch (e: any) {
+      toast("Erro ao exportar: " + e.message, "error");
+    } finally {
+      setIsExporting(null);
     }
   };
 
@@ -126,7 +160,36 @@ export function ProfileModal({ isOpen, onClose, userEmail, userRole }: { isOpen:
             )}
 
             <div className="mt-auto space-y-3 shrink-0">
-              <button onClick={handleLGPDDelete} className="w-full text-xs font-bold text-rose-500 hover:text-white bg-rose-500/5 hover:bg-rose-500 py-3 rounded-xl transition-colors border border-rose-500/10 hover:border-rose-500">
+              {/* Exportação antes da exclusão, de propósito: quem vem apagar a
+                  conta deveria ver primeiro que pode levar os dados. */}
+              <div>
+                <p className="text-[11px] text-neutral-500 font-semibold uppercase tracking-wider mb-2">Seus dados</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => handleExport('csv')}
+                    disabled={isExporting !== null}
+                    className="flex items-center justify-center gap-2 text-xs font-semibold bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white py-3 rounded-xl transition-colors border border-white/10 disabled:opacity-50 cursor-pointer"
+                  >
+                    {isExporting === 'csv' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                    Planilha
+                  </button>
+                  <button
+                    onClick={() => handleExport('json')}
+                    disabled={isExporting !== null}
+                    className="flex items-center justify-center gap-2 text-xs font-semibold bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white py-3 rounded-xl transition-colors border border-white/10 disabled:opacity-50 cursor-pointer"
+                  >
+                    {isExporting === 'json' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                    Tudo (JSON)
+                  </button>
+                </div>
+                <div className="flex gap-3 mt-2.5 justify-center">
+                  <a href="/termos" target="_blank" rel="noreferrer" className="text-[10px] text-neutral-600 hover:text-neutral-400 transition-colors">Termos de uso</a>
+                  <span className="text-[10px] text-neutral-700">·</span>
+                  <a href="/privacidade" target="_blank" rel="noreferrer" className="text-[10px] text-neutral-600 hover:text-neutral-400 transition-colors">Privacidade</a>
+                </div>
+              </div>
+
+              <button onClick={handleLGPDDelete} className="w-full text-xs font-bold text-rose-500 hover:text-white bg-rose-500/5 hover:bg-rose-500 py-3 rounded-xl transition-colors border border-rose-500/10 hover:border-rose-500 cursor-pointer">
                 Excluir Minha Conta Permanentemente
               </button>
               <button onClick={handleLogout} className="flex items-center justify-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white w-full py-4 rounded-2xl font-bold transition-all">
