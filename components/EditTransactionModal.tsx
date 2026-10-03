@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, TrendingUp, TrendingDown, Calendar, Save, Loader2, ChevronDown, AlertTriangle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
+import { validateText, validateMoney, validateDate, firstError } from "../lib/validation";
 import { getUserId } from "../lib/session";
 import { recordCorrection } from "../lib/corrections-db";
 import { useModalA11y } from "../hooks/use-modal-a11y";
@@ -69,15 +70,18 @@ export function EditTransactionModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!title || !amount || !transaction) {
-      toast("Por favor, preencha todos os campos obrigatórios.", "warning");
-      return;
-    }
+    if (!transaction) return;
+
+    const vTitulo = validateText(title, 'título');
+    const vValor = validateMoney(amount, 'valor');
+    const vData = validateDate(date);
+    const erro = firstError(vTitulo, vValor, vData);
+    if (erro) { toast(erro, "warning"); return; }
 
     setIsLoading(true);
 
     try {
-      const baseAmount = parseFloat(amount.replace(',', '.'));
+      const baseAmount = vValor.value as number;
       
       const { error } = await supabase.from('transactions').update({
         title,

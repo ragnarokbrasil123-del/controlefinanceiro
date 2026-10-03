@@ -6,6 +6,7 @@ import { InstallPrompt } from "../components/InstallPrompt";
 import { ToastContainer } from "../components/Toast";
 import { ConfirmDialogContainer } from "../components/ConfirmDialog";
 import { FeedbackWidget } from "../components/FeedbackWidget";
+import { IdleTimeout } from "../components/IdleTimeout";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -48,6 +49,7 @@ export default function RootLayout({
         <ToastContainer />
         <ConfirmDialogContainer />
         <FeedbackWidget />
+        <IdleTimeout />
       </body>
     </html>
   );

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, TrendingUp, TrendingDown, Calendar, Wallet, ChevronDown, AlertTriangle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { toast } from "./Toast";
+import { validateText, validateMoney, validateDate, validateInteger, firstError } from "../lib/validation";
 import { getUserId } from "../lib/session";
 import { useModalA11y } from "../hooks/use-modal-a11y";
 
@@ -64,16 +65,25 @@ export function TransactionModal({ isOpen, onClose, onSave }: { isOpen: boolean,
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!title || !amount) {
-      toast("Por favor, preencha o título e o valor.", "warning");
-      return;
-    }
+    // Antes só checava se os campos estavam preenchidos. Dava para gravar
+    // R$ 999.999.999.999, um título com 2.000 caracteres ou uma data em 1900 —
+    // nada disso derruba o app, mas tudo isso distorce as medianas que
+    // alimentam o diagnóstico inteiro.
+    const vTitulo = validateText(title, 'título');
+    const vValor = validateMoney(amount, 'valor');
+    const vData = validateDate(date);
+    const vParcelas = isInstallment
+      ? validateInteger(installments, 'número de parcelas', { min: 2, max: 48 })
+      : { ok: true as const, error: null };
+
+    const erro = firstError(vTitulo, vValor, vData, vParcelas);
+    if (erro) { toast(erro, "warning"); return; }
 
     setIsLoading(true);
 
     try {
       const userId = await getUserId();
-      const baseAmount = parseFloat(amount.replace(',', '.'));
+      const baseAmount = vValor.value as number;
       
       // Guarda o CAMINHO do arquivo, não uma URL pública.
       // Antes isto gravava o resultado de getPublicUrl(): um link permanente e
