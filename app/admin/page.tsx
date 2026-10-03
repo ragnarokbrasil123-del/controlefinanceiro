@@ -4,12 +4,13 @@ import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import {
   Shield, Users, TrendingUp, TrendingDown, DollarSign,
-  ChevronLeft, RefreshCw, Search, CheckCircle2, XCircle, Loader2
+  ChevronLeft, RefreshCw, Search, CheckCircle2, XCircle, Loader2, MessageSquare
 } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 import { toast } from "../../components/Toast";
 import { ToastContainer } from "../../components/Toast";
+import { FeedbackInboxModal } from "../../components/FeedbackInboxModal";
 import { formatMoney } from "../../lib/format";
 
 /** Espelha o retorno de public.admin_user_stats() */
@@ -32,6 +33,8 @@ export default function AdminPage() {
   const [stats, setStats] = useState({ totalUsers: 0, totalTransactions: 0, totalVolume: 0 });
   const [searchQuery, setSearchQuery] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isInboxOpen, setIsInboxOpen] = useState(false);
+  const [novosFeedbacks, setNovosFeedbacks] = useState(0);
 
   useEffect(() => {
     checkAdmin();
@@ -87,6 +90,12 @@ export default function AdminPage() {
         return;
       }
 
+      // Contador de nao lidos no cabecalho: sem badge, a caixa de entrada
+      // so e aberta por quem lembra que ela existe.
+      const { count } = await supabase
+        .from('feedback').select('id', { count: 'exact', head: true }).eq('status', 'novo');
+      setNovosFeedbacks(count ?? 0);
+
       setUsers((statsRes.data as UserStat[]) ?? []);
 
       const totals = totalsRes.data?.[0];
@@ -139,6 +148,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-[100dvh] bg-neutral-950 text-neutral-50 font-sans">
+      <FeedbackInboxModal isOpen={isInboxOpen} onClose={() => { setIsInboxOpen(false); loadData(); }} />
       <ToastContainer />
 
       {/* Navbar */}
@@ -156,14 +166,29 @@ export default function AdminPage() {
               <span className="text-xs bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 px-2 py-0.5 rounded-full font-medium">NEXA</span>
             </div>
           </div>
-          <button
-            onClick={loadData}
-            disabled={isRefreshing}
-            className="flex items-center gap-2 text-sm text-neutral-400 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-lg transition-colors"
-          >
-            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Atualizar
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsInboxOpen(true)}
+              className="flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 px-3 py-1.5 rounded-lg transition-colors cursor-pointer relative"
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span className="hidden sm:inline">Feedback</span>
+              {novosFeedbacks > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {novosFeedbacks}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={loadData}
+              disabled={isRefreshing}
+              className="flex items-center gap-2 text-sm text-neutral-400 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Atualizar</span>
+            </button>
+          </div>
         </div>
       </nav>
 
