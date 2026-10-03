@@ -246,7 +246,7 @@ export default function AdminPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-white/10 bg-black/20">
-                    <th className="text-left text-xs font-semibold text-neutral-400 uppercase tracking-wider px-6 py-4">ID do Usuário</th>
+                    <th className="text-left text-xs font-semibold text-neutral-400 uppercase tracking-wider px-6 py-4">Usuário</th>
                     <th className="text-left text-xs font-semibold text-neutral-400 uppercase tracking-wider px-6 py-4">Role</th>
                     <th className="text-right text-xs font-semibold text-neutral-400 uppercase tracking-wider px-6 py-4">Transações</th>
                     <th className="text-right text-xs font-semibold text-neutral-400 uppercase tracking-wider px-6 py-4">Receitas</th>
@@ -264,7 +264,19 @@ export default function AdminPage() {
                       className="hover:bg-white/5 transition-colors"
                     >
                       <td className="px-6 py-4">
-                        <p className="text-white font-mono text-xs">{user.id}</p>
+                        {/* O e-mail vem de admin_user_stats(). Antes esta celula
+                            mostrava o UUID, que nao identifica ninguem. O id fica
+                            abaixo, pequeno, para quando for preciso casar com o
+                            banco. */}
+                        <p className="text-white text-sm font-medium selectable">
+                          {user.email || <span className="text-neutral-600 italic">sem e-mail</span>}
+                        </p>
+                        <p className="text-neutral-600 font-mono text-[10px] mt-0.5 selectable">{user.id}</p>
+                        {user.last_activity && (
+                          <p className="text-neutral-500 text-[10px] mt-0.5">
+                            último lançamento em {new Date(user.last_activity + "T12:00:00Z").toLocaleDateString("pt-BR", { timeZone: "UTC" })}
+                          </p>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${user.role === 'admin' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-emerald-500/10 text-emerald-400'}`}>

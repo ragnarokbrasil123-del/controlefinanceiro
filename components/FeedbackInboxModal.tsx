@@ -29,6 +29,7 @@ const TIPOS: Record<string, { label: string; icon: typeof Bug; color: string }> 
 
 interface FeedbackRow {
   id: string;
+  email: string | null;
   kind: string;
   message: string;
   status: string;
@@ -67,13 +68,22 @@ export function FeedbackInboxModal({
   async function carregar() {
     setIsLoading(true);
     const [fb, er] = await Promise.all([
-      supabase.from('feedback').select('*').order('created_at', { ascending: false }).limit(100),
+      supabase.rpc('admin_feedback_list'),
       supabase.from('error_log').select('*').order('created_at', { ascending: false }).limit(50),
     ]);
 
     // Mensagem específica quando o SQL do beta ainda não foi aplicado, para
     // não parecer falha de permissão.
-    if (fb.error?.message?.includes('feedback')) setFaltaSql(true);
+    // Se a funcao nova ainda nao existe, cai na leitura direta da tabela —
+    // mostra a mensagem sem o e-mail, em vez de nao mostrar nada.
+    if (fb.error) {
+      const direto = await supabase.from('feedback').select('*').order('created_at', { ascending: false }).limit(100);
+      if (direto.error) setFaltaSql(true);
+      setFeedbacks((direto.data as FeedbackRow[]) ?? []);
+      setErros((er.data as ErrorRow[]) ?? []);
+      setIsLoading(false);
+      return;
+    }
 
     setFeedbacks((fb.data as FeedbackRow[]) ?? []);
     setErros((er.data as ErrorRow[]) ?? []);
@@ -165,6 +175,10 @@ export function FeedbackInboxModal({
                             </div>
                             <span className="text-[11px] text-neutral-600 shrink-0">{quando(f.created_at)}</span>
                           </div>
+
+                          {f.email && (
+                            <p className="text-[11px] text-indigo-400/80 mb-2 selectable">{f.email}</p>
+                          )}
 
                           <p className="text-sm text-white leading-relaxed whitespace-pre-line mb-3 selectable">{f.message}</p>
 
