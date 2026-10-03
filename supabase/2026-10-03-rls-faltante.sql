@@ -1,33 +1,39 @@
 -- =============================================================================
--- Nexa (controlefinanceiro) — RLS nas tabelas que ficaram de fora
+-- Nexa (controlefinanceiro) — auditoria de RLS: cobertura por operação
 -- 2026-10-03
 --
--- 🔴 PRIORIDADE ALTA. Rode antes de convidar qualquer pessoa.
+-- ✅ NÃO HÁ FALHA ABERTA. Leia o histórico antes de agir.
 --
--- O QUE FOI ENCONTRADO
---   Uma auditoria comparando as tabelas que o app USA com as que têm RLS em
---   arquivo versionado revelou quatro sem nenhuma proteção documentada:
+-- O QUE A AUDITORIA PROCUROU
+--   Cruzei as tabelas que o app USA com as que têm RLS em arquivo versionado.
+--   Quatro apareceram sem nenhum script: wallets, categories, goals, budgets.
+--   O arquivo de 2026-08-16 havia coberto apenas transactions, profiles,
+--   couple_goals e couple_settings.
 --
---     wallets · categories · goals · budgets
+-- O QUE O BANCO RESPONDEU (verificado em 2026-10-03)
+--   Todas as tabelas de `public` estão com rowsecurity = true. A proteção foi
+--   ligada à mão no painel em algum momento e nunca entrou em arquivo. Ou
+--   seja: o buraco era de VERSIONAMENTO, não de segurança. Nenhum dado esteve
+--   acessível a terceiros.
 --
---   O arquivo de 2026-08-16 protegeu transactions, profiles, couple_goals e
---   couple_settings. Essas quatro nunca entraram em nenhum script.
+--   Fica o registro de por que isso importa: a anon key é pública por desenho
+--   (vai no JavaScript que chega ao navegador), e a RLS é a única coisa que
+--   impede um usuário de ler os dados de outro.
+-- =============================================================================
+
+
+-- =============================================================================
+-- A QUESTÃO QUE SOBRA: RLS LIGADA NÃO É O MESMO QUE RLS COMPLETA
 --
--- POR QUE ISSO IMPORTA
---   A anon key do Supabase é PÚBLICA por desenho: ela vai no JavaScript que
---   chega ao navegador de qualquer visitante, e está no histórico do
---   repositório. Isso é normal — o que impede alguém de usá-la para ler os
---   dados dos outros é exclusivamente a RLS.
+-- Com RLS ligada, cada operação (select/insert/update/delete) precisa de uma
+-- política que a permita. Faltando a política de uma operação, o Postgres NÃO
+-- levanta erro: ele afeta zero linhas, em silêncio.
 --
---   Sem RLS nessas tabelas, qualquer pessoa com a anon key pode listar, criar,
---   alterar e apagar as metas, orçamentos, carteiras e categorias de TODOS os
---   usuários, direto pela REST API, sem nem abrir o app.
+-- Na prática isso vira o pior tipo de defeito: o usuário clica em "excluir",
+-- recebe o aviso de sucesso que o código mostra, e o dado continua lá.
 --
---   Filtrar por user_id no código do frontend não protege nada: a requisição
---   sai do navegador e pode ser reescrita.
---
--- O CASO MAIS GRAVE: APAGAR O DADO DE OUTRA PESSOA
---   Várias telas apagam e editam usando SOMENTE o id, sem filtrar o dono:
+-- Importa porque várias telas apagam e editam só pelo id, confiando na RLS
+-- para barrar o que não é do dono:
 --
 --     WalletsModal.tsx:59          .delete().eq('id', id)
 --     AccountManagerModal.tsx:67   .delete().eq('id', id)
@@ -36,152 +42,116 @@
 --     GoalsModal.tsx:72            .update({ current_amount }).eq('id', id)
 --     GoalsModal.tsx:86            .delete().eq('id', id)
 --
---   Isso está CORRETO desde que a RLS exista: o banco recusa a linha que não é
---   sua, e o `.eq('id', ...)` sozinho basta. Sem RLS, a mesma linha de código
---   permite apagar a carteira ou a meta de qualquer usuário — basta um id. É a
---   diferença entre vazamento de leitura e destruição de dado.
---
---   Não mude esse código: ligue a RLS. Ela é a proteção que ele pressupõe.
+-- Esse código está CERTO. Ele pressupõe RLS, e a RLS existe. Não mude as
+-- telas: confira a cobertura abaixo.
 -- =============================================================================
 
 
 -- -----------------------------------------------------------------------------
--- PASSO 1 — DIAGNÓSTICO (rode isto primeiro)
+-- PASSO 1 — COBERTURA POR OPERAÇÃO
 --
--- Mostra quais tabelas estão desprotegidas AGORA. Se todas já vierem com
--- rowsecurity = true, a proteção foi ligada à mão em algum momento e este
--- arquivo só vai versionar o que já existe.
+-- Uma política com cmd = 'ALL' cobre as quatro operações sozinha. Fora isso,
+-- cada cmd precisa aparecer para a operação que o app executa naquela tabela.
 -- -----------------------------------------------------------------------------
 select tablename,
-       rowsecurity as rls_ligada,
-       (select count(*) from pg_policies p
-         where p.schemaname = 'public' and p.tablename = t.tablename) as politicas
-from pg_tables t
+       policyname,
+       cmd,
+       qual       as condicao_leitura,
+       with_check as condicao_escrita
+from pg_policies
 where schemaname = 'public'
-order by rowsecurity, tablename;
+  and tablename in ('wallets','budgets','categories','goals')
+order by tablename, cmd;
 
--- Atenção: `rls_ligada = true` com `politicas = 0` é o pior cenário possível —
--- a tabela fica inacessível até para o dono, e o app quebra em silêncio.
+-- O que o app precisa em cada uma:
+--   wallets     select, insert, update, delete
+--   budgets     select, insert, delete
+--   categories  select, insert, delete
+--   goals       select, insert, update, delete
 
 
 -- -----------------------------------------------------------------------------
--- PASSO 2 — CORREÇÃO
+-- PASSO 2 — PREENCHER SÓ O QUE FALTAR
 --
--- Idempotente: pode rodar quantas vezes quiser. Se a RLS já estiver ligada,
--- apenas garante que as quatro políticas existem com o nome esperado.
+-- ⚠️  NÃO rode este bloco inteiro às cegas. A RLS já está ligada e as políticas
+--     existentes podem ter nomes e regras diferentes das daqui. Políticas
+--     permissivas se somam (OR), então acrescentar sem olhar só AFROUXA o
+--     acesso — nunca aperta.
+--
+-- Use como molde: descomente apenas a linha da operação que o Passo 1 mostrou
+-- faltando, na tabela em que faltou.
+--
+-- O padrão segue o de 2026-08-16: dono identificado por auth.uid() = user_id.
 -- -----------------------------------------------------------------------------
 
 -- wallets ---------------------------------------------------------------------
-alter table public.wallets enable row level security;
-
-drop policy if exists "wallets_select_own" on public.wallets;
-create policy "wallets_select_own" on public.wallets for select
-  using (auth.uid() = user_id);
-
-drop policy if exists "wallets_insert_own" on public.wallets;
-create policy "wallets_insert_own" on public.wallets for insert
-  with check (auth.uid() = user_id);
-
-drop policy if exists "wallets_update_own" on public.wallets;
-create policy "wallets_update_own" on public.wallets for update
-  using (auth.uid() = user_id) with check (auth.uid() = user_id);
-
-drop policy if exists "wallets_delete_own" on public.wallets;
-create policy "wallets_delete_own" on public.wallets for delete
-  using (auth.uid() = user_id);
-
+-- create policy "wallets_select_own" on public.wallets for select
+--   using (auth.uid() = user_id);
+-- create policy "wallets_insert_own" on public.wallets for insert
+--   with check (auth.uid() = user_id);
+-- create policy "wallets_update_own" on public.wallets for update
+--   using (auth.uid() = user_id) with check (auth.uid() = user_id);
+-- create policy "wallets_delete_own" on public.wallets for delete
+--   using (auth.uid() = user_id);
 
 -- categories ------------------------------------------------------------------
-alter table public.categories enable row level security;
-
-drop policy if exists "categories_select_own" on public.categories;
-create policy "categories_select_own" on public.categories for select
-  using (auth.uid() = user_id);
-
-drop policy if exists "categories_insert_own" on public.categories;
-create policy "categories_insert_own" on public.categories for insert
-  with check (auth.uid() = user_id);
-
-drop policy if exists "categories_update_own" on public.categories;
-create policy "categories_update_own" on public.categories for update
-  using (auth.uid() = user_id) with check (auth.uid() = user_id);
-
-drop policy if exists "categories_delete_own" on public.categories;
-create policy "categories_delete_own" on public.categories for delete
-  using (auth.uid() = user_id);
-
+-- create policy "categories_select_own" on public.categories for select
+--   using (auth.uid() = user_id);
+-- create policy "categories_insert_own" on public.categories for insert
+--   with check (auth.uid() = user_id);
+-- create policy "categories_delete_own" on public.categories for delete
+--   using (auth.uid() = user_id);
 
 -- goals -----------------------------------------------------------------------
-alter table public.goals enable row level security;
-
-drop policy if exists "goals_select_own" on public.goals;
-create policy "goals_select_own" on public.goals for select
-  using (auth.uid() = user_id);
-
-drop policy if exists "goals_insert_own" on public.goals;
-create policy "goals_insert_own" on public.goals for insert
-  with check (auth.uid() = user_id);
-
-drop policy if exists "goals_update_own" on public.goals;
-create policy "goals_update_own" on public.goals for update
-  using (auth.uid() = user_id) with check (auth.uid() = user_id);
-
-drop policy if exists "goals_delete_own" on public.goals;
-create policy "goals_delete_own" on public.goals for delete
-  using (auth.uid() = user_id);
-
+-- create policy "goals_select_own" on public.goals for select
+--   using (auth.uid() = user_id);
+-- create policy "goals_insert_own" on public.goals for insert
+--   with check (auth.uid() = user_id);
+-- create policy "goals_update_own" on public.goals for update
+--   using (auth.uid() = user_id) with check (auth.uid() = user_id);
+-- create policy "goals_delete_own" on public.goals for delete
+--   using (auth.uid() = user_id);
 
 -- budgets ---------------------------------------------------------------------
-alter table public.budgets enable row level security;
-
-drop policy if exists "budgets_select_own" on public.budgets;
-create policy "budgets_select_own" on public.budgets for select
-  using (auth.uid() = user_id);
-
-drop policy if exists "budgets_insert_own" on public.budgets;
-create policy "budgets_insert_own" on public.budgets for insert
-  with check (auth.uid() = user_id);
-
-drop policy if exists "budgets_update_own" on public.budgets;
-create policy "budgets_update_own" on public.budgets for update
-  using (auth.uid() = user_id) with check (auth.uid() = user_id);
-
-drop policy if exists "budgets_delete_own" on public.budgets;
-create policy "budgets_delete_own" on public.budgets for delete
-  using (auth.uid() = user_id);
-
-
--- -----------------------------------------------------------------------------
--- PASSO 3 — CONFERÊNCIA
---
--- Rode o diagnóstico do Passo 1 de novo. Toda tabela da lista precisa estar com
--- rls_ligada = true E politicas > 0.
--- -----------------------------------------------------------------------------
+-- create policy "budgets_select_own" on public.budgets for select
+--   using (auth.uid() = user_id);
+-- create policy "budgets_insert_own" on public.budgets for insert
+--   with check (auth.uid() = user_id);
+-- create policy "budgets_delete_own" on public.budgets for delete
+--   using (auth.uid() = user_id);
 
 
 -- =============================================================================
--- E SE ALGUMA LINHA ESTIVER SEM user_id?
+-- TABELAS ÓRFÃS ENCONTRADAS NO CAMINHO
 --
--- O código de hoje sempre grava `user_id` e aborta sem sessão, mas o banco é
--- antigo e pode ter linhas de versões anteriores sem dono. Elas ficam órfãs:
--- ninguém consegue lê-las depois da RLS, e continuam ocupando espaço.
+--   ai_usage_logs   RLS ligada, 0 políticas
+--   accounts        RLS ligada, 1 política
+--   couples         RLS ligada, 3 políticas
 --
---   -- quantas existem, em cada tabela:
---   select 'wallets'    as tabela, count(*) from public.wallets    where user_id is null
---   union all select 'categories', count(*) from public.categories where user_id is null
---   union all select 'goals',      count(*) from public.goals      where user_id is null
---   union all select 'budgets',    count(*) from public.budgets    where user_id is null;
+-- Nenhuma das três aparece em qualquer .ts, .tsx ou .sql do projeto. São
+-- sobras de versões anteriores.
 --
---   -- se for mais que zero e você confirmar que são lixo, apague (uma a uma):
---   -- delete from public.budgets where user_id is null;
+-- `ai_usage_logs` com zero políticas é "negar tudo" — para tabela sem uso, o
+-- estado mais seguro que existe. Não quebra nada e não é urgente.
 --
--- Confira antes de apagar: se alguma for sua, o orçamento correspondente
--- desaparece da tela.
+-- Antes de apagar qualquer uma, confirme que está mesmo vazia e sem uso:
+--
+--   select 'ai_usage_logs' as t, count(*) from public.ai_usage_logs
+--   union all select 'accounts', count(*) from public.accounts
+--   union all select 'couples',  count(*) from public.couples;
+--
+-- `couples` merece atenção extra: o app tem funcionalidade de casais viva
+-- (couple_goals, couple_settings). Pode ser que `couples` tenha sido o desenho
+-- original abandonado — ou que guarde vínculo que alguém ainda use. Não apague
+-- sem olhar o conteúdo.
 -- =============================================================================
 
 
 -- =============================================================================
--- TESTE DE SEGURANÇA — vale fazer depois
+-- TESTE DE SEGURANÇA — vale fazer de qualquer jeito
+--
+-- A auditoria acima lê metadado: ela diz que a política EXISTE, não que ela
+-- FUNCIONA. A única prova real é tentar.
 --
 -- Com uma segunda conta (comum, sem convite), no SQL Editor:
 --
@@ -190,6 +160,6 @@ create policy "budgets_delete_own" on public.budgets for delete
 --   select count(*) from public.wallets;
 --   select count(*) from public.categories;
 --
--- Todas devem retornar 0, ou apenas os registros daquela conta. Se aparecer
--- dado de outro usuário, a política não pegou — pare e me avise.
+-- Cada uma deve retornar 0, ou só os registros daquela conta. Se aparecer dado
+-- de outro usuário, a política não está pegando — pare e investigue.
 -- =============================================================================
