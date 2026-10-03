@@ -91,11 +91,16 @@ export function ProfileModal({ isOpen, onClose, userEmail, userRole }: { isOpen:
         <div className="fixed inset-0 z-[100] flex justify-end">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
           
-          <motion.div ref={a11yRef} role="dialog" aria-modal="true" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: "spring", bounce: 0, duration: 0.4 }} className="relative w-full max-w-sm h-full bg-neutral-900 border-l border-white/10 shadow-2xl p-6 flex flex-col overflow-y-auto">
-            <div className="flex justify-between items-center mb-8">
+          <motion.div ref={a11yRef} role="dialog" aria-modal="true" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: "spring", bounce: 0, duration: 0.4 }} className="relative w-full max-w-sm h-full bg-neutral-900 border-l border-white/10 shadow-2xl p-6 pt-safe pb-safe flex flex-col overflow-hidden">
+            <div className="flex justify-between items-center mb-6 shrink-0">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">Meu Perfil</h2>
               <button onClick={onClose} aria-label="Fechar" className="p-2 text-neutral-400 hover:text-white bg-white/5 rounded-full"><X className="w-4 h-4" /></button>
             </div>
+
+            {/* Miolo rolavel: antes tudo ficava no mesmo flex column com
+                overflow-y-auto, e sem shrink-0 o flexbox COMPRIMIA os blocos
+                de cima em vez de rolar — o avatar aparecia achatado. */}
+            <div className="flex-1 overflow-y-auto -mr-2 pr-2 min-h-0">
 
             {/* Avatar / Info */}
             <div className="flex flex-col items-center justify-center bg-white/5 border border-white/10 rounded-3xl p-8 mb-6 text-center relative overflow-hidden">
@@ -159,7 +164,9 @@ export function ProfileModal({ isOpen, onClose, userEmail, userRole }: { isOpen:
               </a>
             )}
 
-            <div className="mt-auto space-y-3 shrink-0">
+            </div>
+
+            <div className="space-y-3 shrink-0 pt-4">
               {/* Exportação antes da exclusão, de propósito: quem vem apagar a
                   conta deveria ver primeiro que pode levar os dados. */}
               <div>
