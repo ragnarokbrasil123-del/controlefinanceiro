@@ -10,5 +10,8 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['lib/**/*.test.ts'],
+    // e2e roda no Playwright, nao aqui — sem isto o vitest tenta executar
+    // os .spec.ts e falha por falta do runner dele.
+    exclude: ['e2e/**', 'node_modules/**'],
   },
 });
