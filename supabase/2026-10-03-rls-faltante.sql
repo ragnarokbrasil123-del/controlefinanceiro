@@ -28,6 +28,19 @@
 --   todas as 16 novas redundantes com as que já existiam.
 --
 --   O PASSO 3 desfaz isso. Não é urgente; é higiene.
+--
+-- ESTADO FINAL — limpeza APLICADA e conferida em 2026-10-03
+--   De volta a 13 políticas, com a cobertura completa preservada:
+--
+--     budgets     2  (2 ALL de dono — duplicata antiga, mantida)
+--     categories  4  (1 ALL de dono + DELETE, INSERT, SELECT redundantes)
+--     goals       5  (1 ALL de casal + DELETE, INSERT, SELECT, UPDATE de dono)
+--     wallets     2  (1 ALL de dono + 1 ALL de casal)
+--
+--   ⚠️  CUIDADO AO LER A LINHA DE `goals`: o único ALL dela é o do CASAL. O
+--       acesso do dono vem das quatro políticas CRUD separadas. Quem apagar
+--       essas quatro achando que o ALL cobre tudo deixa o usuário sem acesso
+--       às próprias metas, com o compartilhamento de casal ainda funcionando.
 -- =============================================================================
 
 
