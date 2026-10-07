@@ -2,9 +2,26 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, KeyRound } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { toast } from "../../components/Toast";
+
+/**
+ * O Supabase devolve erro de cadastro em inglês e em tom técnico. Mostrar isso
+ * cru ("Password should be at least 6 characters") faz a pessoa achar que o app
+ * quebrou, em vez de entender que falta corrigir algo simples.
+ *
+ * O que não for reconhecido cai no texto original: esconder um erro
+ * desconhecido atrás de "algo deu errado" só dificulta o suporte depois.
+ */
+function mensagemDeCadastro(mensagem: string): string {
+  const m = mensagem.toLowerCase();
+  if (m.includes("password") && /\d/.test(m)) return "A senha precisa ter pelo menos 6 caracteres.";
+  if (m.includes("weak password")) return "Essa senha é fraca demais. Misture letras e números.";
+  if (m.includes("valid email") || m.includes("invalid email")) return "Esse e-mail não parece válido.";
+  if (m.includes("rate limit") || m.includes("too many")) return "Muitas tentativas seguidas. Espere alguns minutos.";
+  return "Não consegui criar a conta: " + mensagem;
+}
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -14,21 +31,48 @@ export default function Login() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [emailJaUsado, setEmailJaUsado] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   const handleAuth = async (e: any) => {
     e.preventDefault();
     setLoading(true);
-    
+    setEmailJaUsado(false);
+
     if (isRegistering) {
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) {
-        toast("Erro ao criar conta: " + error.message, "error");
-        setLoading(false);
-      } else {
-        toast("Conta criada com sucesso! Faça seu login.", "success");
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      setLoading(false);
+
+      // O Supabase sinaliza e-mail repetido de DUAS formas, conforme a opção
+      // "Confirm email" do projeto:
+      //
+      //   desligada → erro "User already registered"
+      //   ligada    → SUCESSO com identities vazio, de propósito, para não
+      //               revelar a estranhos que aquela conta existe
+      //
+      // Só o primeiro caso era tratado, e mesmo assim mostrando o texto em
+      // inglês. No segundo, a tela dizia "Conta criada com sucesso" para quem
+      // já tinha conta — e a pessoa ficava tentando entrar com uma senha que
+      // nunca chegou a existir. Os dois são verificados porque essa opção muda
+      // no painel sem ninguém tocar no código.
+      const jaExiste =
+        /already registered|already been registered/i.test(error?.message ?? "") ||
+        (!error && data.user?.identities?.length === 0);
+
+      if (jaExiste) {
+        setEmailJaUsado(true);
         setIsRegistering(false);
-        setLoading(false);
+        setPassword("");
+        return;
       }
+
+      if (error) {
+        toast(mensagemDeCadastro(error.message), "error");
+        return;
+      }
+
+      toast("Conta criada com sucesso! Faça seu login.", "success");
+      setIsRegistering(false);
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
@@ -52,11 +96,17 @@ export default function Login() {
     // Sem o redirectTo, o link do e-mail caía no dashboard e a pessoa nunca
     // via onde trocar a senha — o fluxo existia mas não terminava em lugar
     // nenhum.
+    setIsResetting(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/recuperar-senha`,
     });
-    if (error) toast("Erro: " + error.message, "error");
-    else toast("Instruções de recuperação enviadas para o seu e-mail! 📧", "success");
+    setIsResetting(false);
+
+    // O Supabase responde sucesso mesmo para e-mail inexistente, de propósito:
+    // uma resposta diferente revelaria quem tem conta. A mensagem abaixo
+    // acompanha isso e não afirma que o e-mail foi mesmo encontrado.
+    if (error) toast(mensagemDeCadastro(error.message), "error");
+    else toast("Se existir conta com esse e-mail, o link de redefinição chegou nele. 📧", "success");
   };
 
   /**
@@ -122,6 +172,42 @@ export default function Login() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-sm shadow-2xl relative overflow-hidden">
           <div className="absolute -top-32 -right-32 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
           
+          {/* Aviso fixo, não toast: o toast some sozinho e aqui a pessoa
+              precisa ler e decidir o que fazer. O botão de recuperar fica
+              junto do texto para não exigir que ela procure o "Esqueceu a
+              senha?" logo depois de ler que já tem conta. */}
+          <AnimatePresence>
+            {emailJaUsado && (
+              <motion.div
+                initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                animate={{ opacity: 1, height: "auto", marginBottom: 20 }}
+                exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                role="alert"
+                className="relative z-10 overflow-hidden"
+              >
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+                  <p className="text-sm font-semibold text-amber-200">Esse e-mail já tem conta no Nexa</p>
+                  <p className="mt-1 text-xs leading-relaxed text-amber-200/70">
+                    Entre com a sua senha aqui embaixo. Se não lembrar, dá para receber um link
+                    de redefinição. E se você criou a conta pelo Google, use o botão
+                    &ldquo;Continuar com Google&rdquo;.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleResetPassword}
+                    disabled={isResetting}
+                    className="mt-3 inline-flex items-center gap-2 text-xs font-bold text-amber-300 hover:text-amber-200 disabled:opacity-60 transition-colors"
+                  >
+                    {isResetting
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <KeyRound className="w-3.5 h-3.5" />}
+                    Recuperar minha senha
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <form onSubmit={handleAuth} className="flex flex-col gap-5 relative z-10">
             <div>
               <label className="text-sm font-medium text-neutral-400 mb-2 block">Seu E-mail</label>
@@ -130,7 +216,8 @@ export default function Login() {
                 <input 
                   type="email" 
                   required 
-                  value={email} onChange={e => setEmail(e.target.value)}
+                  value={email}
+                  onChange={e => { setEmail(e.target.value); setEmailJaUsado(false); }}
                   className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-indigo-500 transition-colors"
                   placeholder="exemplo@email.com"
                 />
@@ -201,7 +288,7 @@ export default function Login() {
           <div className="mt-8 text-center relative z-10">
             <p className="text-neutral-400 text-sm">
               {isRegistering ? 'Já tem uma conta?' : 'Não tem conta ainda?'}
-              <button onClick={() => setIsRegistering(!isRegistering)} className="text-indigo-400 hover:text-indigo-300 font-bold ml-2 transition-colors">
+              <button onClick={() => { setIsRegistering(!isRegistering); setEmailJaUsado(false); }} className="text-indigo-400 hover:text-indigo-300 font-bold ml-2 transition-colors">
                 {isRegistering ? 'Faça Login' : 'Cadastre-se'}
               </button>
             </p>
