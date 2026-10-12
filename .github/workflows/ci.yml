@@ -1,0 +1,80 @@
+name: CI
+
+# Roda em todo push e em toda proposta de mudança.
+#
+# Existe porque, até agora, qualquer commit ia direto para produção sem
+# verificação nenhuma — e build quebrado só era descoberto quando o deploy
+# falhava, ou pior, quando o usuário reclamava. Com cliente pagando, isso é
+# indisponibilidade.
+#
+# O que este arquivo NÃO faz: impedir o merge. Para isso é preciso marcar
+# "Require status checks to pass" em Settings → Branches → Branch protection
+# rules no GitHub. Sem essa configuração o CI avisa, mas não bloqueia.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancela execuções antigas do mesmo branch: ninguém precisa do resultado de
+# um commit que já foi substituído.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    name: Tipos, testes e build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # `npm ci` em vez de `npm install`: instala exatamente o que está no
+      # lock, sem atualizar nada. É o que garante que o CI testa a mesma coisa
+      # que vai para produção.
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Verificar tipos
+        run: npx tsc --noEmit
+
+      - name: Rodar testes
+        run: npm test
+
+      # As variáveis são falsas de propósito: o build não acessa o banco, só
+      # precisa que elas existam. Usar as reais aqui exporia credencial no log
+      # de um repositório público.
+      - name: Build de produção
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://exemplo.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: chave-falsa-para-build
+
+  seguranca:
+    name: Vulnerabilidades
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      # Falha apenas em vulnerabilidade ALTA ou CRÍTICA nas dependências de
+      # produção. Moderadas aparecem no log sem travar a entrega — senão o CI
+      # fica vermelho por algo que não dá para corrigir hoje e todo mundo
+      # aprende a ignorar o vermelho.
+      - name: Auditar dependências de produção
+        run: npm audit --omit=dev --audit-level=high
