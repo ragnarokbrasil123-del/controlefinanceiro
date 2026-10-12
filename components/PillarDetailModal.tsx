@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "motion/react";
-import { X, TrendingUp, TrendingDown, Inbox } from "lucide-react";
+import { X, TrendingUp, TrendingDown, Inbox, Edit2 } from "lucide-react";
 import { useModalA11y } from "../hooks/use-modal-a11y";
 import { formatMoney } from "../lib/format";
 
@@ -17,10 +17,17 @@ import { formatMoney } from "../lib/format";
  * ordem cronológica a resposta fica enterrada no meio da lista; do maior para
  * o menor, ela é a primeira linha.
  *
- * SOMENTE LEITURA
- * Editar e apagar continuam na lista do mês, que já tem esses botões. Aqui a
- * pergunta é "de onde vem este número" — misturar ações destrutivas numa tela
- * de conferência convida ao clique errado.
+ * EDITAR SEM SAIR DAQUI
+ * Quem revisa os lançamentos é quem percebe o valor digitado errado ou a
+ * categoria trocada. Mandar procurar o mesmo item na lista do mês para
+ * corrigir devolvia o atrito que esta tela existe para remover.
+ *
+ * Apagar continua de fora: numa tela de conferência, com as linhas próximas e
+ * o dedo no celular, a lixeira ao lado do lápis é clique errado esperando
+ * acontecer. Apagar segue na lista do mês, onde a intenção é gerenciar.
+ *
+ * Z-INDEX: abaixo do modal de edição (z-100), seguindo o IncomeListModal
+ * (z-50). Mais alto que ele, a edição abriria ATRÁS desta lista.
  */
 
 type Transacao = {
@@ -49,6 +56,7 @@ export function PillarDetailModal({
   transactions,
   accent = 'indigo',
   showValues = true,
+  onEdit,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -57,6 +65,7 @@ export function PillarDetailModal({
   transactions: Transacao[];
   accent?: string;
   showValues?: boolean;
+  onEdit?: (t: Transacao) => void;
 }) {
   const a11yRef = useModalA11y(isOpen, onClose);
   if (!isOpen) return null;
@@ -73,7 +82,7 @@ export function PillarDetailModal({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
         <motion.div
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           className="absolute inset-0 bg-black/70 backdrop-blur-sm"
@@ -164,10 +173,22 @@ export function PillarDetailModal({
                         </div>
                       </div>
 
-                      <div className="shrink-0 text-right">
-                        <p className="text-sm font-bold text-white whitespace-nowrap">{dinheiro(t.amount)}</p>
-                        {total > 0 && showValues && (
-                          <p className="text-[10px] text-neutral-500 mt-0.5">{fatia.toFixed(0)}% do total</p>
+                      <div className="shrink-0 flex items-center gap-2">
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-white whitespace-nowrap">{dinheiro(t.amount)}</p>
+                          {total > 0 && showValues && (
+                            <p className="text-[10px] text-neutral-500 mt-0.5">{fatia.toFixed(0)}% do total</p>
+                          )}
+                        </div>
+                        {onEdit && (
+                          <button
+                            onClick={() => onEdit(t)}
+                            aria-label={`Editar ${t.title || 'lançamento'}`}
+                            title="Editar"
+                            className="p-2 text-indigo-500/60 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-xl transition-colors cursor-pointer"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
                         )}
                       </div>
                     </div>
@@ -179,7 +200,9 @@ export function PillarDetailModal({
 
           <div className="shrink-0 px-5 py-3 border-t border-white/10 bg-black/20">
             <p className="text-[11px] text-neutral-600 leading-snug">
-              Para editar ou apagar, use a lista de lançamentos do mês.
+              {onEdit
+                ? 'Toque no lápis para corrigir valor ou categoria. Para apagar, use a lista do mês.'
+                : 'Para editar ou apagar, use a lista de lançamentos do mês.'}
             </p>
           </div>
         </motion.div>

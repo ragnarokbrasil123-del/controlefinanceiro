@@ -886,6 +886,10 @@ export default function Dashboard() {
           transactions={pilarAtivo.list}
           accent={pilarAtivo.accent}
           showValues={showValues}
+          /* A lista fica aberta atrás da edição: ao salvar, o valor corrigido
+             aparece aqui mesmo e o total do topo se recalcula, sem precisar
+             reabrir o card. */
+          onEdit={handleEditTransaction}
         />
       )}
       <AiUploadModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} />
