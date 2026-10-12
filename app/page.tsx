@@ -30,6 +30,7 @@ import { CategoryManagerModal } from "../components/CategoryManagerModal";
 import { PayYourselfFirstModal } from "../components/PayYourselfFirstModal";
 import { CreditCardManagerModal } from "../components/CreditCardManagerModal";
 import { StageRoadmapModal } from "../components/StageRoadmapModal";
+import { PillarDetailModal } from "../components/PillarDetailModal";
 import { DebtsModal } from "../components/DebtsModal";
 import { SpendingInsightsModal } from "../components/SpendingInsightsModal";
 import { ForecastModal } from "../components/ForecastModal";
@@ -85,6 +86,8 @@ export default function Dashboard() {
   const [showValues, setShowValues] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
+  // Qual card do topo teve os lançamentos abertos.
+  const [pilarAberto, setPilarAberto] = useState<null | 'renda' | 'fixos' | 'gargalo'>(null);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false); 
   const [isPlannerOpen, setIsPlannerOpen] = useState(false); 
   const [isTrackerOpen, setIsTrackerOpen] = useState(false); 
@@ -401,21 +404,33 @@ export default function Dashboard() {
   // sem o abatimento de receitas lançadas dentro da mesma categoria.
   const GARGALO_CATEGORIES = ['Variáveis', 'Cartões', 'Cartões de Crédito'];
 
-  const sumExpenseIn = (categories: string[]) => currentMonthTransactions
-    .filter(t => t.type === 'expense' && categories.includes(t.category))
-    .reduce((acc, t) => acc + t.amount, 0);
+  // Lista e total saem do MESMO filtro, de propósito.
+  //
+  // Clicar no card abre os lançamentos que formam aquele número, e a soma do
+  // modal precisa bater com a do card até o centavo. Manter dois filtros
+  // parecidos em pontos distantes do arquivo é exatamente como isso deixa de
+  // bater: alguém ajusta uma categoria num lugar e esquece do outro.
+  const expensesIn = (categories: string[]) => currentMonthTransactions
+    .filter(t => t.type === 'expense' && categories.includes(t.category));
+
+  const somar = (list: any[]) => list.reduce((acc, t) => acc + t.amount, 0);
+  const sumExpenseIn = (categories: string[]) => somar(expensesIn(categories));
+
+  const custosFixosList = expensesIn(['Contas Fixas']);
+  const gargaloList = expensesIn(GARGALO_CATEGORIES);
 
   // Renda de trabalho: exclui Investimentos de propósito.
   // Venda/resgate de ativo é dinheiro mudando de bolso, não renda recorrente.
   // Se entrasse aqui, um mês bom de bolsa inflaria a renda e faria o consumo
   // no cartão parecer saudável — e o app elogiaria um gasto que não mudou.
-  const rendaLiquida = currentMonthTransactions
-    .filter(t => t.type === 'income' && t.category !== 'Investimentos')
-    .reduce((acc, t) => acc + t.amount, 0);
-  const custosFixos = sumExpenseIn(['Contas Fixas']);
+  //
+  // `receitasList` já é esse filtro, definido acima: reaproveitar evita uma
+  // terceira cópia do mesmo predicado.
+  const rendaLiquida = somar(receitasList);
+  const custosFixos = somar(custosFixosList);
   const gastoCartoes = sumExpenseIn(['Cartões', 'Cartões de Crédito']);
   const gastoVariaveis = sumExpenseIn(['Variáveis']);
-  const gargalo = sumExpenseIn(GARGALO_CATEGORIES);
+  const gargalo = somar(gargaloList);
   const capacidadePoupanca = rendaLiquida - custosFixos - gargalo;
 
   // % da renda comprometida com o gargalo (cartões + variáveis).
@@ -458,6 +473,16 @@ export default function Dashboard() {
     atencao:  { hex: '#f59e0b', accent: 'amber',   text: 'text-amber-400',   glow: 'bg-amber-500',   panel: 'bg-amber-500/5 border-amber-500/20' },
     critico:  { hex: '#f43f5e', accent: 'rose',    text: 'text-rose-400',    glow: 'bg-rose-500',    panel: 'bg-rose-500/5 border-rose-500/20' },
   }[gargaloTier];
+
+  // Título, lista e cor de cada card clicável num lugar só. A cor do gargalo
+  // acompanha o tier para o modal abrir na mesma cor do card que foi tocado —
+  // abrir em cor diferente faz duvidar se é o mesmo número.
+  const PILARES = {
+    renda:   { title: 'Renda Líquida',       subtitle: 'tudo que entrou no mês',   list: receitasList,    accent: 'emerald' },
+    fixos:   { title: 'Custos Fixos',        subtitle: 'o que você paga todo mês', list: custosFixosList, accent: 'blue' },
+    gargalo: { title: 'Cartões & Variáveis', subtitle: 'onde o dinheiro escapa',   list: gargaloList,     accent: GARGALO_THEME.accent },
+  };
+  const pilarAtivo = pilarAberto ? PILARES[pilarAberto] : null;
 
   const filteredTransactions = visibleTransactions.filter(t => {
     const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) || t.category.toLowerCase().includes(searchQuery.toLowerCase());
@@ -757,6 +782,7 @@ export default function Dashboard() {
                 accent="emerald"
                 delay={0.1}
                 onEditClick={() => setIsIncomeModalOpen(true)}
+                onClick={() => setPilarAberto('renda')}
               />
             </div>
             <div>
@@ -767,6 +793,7 @@ export default function Dashboard() {
                 icon={<HomeIcon className="w-5 h-5 text-blue-400" />}
                 accent="blue"
                 delay={0.2}
+                onClick={() => setPilarAberto('fixos')}
               />
             </div>
             <div>
@@ -783,6 +810,7 @@ export default function Dashboard() {
                   ? (showValues ? `${comprometimentoRaw.toFixed(0)}% da renda` : '••% da renda')
                   : undefined}
                 delay={0.3}
+                onClick={() => setPilarAberto('gargalo')}
               />
             </div>
           </div>
@@ -849,6 +877,17 @@ export default function Dashboard() {
       <TransactionModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={refreshTransactions} />
       <EditTransactionModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} transaction={editingTransaction} onSave={refreshTransactions} />
       <IncomeListModal isOpen={isIncomeModalOpen} onClose={() => setIsIncomeModalOpen(false)} incomes={receitasList} onEdit={handleEditTransaction} onDelete={handleDeleteTransaction} onTogglePaid={handleTogglePaid} formatMoney={formatMoney} />
+      {pilarAtivo && (
+        <PillarDetailModal
+          isOpen
+          onClose={() => setPilarAberto(null)}
+          title={pilarAtivo.title}
+          subtitle={pilarAtivo.subtitle}
+          transactions={pilarAtivo.list}
+          accent={pilarAtivo.accent}
+          showValues={showValues}
+        />
+      )}
       <AiUploadModal isOpen={isAiModalOpen} onClose={() => setIsAiModalOpen(false)} />
       <AdvisorModal
         isOpen={isPlannerOpen}
@@ -1147,7 +1186,7 @@ const PILLAR_ACCENTS: Record<string, { ring: string; glow: string; badge: string
   rose:    { ring: 'border-rose-500/20',    glow: 'bg-rose-500',    badge: 'text-rose-400 bg-rose-400/10' },
 };
 
-function PillarCard({ title, amount, caption, icon, accent = 'indigo', badge, highlight, delay, onEditClick, secondary }: any) {
+function PillarCard({ title, amount, caption, icon, accent = 'indigo', badge, highlight, delay, onEditClick, secondary, onClick }: any) {
   const theme = PILLAR_ACCENTS[accent] ?? PILLAR_ACCENTS.indigo;
 
   return (
@@ -1155,7 +1194,15 @@ function PillarCard({ title, amount, caption, icon, accent = 'indigo', badge, hi
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5, delay }}
-      className={`h-full bg-gradient-to-br from-white/10 to-white/5 border p-6 rounded-[2rem] backdrop-blur-xl relative overflow-hidden flex flex-col ${highlight ? theme.ring : 'border-white/10'}`}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      // Card inteiro como alvo: no celular, um botãozinho "ver detalhes" seria
+      // alvo pequeno justo onde o dedo erra mais.
+      onKeyDown={onClick ? (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); }
+      } : undefined}
+      className={`h-full bg-gradient-to-br from-white/10 to-white/5 border p-6 rounded-[2rem] backdrop-blur-xl relative overflow-hidden flex flex-col transition-colors ${highlight ? theme.ring : 'border-white/10'} ${onClick ? 'cursor-pointer hover:border-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40' : ''}`}
     >
       <div className={`absolute -right-6 -top-6 w-32 h-32 rounded-full blur-3xl opacity-20 ${theme.glow}`}></div>
 
@@ -1165,7 +1212,9 @@ function PillarCard({ title, amount, caption, icon, accent = 'indigo', badge, hi
         <div className="flex items-center gap-2">
           {onEditClick && (
             <button
-              onClick={onEditClick}
+              /* Sem o stopPropagation, o clique no lápis subiria para o card e
+                 abriria o modal de lançamentos junto com o de edição. */
+              onClick={(e) => { e.stopPropagation(); onEditClick(); }}
               className="p-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-full transition-colors cursor-pointer"
               title="Editar receitas"
             >
